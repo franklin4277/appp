@@ -17,17 +17,46 @@ const parseOrigins = (value) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
-const allowedOrigins = parseOrigins(process.env.CLIENT_URL || "http://localhost:5173");
+const normalizeOrigin = (value = "") => String(value || "").trim().toLowerCase().replace(/\/$/, "");
+
+const configuredOrigins = parseOrigins(process.env.CLIENT_URL);
+const allowedOrigins = configuredOrigins.map(normalizeOrigin);
+const allowAnyOrigin = allowedOrigins.length === 0 || allowedOrigins.includes("*");
+
+const isOriginAllowed = (origin) => {
+  if (!origin) {
+    return true;
+  }
+
+  if (allowAnyOrigin) {
+    return true;
+  }
+
+  const normalized = normalizeOrigin(origin);
+  if (allowedOrigins.includes(normalized)) {
+    return true;
+  }
+
+  // Optional wildcard support, e.g. "*.onrender.com"
+  return allowedOrigins.some((pattern) => {
+    if (!pattern.startsWith("*.")) {
+      return false;
+    }
+    const suffix = pattern.slice(1); // ".onrender.com"
+    return normalized.endsWith(suffix);
+  });
+};
 
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (isOriginAllowed(origin)) {
         callback(null, true);
         return;
       }
       callback(new Error("Origin not allowed by CORS policy."));
     },
+    credentials: false,
   })
 );
 app.use(

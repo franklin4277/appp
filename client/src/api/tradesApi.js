@@ -36,6 +36,18 @@ const parseResponse = async (response, { asBlob = false } = {}) => {
   return payload;
 };
 
+const fetchWithDiagnostics = async (url, options = {}) => {
+  try {
+    return await fetch(url, options);
+  } catch (error) {
+    const networkError = new Error(
+      "Cannot reach the server. Check backend URL, CORS CLIENT_URL, and that /api/health is online."
+    );
+    networkError.cause = error;
+    throw networkError;
+  }
+};
+
 const withAuth = (token, headers = {}) => {
   if (!token) {
     return headers;
@@ -47,7 +59,7 @@ const withAuth = (token, headers = {}) => {
 };
 
 export const registerUser = async ({ name, email, password }) => {
-  const response = await fetch(`${API_BASE}/api/auth/register`, {
+  const response = await fetchWithDiagnostics(`${API_BASE}/api/auth/register`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -58,7 +70,7 @@ export const registerUser = async ({ name, email, password }) => {
 };
 
 export const loginUser = async ({ email, password }) => {
-  const response = await fetch(`${API_BASE}/api/auth/login`, {
+  const response = await fetchWithDiagnostics(`${API_BASE}/api/auth/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -69,14 +81,14 @@ export const loginUser = async ({ email, password }) => {
 };
 
 export const fetchMe = async (token) => {
-  const response = await fetch(`${API_BASE}/api/auth/me`, {
+  const response = await fetchWithDiagnostics(`${API_BASE}/api/auth/me`, {
     headers: withAuth(token),
   });
   return parseResponse(response);
 };
 
 export const updateUserSettings = async (token, settingsPayload) => {
-  const response = await fetch(`${API_BASE}/api/auth/settings`, {
+  const response = await fetchWithDiagnostics(`${API_BASE}/api/auth/settings`, {
     method: "PATCH",
     headers: withAuth(token, {
       "Content-Type": "application/json",
@@ -87,21 +99,21 @@ export const updateUserSettings = async (token, settingsPayload) => {
 };
 
 export const fetchTrades = async (filters, token) => {
-  const response = await fetch(`${API_BASE}/api/trades${queryString(filters)}`, {
+  const response = await fetchWithDiagnostics(`${API_BASE}/api/trades${queryString(filters)}`, {
     headers: withAuth(token),
   });
   return parseResponse(response);
 };
 
 export const fetchAnalytics = async (filters, token) => {
-  const response = await fetch(`${API_BASE}/api/trades/analytics${queryString(filters)}`, {
+  const response = await fetchWithDiagnostics(`${API_BASE}/api/trades/analytics${queryString(filters)}`, {
     headers: withAuth(token),
   });
   return parseResponse(response);
 };
 
 export const createTrade = async (tradeFormData, token) => {
-  const response = await fetch(`${API_BASE}/api/trades`, {
+  const response = await fetchWithDiagnostics(`${API_BASE}/api/trades`, {
     method: "POST",
     headers: withAuth(token),
     body: tradeFormData,
@@ -110,7 +122,7 @@ export const createTrade = async (tradeFormData, token) => {
 };
 
 export const exportTradesCsv = async (filters, token) => {
-  const response = await fetch(`${API_BASE}/api/trades/export.csv${queryString(filters)}`, {
+  const response = await fetchWithDiagnostics(`${API_BASE}/api/trades/export.csv${queryString(filters)}`, {
     headers: withAuth(token),
   });
   return parseResponse(response, { asBlob: true });
@@ -120,11 +132,10 @@ export const importTradesCsv = async (file, token) => {
   const data = new FormData();
   data.append("file", file);
 
-  const response = await fetch(`${API_BASE}/api/trades/import.csv`, {
+  const response = await fetchWithDiagnostics(`${API_BASE}/api/trades/import.csv`, {
     method: "POST",
     headers: withAuth(token),
     body: data,
   });
   return parseResponse(response);
 };
-

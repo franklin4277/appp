@@ -22,6 +22,7 @@ const normalizeOrigin = (value = "") => String(value || "").trim().toLowerCase()
 const configuredOrigins = parseOrigins(process.env.CLIENT_URL);
 const allowedOrigins = configuredOrigins.map(normalizeOrigin);
 const allowAnyOrigin = allowedOrigins.length === 0 || allowedOrigins.includes("*");
+const strictCors = process.env.STRICT_CORS === "true";
 
 const isOriginAllowed = (origin) => {
   if (!origin) {
@@ -29,6 +30,12 @@ const isOriginAllowed = (origin) => {
   }
 
   if (allowAnyOrigin) {
+    return true;
+  }
+
+  // Default mode favors reliability across changing frontend deploy URLs.
+  // Set STRICT_CORS=true to enforce only configured CLIENT_URL origins.
+  if (!strictCors) {
     return true;
   }
 

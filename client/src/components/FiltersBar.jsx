@@ -11,50 +11,56 @@ const FiltersBar = ({ filters, onChange }) => {
       <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
         <label>
           <span className="label">Pair</span>
-          <select
-            className="input"
-            value={filters.pair}
-            onChange={(event) => onChange("pair", event.target.value)}
-          >
-            <option value="">All pairs</option>
-            {PAIRS.map((pair) => (
-              <option key={pair} value={pair}>
-                {pair}
-              </option>
-            ))}
-          </select>
+          <div>
+            <input
+              className="input"
+              list="filter-pairs"
+              value={filters.pair}
+              onChange={(event) => onChange("pair", event.target.value)}
+              placeholder="Type or pick a pair"
+            />
+            <datalist id="filter-pairs">
+              {PAIRS.map((pair) => (
+                <option key={pair} value={pair} />
+              ))}
+            </datalist>
+          </div>
         </label>
 
         <label>
           <span className="label">Session</span>
-          <select
-            className="input"
-            value={filters.session}
-            onChange={(event) => onChange("session", event.target.value)}
-          >
-            <option value="">All sessions</option>
-            {SESSIONS.map((session) => (
-              <option key={session} value={session}>
-                {session}
-              </option>
-            ))}
-          </select>
+          <div>
+            <input
+              className="input"
+              list="filter-sessions"
+              value={filters.session}
+              onChange={(event) => onChange("session", event.target.value)}
+              placeholder="Type session"
+            />
+            <datalist id="filter-sessions">
+              {SESSIONS.map((session) => (
+                <option key={session} value={session} />
+              ))}
+            </datalist>
+          </div>
         </label>
 
         <label>
           <span className="label">Setup Type</span>
-          <select
-            className="input"
-            value={filters.setupType}
-            onChange={(event) => onChange("setupType", event.target.value)}
-          >
-            <option value="">All setups</option>
-            {SETUP_TYPES.map((setupType) => (
-              <option key={setupType} value={setupType}>
-                {setupType}
-              </option>
-            ))}
-          </select>
+          <div>
+            <input
+              className="input"
+              list="filter-setups"
+              value={filters.setupType}
+              onChange={(event) => onChange("setupType", event.target.value)}
+              placeholder="Type setup"
+            />
+            <datalist id="filter-setups">
+              {SETUP_TYPES.map((setupType) => (
+                <option key={setupType} value={setupType} />
+              ))}
+            </datalist>
+          </div>
         </label>
 
         <label className="flex items-end pb-2 text-sm text-textMain">

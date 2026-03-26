@@ -6,6 +6,8 @@ const parseResponse = async (response) => {
   return payload;
 };
 
+const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+
 const queryString = (params = {}) => {
   const search = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
@@ -18,17 +20,17 @@ const queryString = (params = {}) => {
 };
 
 export const fetchTrades = async (filters) => {
-  const response = await fetch(`/api/trades${queryString(filters)}`);
+  const response = await fetch(`${API_BASE}/api/trades${queryString(filters)}`);
   return parseResponse(response);
 };
 
 export const fetchAnalytics = async (filters) => {
-  const response = await fetch(`/api/trades/analytics${queryString(filters)}`);
+  const response = await fetch(`${API_BASE}/api/trades/analytics${queryString(filters)}`);
   return parseResponse(response);
 };
 
 export const createTrade = async (tradeFormData) => {
-  const response = await fetch("/api/trades", {
+  const response = await fetch(`${API_BASE}/api/trades`, {
     method: "POST",
     body: tradeFormData,
   });

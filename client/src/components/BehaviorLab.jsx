@@ -208,6 +208,43 @@ const BehaviorLab = ({ trades = [] }) => {
     return `${meta.label} shifted ${formatSigned(strongestShift.delta, precision)}${meta.suffix} versus the previous ${windowSize} trades.`;
   }, [strongestShift, windowSize]);
 
+  const emotionPatterns = useMemo(() => {
+    const map = new Map();
+
+    recentTrades.forEach((trade) => {
+      const emotions = normalizeEmotionTags(trade.notes?.emotionalState || "");
+      emotions.forEach((emotion) => {
+        const current = map.get(emotion) || {
+          total: 0,
+          wins: 0,
+          totalRR: 0,
+          cleanTrades: 0,
+        };
+        current.total += 1;
+        current.totalRR += toNumber(trade.rrAchieved);
+        if (trade.result === "Win") {
+          current.wins += 1;
+        }
+        if (trade.tags?.cleanSetup) {
+          current.cleanTrades += 1;
+        }
+        map.set(emotion, current);
+      });
+    });
+
+    return [...map.entries()]
+      .map(([emotion, stat]) => ({
+        emotion,
+        total: stat.total,
+        winRate: Math.round((stat.wins / stat.total) * 100),
+        avgRR: Math.round((stat.totalRR / stat.total) * 100) / 100,
+        cleanRate: Math.round((stat.cleanTrades / stat.total) * 100),
+      }))
+      .filter((item) => item.total >= 2)
+      .sort((a, b) => b.avgRR - a.avgRR)
+      .slice(0, 6);
+  }, [recentTrades]);
+
   const tips = useMemo(() => {
     if (!recentSummary.total) {
       return [
@@ -393,43 +430,6 @@ const BehaviorLab = ({ trades = [] }) => {
       })
       .join(" ");
   }, [sparkValues]);
-
-  const emotionPatterns = useMemo(() => {
-    const map = new Map();
-
-    recentTrades.forEach((trade) => {
-      const emotions = normalizeEmotionTags(trade.notes?.emotionalState || "");
-      emotions.forEach((emotion) => {
-        const current = map.get(emotion) || {
-          total: 0,
-          wins: 0,
-          totalRR: 0,
-          cleanTrades: 0,
-        };
-        current.total += 1;
-        current.totalRR += toNumber(trade.rrAchieved);
-        if (trade.result === "Win") {
-          current.wins += 1;
-        }
-        if (trade.tags?.cleanSetup) {
-          current.cleanTrades += 1;
-        }
-        map.set(emotion, current);
-      });
-    });
-
-    return [...map.entries()]
-      .map(([emotion, stat]) => ({
-        emotion,
-        total: stat.total,
-        winRate: Math.round((stat.wins / stat.total) * 100),
-        avgRR: Math.round((stat.totalRR / stat.total) * 100) / 100,
-        cleanRate: Math.round((stat.cleanTrades / stat.total) * 100),
-      }))
-      .filter((item) => item.total >= 2)
-      .sort((a, b) => b.avgRR - a.avgRR)
-      .slice(0, 6);
-  }, [recentTrades]);
 
   useEffect(() => {
     if (!emotionPatterns.length) {

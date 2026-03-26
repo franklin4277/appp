@@ -18,6 +18,20 @@ const toNumber = (value, fallback = 0) => {
   return Number.isFinite(num) ? num : fallback;
 };
 
+const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const applyTextFilter = (filter, field, value) => {
+  const normalized = String(value || "").trim();
+  if (!normalized) {
+    return;
+  }
+
+  filter[field] = {
+    $regex: escapeRegex(normalized),
+    $options: "i",
+  };
+};
+
 const calculatePlannedRR = (entry, stopLoss, takeProfit) => {
   const risk = Math.abs(entry - stopLoss);
   const reward = Math.abs(takeProfit - entry);
@@ -120,15 +134,9 @@ export const getTrades = async (req, res, next) => {
 
     const filter = {};
 
-    if (pair) {
-      filter.pair = pair.toUpperCase();
-    }
-    if (session) {
-      filter.session = session;
-    }
-    if (setupType) {
-      filter.setupType = setupType;
-    }
+    applyTextFilter(filter, "pair", pair);
+    applyTextFilter(filter, "session", session);
+    applyTextFilter(filter, "setupType", setupType);
     if (cleanOnly === "true") {
       filter["tags.cleanSetup"] = true;
     }
@@ -159,15 +167,9 @@ export const getAnalytics = async (req, res, next) => {
 
     const filter = {};
 
-    if (pair) {
-      filter.pair = pair.toUpperCase();
-    }
-    if (session) {
-      filter.session = session;
-    }
-    if (setupType) {
-      filter.setupType = setupType;
-    }
+    applyTextFilter(filter, "pair", pair);
+    applyTextFilter(filter, "session", session);
+    applyTextFilter(filter, "setupType", setupType);
     if (cleanOnly === "true") {
       filter["tags.cleanSetup"] = true;
     }

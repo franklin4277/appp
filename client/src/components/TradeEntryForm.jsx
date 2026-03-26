@@ -178,17 +178,20 @@ const TradeEntryForm = ({ onTradeSaved }) => {
 
       <form ref={formRef} onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <Field label="Pair">
-          <select
-            className="input"
-            value={form.pair}
-            onChange={(event) => handleChange("pair", event.target.value)}
-          >
-            {PAIRS.map((pair) => (
-              <option key={pair} value={pair}>
-                {pair}
-              </option>
-            ))}
-          </select>
+          <div>
+            <input
+              className="input"
+              list="pair-options"
+              value={form.pair}
+              onChange={(event) => handleChange("pair", event.target.value)}
+              placeholder="Type or pick a pair"
+            />
+            <datalist id="pair-options">
+              {PAIRS.map((pair) => (
+                <option key={pair} value={pair} />
+              ))}
+            </datalist>
+          </div>
         </Field>
 
         <Field label="Date & Time">
@@ -210,59 +213,71 @@ const TradeEntryForm = ({ onTradeSaved }) => {
         </Field>
 
         <Field label="Session">
-          <select
-            className="input"
-            value={form.session}
-            onChange={(event) => handleChange("session", event.target.value)}
-          >
-            {SESSIONS.map((session) => (
-              <option key={session} value={session}>
-                {session}
-              </option>
-            ))}
-          </select>
+          <div>
+            <input
+              className="input"
+              list="session-options"
+              value={form.session}
+              onChange={(event) => handleChange("session", event.target.value)}
+              placeholder="Type session name"
+            />
+            <datalist id="session-options">
+              {SESSIONS.map((session) => (
+                <option key={session} value={session} />
+              ))}
+            </datalist>
+          </div>
         </Field>
 
         <Field label="Trade Type">
-          <select
-            className="input"
-            value={form.tradeType}
-            onChange={(event) => handleChange("tradeType", event.target.value)}
-          >
-            {TRADE_TYPES.map((tradeType) => (
-              <option key={tradeType} value={tradeType}>
-                {tradeType}
-              </option>
-            ))}
-          </select>
+          <div>
+            <input
+              className="input"
+              list="trade-type-options"
+              value={form.tradeType}
+              onChange={(event) => handleChange("tradeType", event.target.value)}
+              placeholder="Type buy, sell, etc."
+            />
+            <datalist id="trade-type-options">
+              {TRADE_TYPES.map((tradeType) => (
+                <option key={tradeType} value={tradeType} />
+              ))}
+            </datalist>
+          </div>
         </Field>
 
         <Field label="Setup Type">
-          <select
-            className="input"
-            value={form.setupType}
-            onChange={(event) => handleChange("setupType", event.target.value)}
-          >
-            {SETUP_TYPES.map((setupType) => (
-              <option key={setupType} value={setupType}>
-                {setupType}
-              </option>
-            ))}
-          </select>
+          <div>
+            <input
+              className="input"
+              list="setup-options"
+              value={form.setupType}
+              onChange={(event) => handleChange("setupType", event.target.value)}
+              placeholder="Type continuation/reversal, etc."
+            />
+            <datalist id="setup-options">
+              {SETUP_TYPES.map((setupType) => (
+                <option key={setupType} value={setupType} />
+              ))}
+            </datalist>
+          </div>
         </Field>
 
         <Field label="Result">
-          <select
-            className="input"
-            value={form.result}
-            onChange={(event) => handleChange("result", event.target.value)}
-          >
-            {RESULTS.map((result) => (
-              <option key={result} value={result}>
-                {result}
-              </option>
-            ))}
-          </select>
+          <div>
+            <input
+              className="input"
+              list="result-options"
+              value={form.result}
+              onChange={(event) => handleChange("result", event.target.value)}
+              placeholder="Win, loss, BE, etc."
+            />
+            <datalist id="result-options">
+              {RESULTS.map((result) => (
+                <option key={result} value={result} />
+              ))}
+            </datalist>
+          </div>
         </Field>
 
         <Field label="Entry Price">

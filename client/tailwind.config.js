@@ -4,17 +4,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: "#0f1727",
-        panel: "#111a2e",
-        panelMuted: "#1a2742",
-        border: "#314667",
-        textMain: "#e9eef8",
-        textMuted: "#9badcb",
-        accent: "#ff9f43",
-        danger: "#ef6f6c",
+        background: "#0f172a",
+        panel: "#0f172a",
+        panelMuted: "#162238",
+        border: "#25344f",
+        textMain: "#e5ecf6",
+        textMuted: "#9fb0ca",
+        accent: "#314667",
+        danger: "#415777",
       },
       boxShadow: {
-        panel: "0 14px 35px rgba(6, 10, 24, 0.45)",
+        panel: "0 14px 35px rgba(6, 10, 24, 0.35)",
       },
       keyframes: {
         riseIn: {

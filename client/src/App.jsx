@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchAnalytics, fetchTrades } from "./api/tradesApi";
 import FiltersBar from "./components/FiltersBar";
 import ProfitCurveChart from "./components/ProfitCurveChart";
+import SessionPerformanceGraph from "./components/SessionPerformanceGraph";
 import SetupBreakdown from "./components/SetupBreakdown";
 import StatCards from "./components/StatCards";
 import TagAnalytics from "./components/TagAnalytics";
@@ -93,8 +94,8 @@ const App = () => {
     <main className="mx-auto w-full max-w-[1440px] p-3 md:p-5">
       <section className="journal-shell p-4 md:p-6">
         <header className="journal-hero mb-4 md:mb-5">
-          <h1 className="hero-title">Daily Scalping Trading Journal</h1>
-          <p className="hero-meta">INSTANT TRADE ENTRY | SMART AUTO-CALENDAR | DAILY TICKER ANALYTICS</p>
+          <h1 className="hero-title">The Trading Journal</h1>
+          <p className="hero-meta">FAST JOURNALING | SESSION ANALYTICS | RULE-BASED EXECUTION</p>
         </header>
 
         <section className="dashboard-frame">
@@ -103,7 +104,9 @@ const App = () => {
               <p className="text-sm text-textMuted">
                 Rule-based logging for Asia High/Low reactions and clean execution.
               </p>
-              {loading ? <span className="chip">Syncing...</span> : <span className="chip">Ready</span>}
+              <div className="flex flex-wrap items-center gap-2">
+                {loading ? <span className="chip">Syncing...</span> : <span className="chip">Ready</span>}
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-2 text-xs">
@@ -117,6 +120,10 @@ const App = () => {
 
           <div className="mb-4">
             <FiltersBar filters={filters} onChange={onFilterChange} />
+          </div>
+
+          <div className="mb-4">
+            <SessionPerformanceGraph trades={trades} />
           </div>
 
           {error ? (

@@ -1,0 +1,44 @@
+const DrawdownChart = ({ points = [] }) => {
+  if (!points.length) {
+    return (
+      <section className="panel animate-riseIn">
+        <h3 className="mb-2 text-sm font-semibold">Drawdown Curve</h3>
+        <p className="text-sm text-textMuted">Need more trades to calculate drawdown.</p>
+      </section>
+    );
+  }
+
+  const width = 640;
+  const height = 200;
+  const padding = 20;
+  const values = points.map((point) => point.drawdownRR);
+  const min = Math.min(...values, -0.01);
+  const max = Math.max(...values, 0);
+  const spread = max - min || 1;
+
+  const toPoint = (value, index) => {
+    const x = padding + (index / Math.max(points.length - 1, 1)) * (width - padding * 2);
+    const y = height - padding - ((value - min) / spread) * (height - padding * 2);
+    return `${x},${y}`;
+  };
+
+  const polyline = points.map((point, index) => toPoint(point.drawdownRR, index)).join(" ");
+  const worst = Math.min(...values);
+
+  return (
+    <section className="panel animate-riseIn">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-semibold">Drawdown Curve (RR)</h3>
+        <span className="chip">Worst {worst}</span>
+      </div>
+      <svg className="h-44 w-full sm:h-48" viewBox={`0 0 ${width} ${height}`}>
+        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#25344f" />
+        <polyline fill="none" stroke="#6a7f9d" strokeWidth="2.2" points={polyline} />
+      </svg>
+      <p className="mt-2 text-xs text-textMuted">Closer to 0 is healthier. Deeper negatives indicate larger drawdowns.</p>
+    </section>
+  );
+};
+
+export default DrawdownChart;
+

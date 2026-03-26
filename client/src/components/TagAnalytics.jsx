@@ -1,4 +1,4 @@
-const TagAnalytics = ({ tagAnalytics, cleanOnlyPerformance }) => {
+const TagAnalytics = ({ tagAnalytics, cleanOnlyPerformance, conditionScores = [] }) => {
   return (
     <section className="panel animate-riseIn">
       <h3 className="mb-3 text-sm font-semibold">Tag-Based Analytics</h3>
@@ -22,7 +22,7 @@ const TagAnalytics = ({ tagAnalytics, cleanOnlyPerformance }) => {
               >
                 <span>{condition.label}</span>
                 <span className="text-textMuted">
-                  RR {condition.averageRR} | {condition.winRate}%
+                  RR {condition.averageRR} | {condition.winRate}% | C {condition.confidence || 0}
                 </span>
               </div>
             ))}
@@ -42,11 +42,32 @@ const TagAnalytics = ({ tagAnalytics, cleanOnlyPerformance }) => {
             >
               <span>{item.label}</span>
               <span className="text-textMuted">
-                {item.totalTrades} trades | RR {item.averageRR}
+                {item.totalTrades} trades | RR {item.averageRR} | C {item.confidence || 0}
               </span>
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="mt-3">
+        <p className="mb-2 text-xs uppercase tracking-wide text-textMuted">Confidence Ranked Conditions</p>
+        {conditionScores.length ? (
+          <div className="space-y-2">
+            {conditionScores.slice(0, 6).map((item) => (
+              <div
+                key={item.key}
+                className="flex items-center justify-between rounded-md border border-border bg-panelMuted px-3 py-2 text-sm"
+              >
+                <span>{item.label}</span>
+                <span className="text-textMuted">
+                  Score {item.score} | C {item.confidence}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-textMuted">More trades are needed to rank conditions confidently.</p>
+        )}
       </div>
     </section>
   );

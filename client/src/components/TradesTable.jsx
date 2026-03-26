@@ -37,7 +37,11 @@ const TradesTable = ({ trades }) => {
                 </span>
                 <span className="chip">RR {trade.rrAchieved}</span>
                 <span className="chip">{trade.tags.pocOutcome || "No POC"}</span>
+                {trade.ruleBreakReason ? <span className="chip">Rule break</span> : null}
               </div>
+              {trade.ruleBreakReason ? (
+                <p className="mt-2 text-xs text-textMuted">Reason: {trade.ruleBreakReason}</p>
+              ) : null}
             </article>
           ))
         ) : (
@@ -56,6 +60,7 @@ const TradesTable = ({ trades }) => {
               <th className="pb-2 pr-2 font-medium">Result</th>
               <th className="pb-2 pr-2 font-medium">RR</th>
               <th className="pb-2 pr-2 font-medium">Tags</th>
+              <th className="pb-2 pr-2 font-medium">Notes</th>
             </tr>
           </thead>
           <tbody>
@@ -74,11 +79,14 @@ const TradesTable = ({ trades }) => {
                     {trade.tags.cleanSetup ? "A+ " : ""}
                     {trade.tags.pocOutcome || "No POC"}
                   </td>
+                  <td className="py-2 pr-2 text-xs text-textMuted">
+                    {trade.ruleBreakReason ? `Rule break: ${trade.ruleBreakReason}` : "-"}
+                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td className="py-4 text-textMuted" colSpan={7}>
+                <td className="py-4 text-textMuted" colSpan={8}>
                   No trades yet for current filters.
                 </td>
               </tr>

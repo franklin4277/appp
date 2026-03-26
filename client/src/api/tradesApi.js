@@ -1,12 +1,5 @@
-const parseResponse = async (response) => {
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(payload.message || "Request failed");
-  }
-  return payload;
-};
-
 const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+export const AUTH_STORAGE_KEY = "trading-journal-token";
 
 const queryString = (params = {}) => {
   const search = new URLSearchParams();
@@ -19,20 +12,119 @@ const queryString = (params = {}) => {
   return search.toString() ? `?${search.toString()}` : "";
 };
 
-export const fetchTrades = async (filters) => {
-  const response = await fetch(`${API_BASE}/api/trades${queryString(filters)}`);
+const parseResponse = async (response, { asBlob = false } = {}) => {
+  if (asBlob) {
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      const error = new Error(payload.message || "Request failed");
+      error.status = response.status;
+      error.code = payload.code;
+      error.payload = payload;
+      throw error;
+    }
+    return response.blob();
+  }
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(payload.message || "Request failed");
+    error.status = response.status;
+    error.code = payload.code;
+    error.payload = payload;
+    throw error;
+  }
+  return payload;
+};
+
+const withAuth = (token, headers = {}) => {
+  if (!token) {
+    return headers;
+  }
+  return {
+    ...headers,
+    Authorization: `Bearer ${token}`,
+  };
+};
+
+export const registerUser = async ({ name, email, password }) => {
+  const response = await fetch(`${API_BASE}/api/auth/register`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name, email, password }),
+  });
   return parseResponse(response);
 };
 
-export const fetchAnalytics = async (filters) => {
-  const response = await fetch(`${API_BASE}/api/trades/analytics${queryString(filters)}`);
+export const loginUser = async ({ email, password }) => {
+  const response = await fetch(`${API_BASE}/api/auth/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email, password }),
+  });
   return parseResponse(response);
 };
 
-export const createTrade = async (tradeFormData) => {
+export const fetchMe = async (token) => {
+  const response = await fetch(`${API_BASE}/api/auth/me`, {
+    headers: withAuth(token),
+  });
+  return parseResponse(response);
+};
+
+export const updateUserSettings = async (token, settingsPayload) => {
+  const response = await fetch(`${API_BASE}/api/auth/settings`, {
+    method: "PATCH",
+    headers: withAuth(token, {
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify(settingsPayload),
+  });
+  return parseResponse(response);
+};
+
+export const fetchTrades = async (filters, token) => {
+  const response = await fetch(`${API_BASE}/api/trades${queryString(filters)}`, {
+    headers: withAuth(token),
+  });
+  return parseResponse(response);
+};
+
+export const fetchAnalytics = async (filters, token) => {
+  const response = await fetch(`${API_BASE}/api/trades/analytics${queryString(filters)}`, {
+    headers: withAuth(token),
+  });
+  return parseResponse(response);
+};
+
+export const createTrade = async (tradeFormData, token) => {
   const response = await fetch(`${API_BASE}/api/trades`, {
     method: "POST",
+    headers: withAuth(token),
     body: tradeFormData,
   });
   return parseResponse(response);
 };
+
+export const exportTradesCsv = async (filters, token) => {
+  const response = await fetch(`${API_BASE}/api/trades/export.csv${queryString(filters)}`, {
+    headers: withAuth(token),
+  });
+  return parseResponse(response, { asBlob: true });
+};
+
+export const importTradesCsv = async (file, token) => {
+  const data = new FormData();
+  data.append("file", file);
+
+  const response = await fetch(`${API_BASE}/api/trades/import.csv`, {
+    method: "POST",
+    headers: withAuth(token),
+    body: data,
+  });
+  return parseResponse(response);
+};
+

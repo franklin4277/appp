@@ -1,26 +1,6 @@
 import multer from "multer";
-import path from "path";
-import { fileURLToPath } from "url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const uploadsDir = path.resolve(__dirname, "../../uploads");
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const safeName = file.originalname
-      .replace(ext, "")
-      .replace(/[^a-zA-Z0-9-_]/g, "_")
-      .slice(0, 40);
-    cb(null, `${Date.now()}-${safeName}${ext}`);
-  },
-});
-
-const imageOnly = (req, file, cb) => {
+const imageOnly = (_req, file, cb) => {
   if (file.mimetype.startsWith("image/")) {
     cb(null, true);
     return;
@@ -29,10 +9,29 @@ const imageOnly = (req, file, cb) => {
   cb(new Error("Only image files are allowed."));
 };
 
+const csvOnly = (_req, file, cb) => {
+  const filename = String(file.originalname || "").toLowerCase();
+  const isCsvMime = /csv|excel|text\/plain/i.test(file.mimetype || "");
+  if (isCsvMime || filename.endsWith(".csv")) {
+    cb(null, true);
+    return;
+  }
+
+  cb(new Error("Only CSV files are allowed for import."));
+};
+
 export const uploadTradeScreenshots = multer({
-  storage,
+  storage: multer.memoryStorage(),
   fileFilter: imageOnly,
   limits: {
     fileSize: 5 * 1024 * 1024,
+  },
+});
+
+export const uploadCsvFile = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: csvOnly,
+  limits: {
+    fileSize: 3 * 1024 * 1024,
   },
 });

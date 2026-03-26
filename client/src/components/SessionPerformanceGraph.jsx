@@ -1,7 +1,5 @@
-const SESSIONS = ["Asia", "London", "New York"];
-
-const summarizeSessions = (trades = []) => {
-  const bySession = SESSIONS.reduce((acc, session) => {
+const summarizeSessions = (trades = [], sessions = []) => {
+  const bySession = sessions.reduce((acc, session) => {
     acc[session] = {
       total: 0,
       wins: 0,
@@ -25,7 +23,7 @@ const summarizeSessions = (trades = []) => {
     }
   });
 
-  SESSIONS.forEach((session) => {
+  sessions.forEach((session) => {
     const bucket = bySession[session];
     bucket.winRate = bucket.total ? Math.round((bucket.wins / bucket.total) * 100) : 0;
     bucket.avgRR = bucket.total ? Math.round((bucket.totalRR / bucket.total) * 100) / 100 : 0;
@@ -34,11 +32,18 @@ const summarizeSessions = (trades = []) => {
   return bySession;
 };
 
-const SessionPerformanceGraph = ({ trades }) => {
-  const sessions = summarizeSessions(trades);
-  const maxTotal = Math.max(...SESSIONS.map((session) => sessions[session].total), 1);
+const SessionPerformanceGraph = ({ trades, sessionOptions = [] }) => {
+  const sessionsList =
+    sessionOptions.length > 0 ? sessionOptions : [...new Set(trades.map((trade) => trade.session).filter(Boolean))];
+  const fallbackSessions = sessionsList.length ? sessionsList : ["Asia", "London", "New York"];
+
+  const sessions = summarizeSessions(trades, fallbackSessions);
+  const maxTotal = Math.max(...fallbackSessions.map((session) => sessions[session]?.total || 0), 1);
   const chartHeight = 120;
   const baseY = 132;
+  const barWidth = Math.max(40, Math.floor(250 / Math.max(fallbackSessions.length, 1)));
+  const gap = 18;
+  const chartWidth = Math.max(420, 60 + fallbackSessions.length * (barWidth + gap));
 
   return (
     <section className="panel animate-riseIn">
@@ -47,13 +52,11 @@ const SessionPerformanceGraph = ({ trades }) => {
         <span className="chip">{trades.length} trades</span>
       </div>
 
-      <svg className="h-40 w-full" viewBox="0 0 420 160" preserveAspectRatio="xMidYMid meet">
-        <line x1="30" y1={baseY} x2="392" y2={baseY} stroke="#25344f" strokeWidth="1" />
-        {SESSIONS.map((session, index) => {
-          const barWidth = 68;
-          const gap = 52;
+      <svg className="h-40 w-full" viewBox={`0 0 ${chartWidth} 160`} preserveAspectRatio="xMidYMid meet">
+        <line x1="30" y1={baseY} x2={chartWidth - 30} y2={baseY} stroke="#25344f" strokeWidth="1" />
+        {fallbackSessions.map((session, index) => {
           const x = 44 + index * (barWidth + gap);
-          const sessionData = sessions[session];
+          const sessionData = sessions[session] || { total: 0, winRate: 0, avgRR: 0 };
           const barHeight = Math.round((sessionData.total / maxTotal) * chartHeight);
           const y = baseY - barHeight;
 
@@ -73,11 +76,11 @@ const SessionPerformanceGraph = ({ trades }) => {
       </svg>
 
       <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-        {SESSIONS.map((session) => (
+        {fallbackSessions.map((session) => (
           <div key={session} className="rounded-md border border-border bg-panelMuted px-3 py-2 text-xs">
             <p className="text-textMuted">{session}</p>
             <p className="mt-1 text-textMain">
-              Win {sessions[session].winRate}% | Avg RR {sessions[session].avgRR}
+              Win {sessions[session]?.winRate || 0}% | Avg RR {sessions[session]?.avgRR || 0}
             </p>
           </div>
         ))}

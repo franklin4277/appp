@@ -1,24 +1,43 @@
-# Session Forex Journal
+# The Trading Journal
 
-Minimal, fast trading journal for a session-based Forex strategy:
-- Asia High/Low reactions
-- Acceptance vs Rejection tracking
-- Clean A+ setup focus
+Minimal, fast, session-based Forex journal with per-user accounts and behavior coaching.
 
 ## Stack
 
-- Frontend: React + Tailwind CSS (Vite)
+- Frontend: React + Tailwind (Vite, PWA)
 - Backend: Node.js + Express
 - Database: MongoDB (Mongoose)
+
+## Major Features
+
+- User auth (register/login) with private trade data isolation
+- Flexible text fields and per-user strategy lists (pairs/sessions/setups/etc.)
+- Rule guardrails:
+  - Require Asia High/Low + POC alignment, or force rule-break reason
+  - Overtrading warning by max trades/session
+  - Loss cooldown warning (revenge-trade guard)
+  - Stop-for-day warning by net daily RR
+- Analytics:
+  - Profit curve + drawdown curve
+  - Session x Setup heatmap
+  - Streak tracker
+  - Confidence-ranked condition performance
+  - Daily and weekly coaching summary
+- Reliability:
+  - CSV export/import
+  - Scheduled JSON auto backups
+  - Screenshot upload with optional Cloudinary storage (local fallback)
 
 ## Project Structure
 
 ```text
 client/   # React app
-server/   # Express API + Mongo model
+server/   # Express API + MongoDB models/services
 ```
 
-## 1) Run the API
+## Local Setup
+
+### 1) Backend
 
 ```powershell
 cd server
@@ -27,53 +46,48 @@ npm install
 npm run dev
 ```
 
-Default API URL: `http://localhost:5000`
+Required env:
 
-## 2) Run the Frontend
+- `MONGODB_URI`
+- `JWT_SECRET`
+- `CLIENT_URL` (can be comma-separated for multiple frontends)
+
+Optional env:
+
+- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_FOLDER`
+- `BACKUP_INTERVAL_MINUTES`, `BACKUP_DIR`, `DISABLE_AUTO_BACKUP`
+- `API_RATE_LIMIT_MAX`
+
+### 2) Frontend
 
 ```powershell
 cd client
+copy .env.example .env
 npm install
 npm run dev
 ```
 
-Default app URL: `http://localhost:5173`
+Frontend env:
 
-## API Endpoints
+- `VITE_API_URL` (example: `http://localhost:5000`)
 
-- `GET /api/health`
-- `POST /api/trades` (multipart form-data with `screenshotBefore`, `screenshotAfter`)
-- `GET /api/trades?pair=&session=&setupType=&cleanOnly=true`
-- `GET /api/trades/analytics?pair=&session=&setupType=&cleanOnly=true`
+## API Summary
 
-## Core Features Included
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `PATCH /api/auth/settings`
+- `POST /api/trades`
+- `GET /api/trades`
+- `GET /api/trades/analytics`
+- `GET /api/trades/export.csv`
+- `POST /api/trades/import.csv`
 
-- Trade entry form with:
-  - Pair, session, setup type, trade type
-  - Entry / SL / TP
-  - Risk %, optional lot-size auto-calc
-  - Result + auto RR achieved
-  - Screenshot upload (before/after)
-- Strategy tags:
-  - Asia High/Low used
-  - POC interaction
-  - Acceptance vs Rejection
-  - Clean setup (A+)
-- Notes:
-  - Price action
-  - Execution review
-  - Emotional state
-- Dashboard:
-  - Total trades, win rate, average RR
-  - Profit curve chart
-  - Continuation vs Reversal performance
-  - Tag-based analytics + best conditions
-  - A+ setups only performance
-- Filters:
-  - Pair, session, setup type, clean-only
+All `/api/trades/*` endpoints require `Authorization: Bearer <token>`.
 
-## Fast Input UX
+## Security Notes
 
-- Keyboard-first form flow
-- `Ctrl+Enter` to save trade quickly
-- Default dark UI with low visual noise
+- Keep all secrets in env vars only.
+- Rotate MongoDB credentials before production release.
+- Use a long random `JWT_SECRET` in production.
+

@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const tradeSchema = new mongoose.Schema(
   {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
     pair: {
       type: String,
       required: true,
@@ -14,18 +20,18 @@ const tradeSchema = new mongoose.Schema(
     },
     session: {
       type: String,
-      enum: ["Asia", "London", "New York"],
       required: true,
+      trim: true,
     },
     tradeType: {
       type: String,
-      enum: ["Buy", "Sell"],
       required: true,
+      trim: true,
     },
     setupType: {
       type: String,
-      enum: ["Asia Break -> Continuation", "Asia Break -> Reversal"],
       required: true,
+      trim: true,
     },
     entryPrice: {
       type: Number,
@@ -49,8 +55,8 @@ const tradeSchema = new mongoose.Schema(
     },
     result: {
       type: String,
-      enum: ["Win", "Loss", "BE"],
       required: true,
+      trim: true,
     },
     rrAchieved: {
       type: Number,
@@ -71,13 +77,23 @@ const tradeSchema = new mongoose.Schema(
       },
       pocOutcome: {
         type: String,
-        enum: ["Acceptance", "Rejection", ""],
+        trim: true,
         default: "",
       },
       cleanSetup: {
         type: Boolean,
         default: false,
       },
+    },
+    ruleBreakReason: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 300,
+    },
+    guardrailWarnings: {
+      type: [String],
+      default: [],
     },
     notes: {
       priceAction: {
@@ -103,14 +119,25 @@ const tradeSchema = new mongoose.Schema(
         default: "",
       },
     },
+    importSource: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    storageProvider: {
+      type: String,
+      default: "",
+      trim: true,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-tradeSchema.index({ pair: 1, session: 1, setupType: 1, tradeDate: -1 });
-tradeSchema.index({ "tags.cleanSetup": 1, tradeDate: -1 });
+tradeSchema.index({ userId: 1, pair: 1, session: 1, setupType: 1, tradeDate: -1 });
+tradeSchema.index({ userId: 1, "tags.cleanSetup": 1, tradeDate: -1 });
+tradeSchema.index({ userId: 1, tradeDate: -1 });
 
 const Trade = mongoose.model("Trade", tradeSchema);
 

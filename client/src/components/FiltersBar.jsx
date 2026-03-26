@@ -1,6 +1,10 @@
 import { PAIRS, SESSIONS, SETUP_TYPES } from "../utils/options";
 
-const FiltersBar = ({ filters, onChange }) => {
+const FiltersBar = ({ filters, onChange, options = {} }) => {
+  const pairs = options.pairs?.length ? options.pairs : PAIRS;
+  const sessions = options.sessions?.length ? options.sessions : SESSIONS;
+  const setupTypes = options.setupTypes?.length ? options.setupTypes : SETUP_TYPES;
+
   const handleReset = () => {
     onChange("pair", "");
     onChange("session", "");
@@ -36,7 +40,7 @@ const FiltersBar = ({ filters, onChange }) => {
               placeholder="Type or pick a pair"
             />
             <datalist id="filter-pairs">
-              {PAIRS.map((pair) => (
+              {pairs.map((pair) => (
                 <option key={pair} value={pair} />
               ))}
             </datalist>
@@ -54,7 +58,7 @@ const FiltersBar = ({ filters, onChange }) => {
               placeholder="Type session"
             />
             <datalist id="filter-sessions">
-              {SESSIONS.map((session) => (
+              {sessions.map((session) => (
                 <option key={session} value={session} />
               ))}
             </datalist>
@@ -72,7 +76,7 @@ const FiltersBar = ({ filters, onChange }) => {
               placeholder="Type setup"
             />
             <datalist id="filter-setups">
-              {SETUP_TYPES.map((setupType) => (
+              {setupTypes.map((setupType) => (
                 <option key={setupType} value={setupType} />
               ))}
             </datalist>

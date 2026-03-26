@@ -21,7 +21,31 @@ const TradesTable = ({ trades }) => {
         <span className="chip">{trades.length} shown</span>
       </div>
 
-      <div className="overflow-auto">
+      <div className="space-y-3 md:hidden">
+        {trades.length ? (
+          trades.map((trade) => (
+            <article key={trade._id} className="mobile-card">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold">{trade.pair}</p>
+                <p className={`text-sm font-semibold ${resultStyles[trade.result]}`}>{trade.result}</p>
+              </div>
+              <p className="text-xs text-textMuted">{formatDate(trade.tradeDate)}</p>
+              <div className="mt-2 flex flex-wrap gap-2 text-xs text-textMuted">
+                <span className="chip">{trade.session}</span>
+                <span className="chip">
+                  {trade.setupType === "Asia Break -> Continuation" ? "Continuation" : "Reversal"}
+                </span>
+                <span className="chip">RR {trade.rrAchieved}</span>
+                <span className="chip">{trade.tags.pocOutcome || "No POC"}</span>
+              </div>
+            </article>
+          ))
+        ) : (
+          <div className="mobile-card text-sm text-textMuted">No trades yet for current filters.</div>
+        )}
+      </div>
+
+      <div className="hidden overflow-auto md:block">
         <table className="w-full min-w-[760px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-border text-left text-textMuted">
@@ -35,20 +59,30 @@ const TradesTable = ({ trades }) => {
             </tr>
           </thead>
           <tbody>
-            {trades.map((trade) => (
-              <tr key={trade._id} className="border-b border-border/60">
-                <td className="py-2 pr-2 text-textMuted">{formatDate(trade.tradeDate)}</td>
-                <td className="py-2 pr-2">{trade.pair}</td>
-                <td className="py-2 pr-2">{trade.session}</td>
-                <td className="py-2 pr-2">{trade.setupType === "Asia Break -> Continuation" ? "Cont." : "Rev."}</td>
-                <td className={`py-2 pr-2 font-semibold ${resultStyles[trade.result]}`}>{trade.result}</td>
-                <td className="py-2 pr-2">{trade.rrAchieved}</td>
-                <td className="py-2 pr-2 text-xs text-textMuted">
-                  {trade.tags.cleanSetup ? "A+ " : ""}
-                  {trade.tags.pocOutcome || "No POC"}
+            {trades.length ? (
+              trades.map((trade) => (
+                <tr key={trade._id} className="border-b border-border/60">
+                  <td className="py-2 pr-2 text-textMuted">{formatDate(trade.tradeDate)}</td>
+                  <td className="py-2 pr-2">{trade.pair}</td>
+                  <td className="py-2 pr-2">{trade.session}</td>
+                  <td className="py-2 pr-2">
+                    {trade.setupType === "Asia Break -> Continuation" ? "Cont." : "Rev."}
+                  </td>
+                  <td className={`py-2 pr-2 font-semibold ${resultStyles[trade.result]}`}>{trade.result}</td>
+                  <td className="py-2 pr-2">{trade.rrAchieved}</td>
+                  <td className="py-2 pr-2 text-xs text-textMuted">
+                    {trade.tags.cleanSetup ? "A+ " : ""}
+                    {trade.tags.pocOutcome || "No POC"}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td className="py-4 text-textMuted" colSpan={7}>
+                  No trades yet for current filters.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>

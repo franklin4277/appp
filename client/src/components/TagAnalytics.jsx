@@ -7,7 +7,7 @@ const TagAnalytics = ({ tagAnalytics, cleanOnlyPerformance }) => {
         <p className="text-xs uppercase tracking-wide text-textMuted">A+ Setup Performance</p>
         <p className="mt-1 text-lg font-semibold">{cleanOnlyPerformance.winRate}% win rate</p>
         <p className="text-sm text-textMuted">
-          {cleanOnlyPerformance.totalTrades} clean trades • Avg RR {cleanOnlyPerformance.averageRR}
+          {cleanOnlyPerformance.totalTrades} clean trades | Avg RR {cleanOnlyPerformance.averageRR}
         </p>
       </div>
 
@@ -22,7 +22,7 @@ const TagAnalytics = ({ tagAnalytics, cleanOnlyPerformance }) => {
               >
                 <span>{condition.label}</span>
                 <span className="text-textMuted">
-                  RR {condition.averageRR} • {condition.winRate}%
+                  RR {condition.averageRR} | {condition.winRate}%
                 </span>
               </div>
             ))}
@@ -42,7 +42,7 @@ const TagAnalytics = ({ tagAnalytics, cleanOnlyPerformance }) => {
             >
               <span>{item.label}</span>
               <span className="text-textMuted">
-                {item.totalTrades} trades • RR {item.averageRR}
+                {item.totalTrades} trades | RR {item.averageRR}
               </span>
             </div>
           ))}

@@ -31,20 +31,20 @@ const ProfitCurveChart = ({ points }) => {
         <span className="chip">{points.length} points</span>
       </div>
 
-      <svg className="h-56 w-full" viewBox={`0 0 ${width} ${height}`}>
+      <svg className="h-52 w-full sm:h-56" viewBox={`0 0 ${width} ${height}`}>
         <line
           x1={padding}
           y1={height - padding}
           x2={width - padding}
           y2={height - padding}
-          stroke="#35506b"
+          stroke="#25344f"
           strokeWidth="1"
         />
-        <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#35506b" strokeWidth="1" />
-        <polyline fill="none" stroke="#66d8b5" strokeWidth="2.5" points={polyline} />
+        <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#25344f" strokeWidth="1" />
+        <polyline fill="none" stroke="#7391be" strokeWidth="2.5" points={polyline} />
         {points.map((point, index) => {
           const [x, y] = toPoint(point.cumulativeRR, index).split(",");
-          return <circle key={`${point.date}-${index}`} cx={x} cy={y} r="2.5" fill="#66d8b5" />;
+          return <circle key={`${point.date}-${index}`} cx={x} cy={y} r="2.5" fill="#9fb0ca" />;
         })}
       </svg>
 

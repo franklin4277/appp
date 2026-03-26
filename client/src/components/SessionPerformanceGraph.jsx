@@ -47,7 +47,7 @@ const SessionPerformanceGraph = ({ trades }) => {
         <span className="chip">{trades.length} trades</span>
       </div>
 
-      <svg className="h-40 w-full" viewBox="0 0 420 160" preserveAspectRatio="none">
+      <svg className="h-40 w-full" viewBox="0 0 420 160" preserveAspectRatio="xMidYMid meet">
         <line x1="30" y1={baseY} x2="392" y2={baseY} stroke="#25344f" strokeWidth="1" />
         {SESSIONS.map((session, index) => {
           const barWidth = 68;

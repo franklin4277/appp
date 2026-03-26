@@ -19,7 +19,7 @@ const SetupBreakdown = ({ setupBreakdown }) => {
             <p className="text-xs uppercase tracking-wide text-textMuted">{row.title}</p>
             <p className="mt-1 text-xl font-semibold">{row.data.winRate}% win</p>
             <p className="text-sm text-textMuted">
-              {row.data.totalTrades} trades • Avg RR {row.data.averageRR}
+              {row.data.totalTrades} trades | Avg RR {row.data.averageRR}
             </p>
           </article>
         ))}

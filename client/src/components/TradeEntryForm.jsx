@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { createTrade } from "../api/tradesApi";
 import {
   POC_OUTCOMES,
@@ -234,7 +234,7 @@ const TradeEntryForm = ({ onTradeSaved }) => {
         </div>
         <div className="flex flex-wrap gap-2 text-xs">
           <input
-            className="input min-w-[240px]"
+            className="input min-w-[220px] flex-1"
             placeholder="Preset name (e.g., Asia Reversal)"
             value={presetName}
             onChange={(event) => setPresetName(event.target.value)}
@@ -267,7 +267,7 @@ const TradeEntryForm = ({ onTradeSaved }) => {
                   className="text-danger"
                   onClick={() => handleRemovePreset(preset.label)}
                 >
-                  ×
+                  x
                 </button>
               </div>
             ))}
@@ -594,3 +594,4 @@ const TradeEntryForm = ({ onTradeSaved }) => {
 };
 
 export default TradeEntryForm;
+

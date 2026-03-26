@@ -91,17 +91,17 @@ const App = () => {
   }, [analytics]);
 
   return (
-    <main className="mx-auto w-full max-w-[1440px] p-3 md:p-5">
+    <main className="mx-auto w-full max-w-[1480px] p-2 sm:p-3 md:p-5">
       <section className="journal-shell p-4 md:p-6">
-        <header className="journal-hero mb-4 md:mb-5">
+        <header className="journal-hero mb-4 md:mb-6">
           <h1 className="hero-title">The Trading Journal</h1>
           <p className="hero-meta">FAST JOURNALING | SESSION ANALYTICS | RULE-BASED EXECUTION</p>
         </header>
 
         <section className="dashboard-frame">
-          <div className="mb-4 flex flex-col gap-3">
+          <div className="mb-4 flex flex-col gap-3 md:mb-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm text-textMuted">
+              <p className="max-w-3xl text-sm text-textMuted">
                 Rule-based logging for Asia High/Low reactions and clean execution.
               </p>
               <div className="flex flex-wrap items-center gap-2">
@@ -118,11 +118,8 @@ const App = () => {
             <div className="strategy-badge px-3 py-2 text-sm">{strategySignal}</div>
           </div>
 
-          <div className="mb-4">
+          <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-[1.05fr_0.95fr]">
             <FiltersBar filters={filters} onChange={onFilterChange} />
-          </div>
-
-          <div className="mb-4">
             <SessionPerformanceGraph trades={trades} />
           </div>
 
@@ -131,6 +128,8 @@ const App = () => {
               {error}
             </p>
           ) : null}
+
+          <div className="section-divider mb-4" />
 
           <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_0.9fr]">
             <TradeEntryForm onTradeSaved={onTradeSaved} />

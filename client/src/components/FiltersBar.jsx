@@ -1,14 +1,30 @@
 import { PAIRS, SESSIONS, SETUP_TYPES } from "../utils/options";
 
 const FiltersBar = ({ filters, onChange }) => {
+  const handleReset = () => {
+    onChange("pair", "");
+    onChange("session", "");
+    onChange("setupType", "");
+    onChange("cleanOnly", false);
+  };
+
   return (
     <section className="panel animate-riseIn">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold">Filters</h2>
-        <span className="chip">Live analytics</span>
+        <div className="flex items-center gap-2">
+          <span className="chip">Live analytics</span>
+          <button
+            type="button"
+            className="chip text-textMain transition hover:border-accent"
+            onClick={handleReset}
+          >
+            Reset
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <label>
           <span className="label">Pair</span>
           <div>
@@ -63,7 +79,7 @@ const FiltersBar = ({ filters, onChange }) => {
           </div>
         </label>
 
-        <label className="flex items-end pb-2 text-sm text-textMain">
+        <label className="flex min-h-[72px] items-center rounded-md border border-border bg-panelMuted px-3 text-sm text-textMain">
           <input
             type="checkbox"
             className="mr-2"

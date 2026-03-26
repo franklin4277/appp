@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchAnalytics, fetchTrades } from "./api/tradesApi";
 import FiltersBar from "./components/FiltersBar";
+import BehaviorLab from "./components/BehaviorLab";
 import ProfitCurveChart from "./components/ProfitCurveChart";
 import SessionPerformanceGraph from "./components/SessionPerformanceGraph";
 import SetupBreakdown from "./components/SetupBreakdown";
@@ -136,6 +137,7 @@ const App = () => {
 
             <div className="space-y-4">
               <StatCards overview={analytics.overview} cleanOnlyPerformance={analytics.cleanOnlyPerformance} />
+              <BehaviorLab trades={trades} />
               <ProfitCurveChart points={analytics.profitCurve} />
               <SetupBreakdown setupBreakdown={analytics.setupBreakdown} />
               <TagAnalytics

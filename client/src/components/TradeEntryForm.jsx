@@ -44,6 +44,8 @@ const initialState = {
   screenshotAfter: null,
 };
 
+const PRESET_STORAGE_KEY = "trading-journal-presets";
+
 const Field = ({ label, children }) => (
   <label>
     <span className="label">{label}</span>
@@ -58,6 +60,8 @@ const TradeEntryForm = ({ onTradeSaved }) => {
   const [autoLotSize, setAutoLotSize] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [presets, setPresets] = useState([]);
+  const [presetName, setPresetName] = useState("");
   const formRef = useRef(null);
 
   const plannedRR = useMemo(
@@ -94,6 +98,58 @@ const TradeEntryForm = ({ onTradeSaved }) => {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(PRESET_STORAGE_KEY);
+    if (stored) {
+      try {
+        setPresets(JSON.parse(stored));
+      } catch {
+        setPresets([]);
+      }
+    }
+  }, []);
+
+  const persistPresets = (next) => {
+    setPresets(next);
+    localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(next));
+  };
+
+  const handleSavePreset = () => {
+    if (!presetName.trim()) {
+      return;
+    }
+
+    const entry = {
+      label: presetName.trim(),
+      data: {
+        pair: form.pair,
+        session: form.session,
+        tradeType: form.tradeType,
+        setupType: form.setupType,
+        result: form.result,
+      },
+    };
+
+    const next = [entry, ...presets].slice(0, 6);
+    persistPresets(next);
+    setPresetName("");
+  };
+
+  const handleApplyPreset = (preset) => {
+    setForm((prev) => ({
+      ...prev,
+      pair: preset.data.pair,
+      session: preset.data.session,
+      tradeType: preset.data.tradeType,
+      setupType: preset.data.setupType,
+      result: preset.data.result,
+    }));
+  };
+
+  const handleRemovePreset = (label) => {
+    persistPresets(presets.filter((item) => item.label !== label));
+  };
 
   const handleChange = (field, value) => {
     setForm((prev) => ({
@@ -171,9 +227,52 @@ const TradeEntryForm = ({ onTradeSaved }) => {
 
   return (
     <section className="panel animate-riseIn">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-base font-semibold">Trade Entry</h2>
-        <span className="chip">Ctrl+Enter to save</span>
+      <div className="mb-3 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold">Trade Entry</h2>
+          <span className="chip">Ctrl+Enter to save</span>
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs">
+          <input
+            className="input min-w-[240px]"
+            placeholder="Preset name (e.g., Asia Reversal)"
+            value={presetName}
+            onChange={(event) => setPresetName(event.target.value)}
+          />
+          <button
+            type="button"
+            className="btn-primary !px-3 !py-1 text-xs"
+            onClick={handleSavePreset}
+          >
+            Save preset
+          </button>
+        </div>
+        {presets.length ? (
+          <div className="flex flex-wrap gap-2 text-xs">
+            {presets.map((preset) => (
+              <div
+                key={preset.label}
+                className="chip flex items-center gap-1 rounded-full border border-border bg-panelMuted px-2 py-0.5"
+              >
+                <span>{preset.label}</span>
+                <button
+                  type="button"
+                  className="text-textMuted underline underline-offset-2"
+                  onClick={() => handleApplyPreset(preset)}
+                >
+                  apply
+                </button>
+                <button
+                  type="button"
+                  className="text-danger"
+                  onClick={() => handleRemovePreset(preset.label)}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <form ref={formRef} onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 md:grid-cols-2">

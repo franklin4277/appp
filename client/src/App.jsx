@@ -179,37 +179,58 @@ const App = () => {
     <main className="mx-auto w-full max-w-[1600px] p-2 sm:p-3 md:p-5">
       <section className="journal-shell p-4 md:p-6">
         <header className="journal-hero mb-4 md:mb-6">
-          <h1 className="hero-title">The Trading Journal</h1>
-          <p className="hero-meta">ACCOUNT MODE | PRIVATE JOURNAL | RULE-BASED EXECUTION</p>
-          <div className="mt-2 flex flex-wrap items-center justify-center gap-2 text-xs">
-            <span className="chip">{user.name}</span>
-            <span className="chip">{user.email}</span>
-            <button type="button" className="chip text-textMain transition hover:border-accent" onClick={onLogout}>
-              Log out
-            </button>
+          <div className="hero-grid">
+            <div className="hero-summary">
+              <p className="section-kicker">Personal Trading Workspace</p>
+              <h1 className="hero-title">The Trading Journal</h1>
+              <p className="hero-meta">ACCOUNT MODE | PRIVATE JOURNAL | RULE-BASED EXECUTION</p>
+              <p className="mt-2 max-w-3xl text-sm text-textMuted">
+                Rule-based logging for Asia High/Low reactions and clean execution.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                <span className="chip">Trade only Asia High/Low reactions</span>
+                <span className="chip">Track Acceptance vs Rejection</span>
+                <span className="chip">Prioritize clean A+ setups</span>
+              </div>
+              <div className="strategy-badge mt-3 px-3 py-2 text-sm">{strategySignal}</div>
+            </div>
+
+            <aside className="hero-account">
+              <p className="section-kicker">Account</p>
+              <p className="mt-1 text-sm font-semibold">{user.name}</p>
+              <p className="text-xs text-textMuted">{user.email}</p>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                <span className="chip">{loading ? "Syncing..." : "Ready"}</span>
+                <span className="chip">{trades.length} trades loaded</span>
+                <button
+                  type="button"
+                  className="chip text-textMain transition hover:border-accent"
+                  onClick={onLogout}
+                >
+                  Log out
+                </button>
+              </div>
+            </aside>
           </div>
         </header>
 
         <section className="dashboard-frame">
-          <div className="mb-4 flex flex-col gap-3 md:mb-5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="max-w-3xl text-sm text-textMuted">
-                Rule-based logging for Asia High/Low reactions and clean execution.
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                {loading ? <span className="chip">Syncing...</span> : <span className="chip">Ready</span>}
-              </div>
+          <div className="soft-frame mb-4 md:mb-5">
+            <div className="section-title">
+              <h2>Workspace Sync</h2>
+              <p>Live Status</p>
             </div>
-
-            <div className="flex flex-wrap gap-2 text-xs">
-              <span className="chip">Trade only Asia High/Low reactions</span>
-              <span className="chip">Track Acceptance vs Rejection</span>
-              <span className="chip">Prioritize clean A+ setups</span>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="chip">{loading ? "Syncing data..." : "Up to date"}</span>
+              <span className="chip">Filters applied in real-time</span>
+              <span className="chip">Private journal mode</span>
             </div>
-
-            <div className="strategy-badge px-3 py-2 text-sm">{strategySignal}</div>
           </div>
 
+          <div className="section-title">
+            <h2>Filters & Session Activity</h2>
+            <p>Preparation</p>
+          </div>
           <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-[1.05fr_0.95fr]">
             <FiltersBar filters={filters} onChange={onFilterChange} options={user.settings?.options} />
             <SessionPerformanceGraph
@@ -218,6 +239,10 @@ const App = () => {
             />
           </div>
 
+          <div className="section-title">
+            <h2>Settings & Data Tools</h2>
+            <p>Configuration</p>
+          </div>
           <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
             <SettingsPanel user={user} token={token} onUserUpdate={setUser} />
             <DataTools token={token} filters={filters} onImported={loadData} />
@@ -229,6 +254,10 @@ const App = () => {
 
           <div className="section-divider mb-4" />
 
+          <div className="section-title">
+            <h2>Journal Entry & Insights</h2>
+            <p>Execution</p>
+          </div>
           <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_0.9fr]">
             <TradeEntryForm onTradeSaved={onTradeSaved} token={token} settings={user.settings} />
 
@@ -247,6 +276,10 @@ const App = () => {
             </div>
           </section>
 
+          <div className="section-title mt-4">
+            <h2>Review & Performance Boards</h2>
+            <p>Reflection</p>
+          </div>
           <section className="mt-4 grid grid-cols-1 gap-4">
             <HeatmapMatrix heatmap={analytics.heatmap} />
             <CoachingSummary coaching={analytics.coaching} />
@@ -259,4 +292,3 @@ const App = () => {
 };
 
 export default App;
-

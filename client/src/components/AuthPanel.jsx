@@ -29,14 +29,25 @@ const AuthPanel = ({ onAuthenticated }) => {
   };
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-5xl items-center justify-center p-4">
-      <section className="journal-shell w-full max-w-md p-6">
-        <header className="journal-hero mb-6">
-          <h1 className="hero-title">The Trading Journal</h1>
-          <p className="hero-meta">PERSONAL ACCOUNT | PRIVATE DATA | RULE-BASED EXECUTION</p>
-        </header>
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center p-4">
+      <section className="journal-shell w-full max-w-4xl p-4 md:p-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[1.1fr_0.9fr]">
+          <aside className="panel animate-riseIn">
+            <p className="section-kicker">Welcome Back</p>
+            <h1 className="hero-title mt-1">The Trading Journal</h1>
+            <p className="hero-meta">PERSONAL ACCOUNT | PRIVATE DATA | RULE-BASED EXECUTION</p>
+            <p className="mt-3 text-sm text-textMuted">
+              Keep your process consistent, protect your edge, and review behavior patterns with a clean
+              session-based journal.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2 text-xs">
+              <span className="chip">Fast journaling</span>
+              <span className="chip">Behavior analytics</span>
+              <span className="chip">Rule guardrails</span>
+            </div>
+          </aside>
 
-        <form onSubmit={handleSubmit} className="panel animate-riseIn space-y-3">
+          <form onSubmit={handleSubmit} className="panel animate-riseIn space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold">{mode === "register" ? "Create account" : "Log in"}</h2>
             <button
@@ -91,11 +102,11 @@ const AuthPanel = ({ onAuthenticated }) => {
           <button className="btn-primary w-full" type="submit" disabled={loading}>
             {loading ? "Please wait..." : mode === "register" ? "Create account" : "Log in"}
           </button>
-        </form>
+          </form>
+        </div>
       </section>
     </main>
   );
 };
 
 export default AuthPanel;
-

@@ -5,6 +5,7 @@ import { calculateAchievedRR, calculateLotSize, calculatePlannedRR, round } from
 
 const PRESET_STORAGE_KEY = "trading-journal-presets";
 const LAST_STRUCTURE_STORAGE_KEY = "trading-journal-last-structure";
+const DRAFT_STORAGE_PREFIX = "trading-journal-form-draft";
 const NEGATIVE_EMOTION_TOKENS = [
   "fomo",
   "rushed",
@@ -28,6 +29,7 @@ const localNow = () => {
 };
 
 const generateClientTradeId = () => `ct-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const buildDraftStorageKey = (profileId = "") => `${DRAFT_STORAGE_PREFIX}:${String(profileId || "main")}`;
 
 const buildOptionLists = (settings = {}) => ({
   pairs: settings?.options?.pairs?.length ? settings.options.pairs : PAIRS,
@@ -65,6 +67,26 @@ const buildInitialState = (options) => ({
   screenshotBeforeNote: "",
   screenshotAfterNote: "",
 });
+
+const hasMeaningfulDraft = (draft = {}) => {
+  const textFields = [
+    "entryPrice",
+    "stopLoss",
+    "takeProfit",
+    "priceAction",
+    "executionReview",
+    "emotionalState",
+    "ruleBreakReason",
+    "screenshotBeforeNote",
+    "screenshotAfterNote",
+  ];
+
+  if (textFields.some((field) => String(draft[field] || "").trim())) {
+    return true;
+  }
+
+  return Boolean(draft.cleanSetup || draft.screenshotBefore || draft.screenshotAfter);
+};
 
 const Field = ({ label, children }) => (
   <label>
@@ -193,7 +215,10 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
   const [checklistWarnings, setChecklistWarnings] = useState([]);
   const [guardrailWarnings, setGuardrailWarnings] = useState([]);
   const [successWarning, setSuccessWarning] = useState("");
+  const [savedDraft, setSavedDraft] = useState(null);
+  const [draftReady, setDraftReady] = useState(false);
   const formRef = useRef(null);
+  const draftStorageKey = useMemo(() => buildDraftStorageKey(activeProfileId), [activeProfileId]);
 
   const activeRiskControls = settings?.riskControls || {
     requireRuleAlignment: true,
@@ -397,6 +422,32 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
   }, []);
 
   useEffect(() => {
+    setDraftReady(false);
+    const stored = localStorage.getItem(draftStorageKey);
+    if (!stored) {
+      setSavedDraft(null);
+      setDraftReady(true);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(stored);
+      if (parsed?.form && typeof parsed.form === "object" && hasMeaningfulDraft(parsed.form)) {
+        setSavedDraft({
+          form: parsed.form,
+          savedAt: parsed.savedAt || "",
+        });
+      } else {
+        setSavedDraft(null);
+      }
+    } catch {
+      setSavedDraft(null);
+    } finally {
+      setDraftReady(true);
+    }
+  }, [draftStorageKey]);
+
+  useEffect(() => {
     setForm((prev) => ({
       ...prev,
       profileId: activeProfileId || prev.profileId,
@@ -408,6 +459,34 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
       pocOutcome: prev.pocOutcome || optionLists.pocOutcomes[0] || "",
     }));
   }, [activeProfileId, optionLists]);
+
+  useEffect(() => {
+    if (!draftReady) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      const draftForm = {
+        ...form,
+        profileId: activeProfileId || form.profileId || "",
+        screenshotBefore: null,
+        screenshotAfter: null,
+      };
+      if (!hasMeaningfulDraft(draftForm)) {
+        localStorage.removeItem(draftStorageKey);
+        return;
+      }
+      localStorage.setItem(
+        draftStorageKey,
+        JSON.stringify({
+          savedAt: new Date().toISOString(),
+          form: draftForm,
+        })
+      );
+    }, 700);
+
+    return () => window.clearTimeout(timer);
+  }, [activeProfileId, draftReady, draftStorageKey, form]);
 
   const persistPresets = (next) => {
     setPresets(next);
@@ -432,6 +511,28 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
     setLastStructure(structure);
     localStorage.setItem(LAST_STRUCTURE_STORAGE_KEY, JSON.stringify(structure));
   };
+
+  const clearSavedDraft = useCallback(() => {
+    localStorage.removeItem(draftStorageKey);
+    setSavedDraft(null);
+  }, [draftStorageKey]);
+
+  const restoreSavedDraft = useCallback(() => {
+    if (!savedDraft?.form) {
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      ...savedDraft.form,
+      profileId: activeProfileId || savedDraft.form.profileId || prev.profileId,
+      clientTradeId: savedDraft.form.clientTradeId || prev.clientTradeId || generateClientTradeId(),
+      screenshotBefore: null,
+      screenshotAfter: null,
+    }));
+    setSuccessWarning("Draft restored.");
+    setError("");
+  }, [activeProfileId, savedDraft]);
 
   const handleSavePreset = () => {
     if (!presetName.trim()) {
@@ -495,9 +596,15 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
     setChecklistWarnings([]);
     setGuardrailWarnings([]);
     setSuccessWarning("");
+    let normalizedValue = value;
+    if (field === "pair") {
+      normalizedValue = String(value || "")
+        .toUpperCase()
+        .replace(/\s+/g, "");
+    }
     setForm((prev) => ({
       ...prev,
-      [field]: value,
+      [field]: normalizedValue,
     }));
   };
 
@@ -525,7 +632,8 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
     if (formRef.current) {
       formRef.current.reset();
     }
-  }, [activeProfileId, optionLists.results]);
+    clearSavedDraft();
+  }, [activeProfileId, clearSavedDraft, optionLists.results]);
 
   const buildTradePayload = (acceptGuardrailOverride = false) => {
     const lotSizeToSave = autoLotSize ? computedLotSize : Number(form.lotSize || 0);
@@ -705,10 +813,40 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
 
         <div className="rounded-md border border-border bg-panelMuted p-2 text-xs text-textMuted">
           <p className="font-medium text-textMain">{qualityAssessment.tip}</p>
+          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-panel">
+            <div
+              className="h-full rounded-full bg-accent transition-all duration-300"
+              style={{ width: `${qualityAssessment.score}%` }}
+            />
+          </div>
           {qualityAssessment.notes.length ? (
             <p className="mt-1">{qualityAssessment.notes.join(" | ")}</p>
           ) : null}
         </div>
+
+        {savedDraft?.savedAt ? (
+          <div className="rounded-md border border-border bg-panelMuted p-2 text-xs text-textMuted">
+            <p>
+              Draft available from {new Date(savedDraft.savedAt).toLocaleString([], { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" })}.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="chip text-textMain transition hover:border-accent"
+                onClick={restoreSavedDraft}
+              >
+                Restore draft
+              </button>
+              <button
+                type="button"
+                className="chip text-textMain transition hover:border-danger"
+                onClick={clearSavedDraft}
+              >
+                Discard draft
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {preTradeAlerts.length ? (
           <div className="rounded-md border border-danger/40 bg-danger/10 p-2 text-xs text-danger">

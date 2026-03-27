@@ -5,13 +5,19 @@ const resultStyles = {
 };
 
 const formatDate = (value) =>
-  new Date(value).toLocaleString([], {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  (() => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return "Unknown time";
+    }
+    return date.toLocaleString([], {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  })();
 
 const TradesTable = ({ trades }) => {
   return (
@@ -39,7 +45,7 @@ const TradesTable = ({ trades }) => {
                   {trade.setupType === "Asia Break -> Continuation" ? "Continuation" : "Reversal"}
                 </span>
                 <span className="chip">RR {trade.rrAchieved}</span>
-                <span className="chip">{trade.tags.pocOutcome || "No POC"}</span>
+                <span className="chip">{trade.tags?.pocOutcome || "No POC"}</span>
                 {trade.ruleBreakReason ? <span className="chip">Rule break</span> : null}
               </div>
               {trade.ruleBreakReason ? (
@@ -80,8 +86,8 @@ const TradesTable = ({ trades }) => {
                   <td className="py-2 pr-2">{trade.rrAchieved}</td>
                   <td className="py-2 pr-2 text-xs text-textMuted">
                     {trade.isOfflinePending ? "Queued | " : ""}
-                    {trade.tags.cleanSetup ? "A+ " : ""}
-                    {trade.tags.pocOutcome || "No POC"}
+                    {trade.tags?.cleanSetup ? "A+ " : ""}
+                    {trade.tags?.pocOutcome || "No POC"}
                   </td>
                   <td className="py-2 pr-2 text-xs text-textMuted">
                     {trade.ruleBreakReason ? `Rule break: ${trade.ruleBreakReason}` : "-"}

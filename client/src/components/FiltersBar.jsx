@@ -12,16 +12,22 @@ const FiltersBar = ({ filters, onChange, options = {} }) => {
     onChange("cleanOnly", false);
   };
 
+  const activeCount = [filters.pair, filters.session, filters.setupType, filters.cleanOnly ? "clean" : ""].filter(
+    Boolean
+  ).length;
+
   return (
     <section className="panel animate-riseIn">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold">Filters</h2>
         <div className="flex items-center gap-2">
           <span className="chip">Live analytics</span>
+          <span className="chip">{activeCount} active</span>
           <button
             type="button"
             className="chip text-textMain transition hover:border-accent"
             onClick={handleReset}
+            disabled={activeCount === 0}
           >
             Reset
           </button>

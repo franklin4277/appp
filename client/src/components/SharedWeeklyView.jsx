@@ -64,6 +64,9 @@ const SharedWeeklyView = ({ shareToken }) => {
               </div>
 
               <p className="mt-2 text-xs">Link expires: {report.expiresAt?.slice(0, 10) || "n/a"}</p>
+              <a href="/" className="chip mt-2 inline-flex text-textMain transition hover:border-accent">
+                Open full app
+              </a>
             </div>
           ) : null}
         </section>

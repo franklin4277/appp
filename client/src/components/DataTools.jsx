@@ -74,13 +74,14 @@ const DataTools = ({ token, filters, onImported }) => {
             accept=".csv,text/csv"
             onChange={(event) => setImportFile(event.target.files?.[0] || null)}
           />
+          {importFile ? <p className="mt-2 text-xs text-textMuted">Selected: {importFile.name}</p> : null}
           <button
             type="button"
             className="btn-primary mt-2"
             onClick={handleImport}
             disabled={!importFile || busy}
           >
-            Import CSV
+            {busy ? "Importing..." : "Import CSV"}
           </button>
         </div>
       </div>
@@ -92,4 +93,3 @@ const DataTools = ({ token, filters, onImported }) => {
 };
 
 export default DataTools;
-

@@ -1,11 +1,8 @@
+import SectionEmptyState from "./SectionEmptyState";
+
 const DrawdownChart = ({ points = [] }) => {
   if (!points.length) {
-    return (
-      <section className="panel animate-riseIn">
-        <h3 className="mb-2 text-sm font-semibold">Drawdown Curve</h3>
-        <p className="text-sm text-textMuted">Need more trades to calculate drawdown.</p>
-      </section>
-    );
+    return <SectionEmptyState title="Drawdown Curve" message="Need more trades to calculate drawdown." />;
   }
 
   const width = 640;
@@ -41,4 +38,3 @@ const DrawdownChart = ({ points = [] }) => {
 };
 
 export default DrawdownChart;
-

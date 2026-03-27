@@ -1,3 +1,5 @@
+import SectionEmptyState from "./SectionEmptyState";
+
 const SummaryCard = ({ title, block, caption }) => (
   <article className="rounded-md border border-border bg-panelMuted p-3">
     <p className="text-xs uppercase tracking-wide text-textMuted">{title}</p>
@@ -39,12 +41,7 @@ const SummaryCard = ({ title, block, caption }) => (
 
 const CoachingSummary = ({ coaching }) => {
   if (!coaching?.daily && !coaching?.weekly) {
-    return (
-      <section className="panel animate-riseIn">
-        <h3 className="mb-2 text-sm font-semibold">Coaching Summary</h3>
-        <p className="text-sm text-textMuted">Need trade data to generate coaching summary.</p>
-      </section>
-    );
+    return <SectionEmptyState title="Coaching Summary" message="Need trade data to generate coaching summary." />;
   }
 
   return (
@@ -71,4 +68,3 @@ const CoachingSummary = ({ coaching }) => {
 };
 
 export default CoachingSummary;
-

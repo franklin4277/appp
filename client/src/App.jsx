@@ -84,6 +84,8 @@ const PAGES = [
   { key: "settings", label: "Settings" },
 ];
 
+const PAGE_SHORTCUTS = ["1", "2", "3", "4", "5"];
+
 const matchesTypedFilter = (value, filterValue) => {
   if (!filterValue) {
     return true;
@@ -128,6 +130,8 @@ const formatSyncTime = (value) => {
   });
 };
 
+const PAGE_STORAGE_KEY = "trading-journal-active-page";
+
 const App = () => {
   const sharedToken = useMemo(() => {
     const path = String(window.location.pathname || "");
@@ -158,9 +162,16 @@ const App = () => {
   const [syncingQueue, setSyncingQueue] = useState(false);
   const [showSettingsPanel, setShowSettingsPanel] = useState(true);
   const [settingsSavedAt, setSettingsSavedAt] = useState("");
-  const [activePage, setActivePage] = useState("journal");
+  const [activePage, setActivePage] = useState(() => {
+    const stored = localStorage.getItem(PAGE_STORAGE_KEY);
+    return PAGES.some((page) => page.key === stored) ? stored : "journal";
+  });
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [offlineQueue, setOfflineQueue] = useState([]);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [newProfileName, setNewProfileName] = useState("");
+  const [newProfileDescription, setNewProfileDescription] = useState("");
+  const [creatingProfile, setCreatingProfile] = useState(false);
   const syncInFlightRef = useRef(false);
 
   const refreshOfflineQueue = useCallback(() => {
@@ -298,6 +309,23 @@ const App = () => {
       [key]: value,
     }));
   };
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.pair) {
+      count += 1;
+    }
+    if (filters.session) {
+      count += 1;
+    }
+    if (filters.setupType) {
+      count += 1;
+    }
+    if (filters.cleanOnly) {
+      count += 1;
+    }
+    return count;
+  }, [filters.cleanOnly, filters.pair, filters.session, filters.setupType]);
 
   const onTradeSaved = (event = {}) => {
     if (event.mode === "offline") {
@@ -470,15 +498,17 @@ const App = () => {
   };
 
   const handleCreateProfile = async () => {
-    const name = window.prompt("New profile name");
-    if (!name || !name.trim()) {
+    const name = String(newProfileName || "").trim();
+    if (name.length < 2) {
+      setError("Profile name must be at least 2 characters.");
       return;
     }
 
+    setCreatingProfile(true);
     try {
       const response = await createProfile(token, {
-        name: name.trim(),
-        description: "",
+        name,
+        description: String(newProfileDescription || "").trim(),
         makeActive: true,
       });
       setUser(response.user);
@@ -486,10 +516,15 @@ const App = () => {
         ...prev,
         profileId: response.user?.activeProfileId || prev.profileId,
       }));
-      setStatusMessage(`Created profile: ${name.trim()}`);
+      setStatusMessage(`Created profile: ${name}`);
       setError("");
+      setNewProfileName("");
+      setNewProfileDescription("");
+      setProfileModalOpen(false);
     } catch (createError) {
       setError(createError.message || "Could not create profile.");
+    } finally {
+      setCreatingProfile(false);
     }
   };
 
@@ -569,6 +604,34 @@ const App = () => {
     };
   }, [offlineQueue]);
 
+  useEffect(() => {
+    localStorage.setItem(PAGE_STORAGE_KEY, activePage);
+  }, [activePage]);
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (profileModalOpen && event.key === "Escape") {
+        setProfileModalOpen(false);
+        return;
+      }
+
+      if (!event.altKey || event.ctrlKey || event.metaKey) {
+        return;
+      }
+
+      const index = PAGE_SHORTCUTS.indexOf(event.key);
+      if (index < 0 || !PAGES[index]) {
+        return;
+      }
+
+      event.preventDefault();
+      setActivePage(PAGES[index].key);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [profileModalOpen]);
+
   if (authLoading) {
     return (
       <main className="mx-auto flex min-h-screen w-full max-w-[560px] items-center justify-center p-4">
@@ -587,6 +650,7 @@ const App = () => {
 
   return (
     <main className="app-shell mx-auto w-full max-w-[1600px] p-0 pb-20 sm:p-3 sm:pb-20 md:p-5 md:pb-5">
+      {loading || syncingQueue ? <div className="top-loader" aria-hidden="true" /> : null}
       <section className="journal-shell app-journal p-0 sm:p-4 md:p-6">
         <header className="journal-hero mb-4 md:mb-5">
           <div className="top-header">
@@ -617,7 +681,7 @@ const App = () => {
                 <button
                   type="button"
                   className="chip text-textMain transition hover:border-accent"
-                  onClick={handleCreateProfile}
+                  onClick={() => setProfileModalOpen(true)}
                 >
                   New profile
                 </button>
@@ -626,6 +690,7 @@ const App = () => {
                 <span className="chip">
                   {loading || syncingQueue ? "Syncing..." : isOnline ? "Online" : "Offline"}
                 </span>
+                <span className="chip">Alt+1..5 pages</span>
                 {offlineQueue.length ? (
                   <span className="chip">{offlineQueue.length} queued</span>
                 ) : null}
@@ -644,9 +709,15 @@ const App = () => {
 
         <section className="dashboard-frame">
           <div className="page-nav mb-4">
-            <p className="section-kicker">Pages</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="section-kicker">Pages</p>
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="chip">{activeFilterCount} active filters</span>
+                {loading ? <span className="chip skeleton h-6 w-16" aria-hidden="true" /> : null}
+              </div>
+            </div>
             <div className="mt-2 flex flex-wrap gap-2">
-              {PAGES.map((page) => (
+              {PAGES.map((page, index) => (
                 <button
                   key={page.key}
                   type="button"
@@ -654,6 +725,7 @@ const App = () => {
                   onClick={() => setActivePage(page.key)}
                 >
                   {page.label}
+                  <span className="ml-1 hidden text-[10px] text-textMuted sm:inline">({PAGE_SHORTCUTS[index]})</span>
                 </button>
               ))}
             </div>
@@ -699,6 +771,10 @@ const App = () => {
           ) : null}
 
           <div className="section-divider mb-4" />
+
+          {loading && !mergedTrades.length ? (
+            <section className="panel skeleton mb-4 h-24" aria-hidden="true" />
+          ) : null}
 
           {activePage === "dashboard" ? (
             <section className="space-y-4">
@@ -825,6 +901,67 @@ const App = () => {
           Analytics
         </button>
       </nav>
+      {profileModalOpen ? (
+        <div
+          className="modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Create profile"
+          onClick={() => setProfileModalOpen(false)}
+        >
+          <form
+            className="modal-card animate-riseIn"
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleCreateProfile();
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-base font-semibold">Create profile</h2>
+              <button
+                type="button"
+                className="chip text-textMain transition hover:border-accent"
+                onClick={() => setProfileModalOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+            <label>
+              <span className="label">Profile name</span>
+              <input
+                className="input"
+                value={newProfileName}
+                onChange={(event) => setNewProfileName(event.target.value)}
+                placeholder="Scalping plan / profile name"
+                autoFocus
+              />
+            </label>
+            <label className="mt-2 block">
+              <span className="label">Description (optional)</span>
+              <textarea
+                className="input min-h-24"
+                value={newProfileDescription}
+                onChange={(event) => setNewProfileDescription(event.target.value)}
+                placeholder="Short note about this profile"
+              />
+            </label>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="submit" className="btn-primary" disabled={creatingProfile}>
+                {creatingProfile ? "Creating..." : "Create profile"}
+              </button>
+              <button
+                type="button"
+                className="chip text-textMain transition hover:border-accent"
+                onClick={() => setProfileModalOpen(false)}
+                disabled={creatingProfile}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </main>
   );
 };

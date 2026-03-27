@@ -1,3 +1,5 @@
+import SectionEmptyState from "./SectionEmptyState";
+
 const getCellTone = (avgRR) => {
   if (avgRR >= 0.8) {
     return "rgba(86, 122, 176, 0.55)";
@@ -21,10 +23,10 @@ const HeatmapMatrix = ({ heatmap }) => {
 
   if (!sessions.length || !setupTypes.length) {
     return (
-      <section className="panel animate-riseIn">
-        <h3 className="mb-2 text-sm font-semibold">Session x Setup Heatmap</h3>
-        <p className="text-sm text-textMuted">Need trades across sessions and setups to build heatmap.</p>
-      </section>
+      <SectionEmptyState
+        title="Session x Setup Heatmap"
+        message="Need trades across sessions and setups to build heatmap."
+      />
     );
   }
 
@@ -79,4 +81,3 @@ const HeatmapMatrix = ({ heatmap }) => {
 };
 
 export default HeatmapMatrix;
-

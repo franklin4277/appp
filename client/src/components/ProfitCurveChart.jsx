@@ -1,11 +1,8 @@
+import SectionEmptyState from "./SectionEmptyState";
+
 const ProfitCurveChart = ({ points }) => {
   if (!points?.length) {
-    return (
-      <section className="panel animate-riseIn">
-        <h3 className="mb-2 text-sm font-semibold">Profit Curve</h3>
-        <p className="text-sm text-textMuted">No trades yet to build the curve.</p>
-      </section>
-    );
+    return <SectionEmptyState title="Profit Curve" message="No trades yet to build the curve." />;
   }
 
   const width = 640;

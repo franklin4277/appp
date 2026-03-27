@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import SectionEmptyState from "./SectionEmptyState";
 
 const hasImage = (trade) =>
   Boolean(
@@ -15,10 +16,10 @@ const ScreenshotReplay = ({ trades = [] }) => {
   const trade = imageTrades[index] || null;
   if (!trade) {
     return (
-      <section className="panel animate-riseIn">
-        <h3 className="mb-2 text-sm font-semibold">Screenshot Replay</h3>
-        <p className="text-sm text-textMuted">Add before/after screenshots to review execution side-by-side.</p>
-      </section>
+      <SectionEmptyState
+        title="Screenshot Replay"
+        message="Add before/after screenshots to review execution side-by-side."
+      />
     );
   }
 

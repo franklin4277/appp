@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   createWeeklyReviewShare,
   fetchWeeklyReview,
@@ -95,9 +95,11 @@ const WeeklyReviewReport = ({ token, profileId = "" }) => {
   const [busy, setBusy] = useState(false);
   const [shareBusy, setShareBusy] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [report, setReport] = useState(null);
   const [shareUrl, setShareUrl] = useState("");
   const [shares, setShares] = useState([]);
+  const [expiryDays, setExpiryDays] = useState("14");
 
   const loadReport = async () => {
     setBusy(true);
@@ -139,9 +141,10 @@ const WeeklyReviewReport = ({ token, profileId = "" }) => {
     openPrintView(review);
   };
 
-  const refreshShares = async () => {
+  const refreshShares = useCallback(async () => {
     setShareBusy(true);
     setError("");
+    setMessage("");
     try {
       const payload = await listWeeklyReviewShares(token);
       setShares(payload.data || []);
@@ -150,17 +153,19 @@ const WeeklyReviewReport = ({ token, profileId = "" }) => {
     } finally {
       setShareBusy(false);
     }
-  };
+  }, [token]);
 
   const handleCreateShare = async () => {
     setShareBusy(true);
     setError("");
+    setMessage("");
     try {
       const payload = await createWeeklyReviewShare(token, {
         profileId,
-        expiresInDays: 14,
+        expiresInDays: Math.min(Math.max(Number(expiryDays) || 14, 1), 90),
       });
       setShareUrl(payload.shareUrl || "");
+      setMessage("Read-only share link created.");
       await refreshShares();
     } catch (shareError) {
       setError(shareError.message);
@@ -180,8 +185,10 @@ const WeeklyReviewReport = ({ token, profileId = "" }) => {
 
     setShareBusy(true);
     setError("");
+    setMessage("");
     try {
       await revokeWeeklyReviewShare(token, shareId);
+      setMessage("Share link revoked.");
       await refreshShares();
     } catch (shareError) {
       setError(shareError.message);
@@ -196,10 +203,15 @@ const WeeklyReviewReport = ({ token, profileId = "" }) => {
     }
     try {
       await navigator.clipboard.writeText(shareUrl);
+      setMessage("Share link copied.");
     } catch {
-      // Ignore clipboard permission failures
+      setError("Could not copy link automatically.");
     }
   };
+
+  useEffect(() => {
+    refreshShares();
+  }, [refreshShares]);
 
   return (
     <section className="panel animate-riseIn">
@@ -230,6 +242,16 @@ const WeeklyReviewReport = ({ token, profileId = "" }) => {
         >
           {shareBusy ? "Sharing..." : "Create read-only link"}
         </button>
+        <input
+          className="input !h-9 !w-28 text-xs"
+          type="number"
+          min="1"
+          max="90"
+          value={expiryDays}
+          onChange={(event) => setExpiryDays(event.target.value)}
+          aria-label="Share expiry in days"
+          title="Share expiry in days"
+        />
         <button
           type="button"
           className="chip text-textMain transition hover:border-accent"
@@ -289,6 +311,7 @@ const WeeklyReviewReport = ({ token, profileId = "" }) => {
       ) : null}
 
       {error ? <p className="mt-3 rounded-md border border-danger/40 bg-danger/10 p-2 text-sm text-danger">{error}</p> : null}
+      {message ? <p className="mt-3 rounded-md border border-accent/40 bg-accent/10 p-2 text-sm text-accent">{message}</p> : null}
     </section>
   );
 };

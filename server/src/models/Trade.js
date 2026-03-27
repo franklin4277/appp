@@ -8,6 +8,19 @@ const tradeSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    profileId: {
+      type: String,
+      required: true,
+      trim: true,
+      default: "main",
+      index: true,
+    },
+    clientTradeId: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 120,
+    },
     pair: {
       type: String,
       required: true,
@@ -118,6 +131,18 @@ const tradeSchema = new mongoose.Schema(
         type: String,
         default: "",
       },
+      beforeNote: {
+        type: String,
+        default: "",
+        trim: true,
+        maxlength: 400,
+      },
+      afterNote: {
+        type: String,
+        default: "",
+        trim: true,
+        maxlength: 400,
+      },
     },
     importSource: {
       type: String,
@@ -135,9 +160,16 @@ const tradeSchema = new mongoose.Schema(
   }
 );
 
-tradeSchema.index({ userId: 1, pair: 1, session: 1, setupType: 1, tradeDate: -1 });
-tradeSchema.index({ userId: 1, "tags.cleanSetup": 1, tradeDate: -1 });
-tradeSchema.index({ userId: 1, tradeDate: -1 });
+tradeSchema.index({ userId: 1, profileId: 1, pair: 1, session: 1, setupType: 1, tradeDate: -1 });
+tradeSchema.index({ userId: 1, profileId: 1, "tags.cleanSetup": 1, tradeDate: -1 });
+tradeSchema.index({ userId: 1, profileId: 1, tradeDate: -1 });
+tradeSchema.index(
+  { userId: 1, clientTradeId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { clientTradeId: { $exists: true, $ne: "" } },
+  }
+);
 
 const Trade = mongoose.model("Trade", tradeSchema);
 

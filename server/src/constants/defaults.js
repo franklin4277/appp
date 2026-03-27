@@ -13,5 +13,5 @@ export const DEFAULT_RISK_CONTROLS = {
   maxTradesPerSession: 4,
   cooldownMinutesAfterLoss: 30,
   stopForDayLossRR: 3,
+  strictChecklistGate: false,
 };
-

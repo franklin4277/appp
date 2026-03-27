@@ -1,5 +1,5 @@
 import User from "../models/User.js";
-import { verifyAuthToken } from "../services/auth.js";
+import { ensureUserProfiles, verifyAccessToken } from "../services/auth.js";
 
 const unauthorized = (message = "Authentication required.") => {
   const error = new Error(message);
@@ -19,11 +19,13 @@ export const requireAuth = async (req, _res, next) => {
       throw unauthorized();
     }
 
-    const payload = verifyAuthToken(token);
+    const payload = verifyAccessToken(token);
     const user = await User.findById(payload.sub);
     if (!user) {
       throw unauthorized("Session is invalid. Please log in again.");
     }
+
+    ensureUserProfiles(user);
 
     req.user = user;
     next();
@@ -41,4 +43,3 @@ export const requireAuth = async (req, _res, next) => {
     next(error.statusCode ? error : unauthorized());
   }
 };
-

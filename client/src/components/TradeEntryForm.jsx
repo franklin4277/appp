@@ -27,6 +27,8 @@ const localNow = () => {
   return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
 };
 
+const generateClientTradeId = () => `ct-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
 const buildOptionLists = (settings = {}) => ({
   pairs: settings?.options?.pairs?.length ? settings.options.pairs : PAIRS,
   sessions: settings?.options?.sessions?.length ? settings.options.sessions : SESSIONS,
@@ -37,6 +39,8 @@ const buildOptionLists = (settings = {}) => ({
 });
 
 const buildInitialState = (options) => ({
+  clientTradeId: generateClientTradeId(),
+  profileId: "",
   pair: options.pairs[0] || "EURUSD",
   tradeDate: localNow(),
   session: options.sessions[0] || "London",
@@ -58,6 +62,8 @@ const buildInitialState = (options) => ({
   emotionalState: "",
   screenshotBefore: null,
   screenshotAfter: null,
+  screenshotBeforeNote: "",
+  screenshotAfterNote: "",
 });
 
 const Field = ({ label, children }) => (
@@ -66,6 +72,75 @@ const Field = ({ label, children }) => (
     {children}
   </label>
 );
+
+const ScreenshotField = ({ label, file, note, onFileChange, onNoteChange }) => {
+  const [dragOver, setDragOver] = useState(false);
+  const previewUrl = useMemo(() => {
+    if (!file) {
+      return "";
+    }
+    return URL.createObjectURL(file);
+  }, [file]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
+  const onDrop = (event) => {
+    event.preventDefault();
+    setDragOver(false);
+    const dropped = event.dataTransfer?.files?.[0] || null;
+    if (dropped) {
+      onFileChange(dropped);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <span className="label">{label}</span>
+      <div
+        className={`rounded-md border p-3 text-xs transition ${
+          dragOver ? "border-accent bg-panel" : "border-border bg-panelMuted"
+        }`}
+        onDragOver={(event) => {
+          event.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={onDrop}
+      >
+        {file ? (
+          <div className="space-y-2">
+            {previewUrl ? (
+              <img src={previewUrl} alt={`${label} preview`} className="h-40 w-full rounded-md object-cover" />
+            ) : null}
+            <p className="text-textMuted">{file.name}</p>
+          </div>
+        ) : (
+          <p className="text-textMuted">Drop image here or choose file.</p>
+        )}
+
+        <input
+          className="input mt-2"
+          type="file"
+          accept="image/png,image/jpeg,image/jpg,image/webp"
+          onChange={(event) => onFileChange(event.target.files?.[0] || null)}
+        />
+      </div>
+
+      <textarea
+        className="input min-h-20"
+        placeholder="Annotation notes"
+        value={note}
+        onChange={(event) => onNoteChange(event.target.value)}
+      />
+    </div>
+  );
+};
 
 const toTime = (trade) => {
   const value = trade?.tradeDate || trade?.createdAt || "";
@@ -104,7 +179,7 @@ const scoreToGrade = (score) => {
   return "D";
 };
 
-const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [] }) => {
+const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProfileId = "" }) => {
   const optionLists = useMemo(() => buildOptionLists(settings), [settings]);
   const [form, setForm] = useState(() => buildInitialState(optionLists));
   const [accountBalance, setAccountBalance] = useState("10000");
@@ -115,6 +190,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [] }) => {
   const [presets, setPresets] = useState([]);
   const [presetName, setPresetName] = useState("");
   const [lastStructure, setLastStructure] = useState(null);
+  const [checklistWarnings, setChecklistWarnings] = useState([]);
   const [guardrailWarnings, setGuardrailWarnings] = useState([]);
   const [successWarning, setSuccessWarning] = useState("");
   const formRef = useRef(null);
@@ -124,6 +200,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [] }) => {
     maxTradesPerSession: 4,
     cooldownMinutesAfterLoss: 30,
     stopForDayLossRR: 3,
+    strictChecklistGate: false,
   };
 
   const plannedRR = useMemo(
@@ -152,6 +229,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [] }) => {
   );
 
   const requiresRuleBreakReason = form.asiaHighLowUsed !== "true" || form.pocInteraction !== "true";
+  const checklistAligned = form.asiaHighLowUsed === "true" && form.pocInteraction === "true" && form.cleanSetup;
 
   const qualityAssessment = useMemo(() => {
     let score = 55;
@@ -321,6 +399,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [] }) => {
   useEffect(() => {
     setForm((prev) => ({
       ...prev,
+      profileId: activeProfileId || prev.profileId,
       pair: prev.pair || optionLists.pairs[0] || "",
       session: prev.session || optionLists.sessions[0] || "",
       tradeType: prev.tradeType || optionLists.tradeTypes[0] || "",
@@ -328,7 +407,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [] }) => {
       result: prev.result || optionLists.results[0] || "",
       pocOutcome: prev.pocOutcome || optionLists.pocOutcomes[0] || "",
     }));
-  }, [optionLists]);
+  }, [activeProfileId, optionLists]);
 
   const persistPresets = (next) => {
     setPresets(next);
@@ -413,6 +492,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [] }) => {
 
   const handleChange = (field, value) => {
     setError("");
+    setChecklistWarnings([]);
     setGuardrailWarnings([]);
     setSuccessWarning("");
     setForm((prev) => ({
@@ -424,6 +504,8 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [] }) => {
   const resetTradeForm = useCallback(() => {
     setForm((prev) => ({
       ...prev,
+      clientTradeId: generateClientTradeId(),
+      profileId: activeProfileId || prev.profileId,
       tradeDate: localNow(),
       entryPrice: "",
       stopLoss: "",
@@ -436,17 +518,21 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [] }) => {
       emotionalState: "",
       screenshotBefore: null,
       screenshotAfter: null,
+      screenshotBeforeNote: "",
+      screenshotAfterNote: "",
     }));
 
     if (formRef.current) {
       formRef.current.reset();
     }
-  }, [optionLists.results]);
+  }, [activeProfileId, optionLists.results]);
 
   const buildTradePayload = (acceptGuardrailOverride = false) => {
     const lotSizeToSave = autoLotSize ? computedLotSize : Number(form.lotSize || 0);
 
     return {
+      profileId: form.profileId || activeProfileId || "",
+      clientTradeId: form.clientTradeId || generateClientTradeId(),
       pair: form.pair,
       tradeDate: form.tradeDate ? new Date(form.tradeDate).toISOString() : new Date().toISOString(),
       session: form.session,
@@ -470,6 +556,8 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [] }) => {
       acceptGuardrailOverride: String(acceptGuardrailOverride),
       screenshotBeforeName: form.screenshotBefore?.name || "",
       screenshotAfterName: form.screenshotAfter?.name || "",
+      screenshotBeforeNote: form.screenshotBeforeNote,
+      screenshotAfterNote: form.screenshotAfterNote,
     };
   };
 
@@ -500,6 +588,19 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [] }) => {
   };
 
   const submitTrade = async (acceptGuardrailOverride = false) => {
+    if (
+      activeRiskControls.strictChecklistGate &&
+      !checklistAligned &&
+      !acceptGuardrailOverride &&
+      !String(form.ruleBreakReason || "").trim()
+    ) {
+      setChecklistWarnings([
+        "Checklist gate active: setup must be Asia HL + POC + clean, or include override reason.",
+      ]);
+      setError("Checklist gate blocked this save. Add a reason or use override.");
+      return;
+    }
+
     setIsSubmitting(true);
     setError("");
 
@@ -519,10 +620,16 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [] }) => {
         setSuccessWarning("");
       }
 
+      setChecklistWarnings([]);
       setGuardrailWarnings([]);
       resetTradeForm();
     } catch (submitError) {
-      if (submitError.code === "GUARDRAIL_CONFIRMATION_REQUIRED") {
+      if (submitError.code === "CHECKLIST_GATE_REQUIRED") {
+        setChecklistWarnings([
+          submitError.message || "Checklist gate active. Confirm override to save this trade.",
+        ]);
+        setError("Checklist gate requires explicit override.");
+      } else if (submitError.code === "GUARDRAIL_CONFIRMATION_REQUIRED") {
         const warnings = submitError.payload?.guardrails?.warnings || [];
         setGuardrailWarnings(warnings);
         setError("Guardrail warning detected. Review and confirm to save this trade.");
@@ -543,6 +650,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [] }) => {
           trade: queuedTrade.displayTrade,
         });
 
+        setChecklistWarnings([]);
         setGuardrailWarnings([]);
         setError("");
         setSuccessWarning("Saved offline. It will sync automatically when internet returns.");
@@ -567,6 +675,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [] }) => {
 
     const onNewRequest = () => {
       setError("");
+      setChecklistWarnings([]);
       setGuardrailWarnings([]);
       setSuccessWarning("");
       resetTradeForm();
@@ -624,6 +733,8 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [] }) => {
           Cooldown {activeRiskControls.cooldownMinutesAfterLoss}m
           {" | "}
           Stop day {-Math.abs(activeRiskControls.stopForDayLossRR)} RR
+          {" | "}
+          Checklist gate {activeRiskControls.strictChecklistGate ? "On" : "Off"}
         </div>
         <div className="flex flex-wrap gap-2 text-xs">
           <input
@@ -964,23 +1075,41 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [] }) => {
           </div>
         </div>
 
-        <Field label="Screenshot (Before)">
-          <input
-            className="input"
-            type="file"
-            accept="image/*"
-            onChange={(event) => handleChange("screenshotBefore", event.target.files?.[0] || null)}
+        <div className="col-span-full grid grid-cols-1 gap-3 md:grid-cols-2">
+          <ScreenshotField
+            label="Screenshot (Before)"
+            file={form.screenshotBefore}
+            note={form.screenshotBeforeNote}
+            onFileChange={(file) => handleChange("screenshotBefore", file)}
+            onNoteChange={(value) => handleChange("screenshotBeforeNote", value)}
           />
-        </Field>
+          <ScreenshotField
+            label="Screenshot (After)"
+            file={form.screenshotAfter}
+            note={form.screenshotAfterNote}
+            onFileChange={(file) => handleChange("screenshotAfter", file)}
+            onNoteChange={(value) => handleChange("screenshotAfterNote", value)}
+          />
+        </div>
 
-        <Field label="Screenshot (After)">
-          <input
-            className="input"
-            type="file"
-            accept="image/*"
-            onChange={(event) => handleChange("screenshotAfter", event.target.files?.[0] || null)}
-          />
-        </Field>
+        {checklistWarnings.length ? (
+          <div className="col-span-full rounded-md border border-danger/40 bg-danger/10 p-3">
+            <p className="text-xs uppercase tracking-wide text-danger">Checklist Gate</p>
+            <ul className="mt-2 list-disc pl-4 text-sm text-danger">
+              {checklistWarnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              className="btn-primary mt-3"
+              onClick={() => submitTrade(true)}
+              disabled={isSubmitting}
+            >
+              Save with override
+            </button>
+          </div>
+        ) : null}
 
         {guardrailWarnings.length ? (
           <div className="col-span-full rounded-md border border-border bg-panelMuted p-3">

@@ -4,6 +4,7 @@ import {
   exportTradesCsv,
   getAnalytics,
   getTrades,
+  getWeeklyReview,
   importTradesCsv,
 } from "../controllers/tradesController.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -15,6 +16,7 @@ router.use(requireAuth);
 
 router.get("/", getTrades);
 router.get("/analytics", getAnalytics);
+router.get("/review/weekly", getWeeklyReview);
 router.get("/export.csv", exportTradesCsv);
 router.post("/import.csv", uploadCsvFile.single("file"), importTradesCsv);
 router.post(

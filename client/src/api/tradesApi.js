@@ -1,11 +1,13 @@
 const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 export const AUTH_STORAGE_KEY = "trading-journal-token";
+export const AUTH_REFRESH_STORAGE_KEY = "trading-journal-refresh-token";
 const OFFLINE_QUEUE_KEY = "trading-journal-offline-queue";
 const OFFLINE_SNAPSHOT_KEY = "trading-journal-offline-snapshot";
 const OFFLINE_FILES_DB = "trading-journal-offline-files";
 const OFFLINE_FILES_STORE = "attachments";
 
 let offlineDbPromise = null;
+let refreshPromise = null;
 
 const readJsonStorage = (key, fallback) => {
   try {
@@ -22,6 +24,31 @@ const readJsonStorage = (key, fallback) => {
 
 const writeJsonStorage = (key, value) => {
   localStorage.setItem(key, JSON.stringify(value));
+};
+
+const readStorage = (key) => localStorage.getItem(key) || "";
+
+const writeStorage = (key, value) => {
+  if (!value) {
+    localStorage.removeItem(key);
+    return;
+  }
+  localStorage.setItem(key, String(value));
+};
+
+export const readStoredAuthSession = () => ({
+  token: readStorage(AUTH_STORAGE_KEY),
+  refreshToken: readStorage(AUTH_REFRESH_STORAGE_KEY),
+});
+
+export const persistAuthSession = ({ token = "", refreshToken = "" } = {}) => {
+  writeStorage(AUTH_STORAGE_KEY, token);
+  writeStorage(AUTH_REFRESH_STORAGE_KEY, refreshToken);
+};
+
+export const clearAuthSession = () => {
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+  localStorage.removeItem(AUTH_REFRESH_STORAGE_KEY);
 };
 
 const toNumber = (value, fallback = 0) => {
@@ -193,6 +220,66 @@ const withAuth = (token, headers = {}) => {
   };
 };
 
+const resolveAccessToken = (token) => token || readStorage(AUTH_STORAGE_KEY);
+
+const refreshAccessToken = async () => {
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+
+  refreshPromise = (async () => {
+    const refreshToken = readStorage(AUTH_REFRESH_STORAGE_KEY);
+    if (!refreshToken) {
+      return "";
+    }
+
+    try {
+      const response = await fetchWithDiagnostics(`${API_BASE}/api/auth/refresh`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
+      const payload = await parseResponse(response);
+      persistAuthSession({
+        token: payload.token,
+        refreshToken: payload.refreshToken || refreshToken,
+      });
+      return payload.token || "";
+    } catch {
+      clearAuthSession();
+      return "";
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+};
+
+const fetchWithAuthRetry = async (url, options = {}, token = "") => {
+  const initialToken = resolveAccessToken(token);
+  const attempt = await fetchWithDiagnostics(url, {
+    ...options,
+    headers: withAuth(initialToken, options.headers || {}),
+  });
+
+  if (attempt.status !== 401) {
+    return attempt;
+  }
+
+  const refreshedToken = await refreshAccessToken();
+  if (!refreshedToken) {
+    return attempt;
+  }
+
+  return fetchWithDiagnostics(url, {
+    ...options,
+    headers: withAuth(refreshedToken, options.headers || {}),
+  });
+};
+
 export const registerUser = async ({ name, email, password }) => {
   const response = await fetchWithDiagnostics(`${API_BASE}/api/auth/register`, {
     method: "POST",
@@ -201,7 +288,12 @@ export const registerUser = async ({ name, email, password }) => {
     },
     body: JSON.stringify({ name, email, password }),
   });
-  return parseResponse(response);
+  const payload = await parseResponse(response);
+  persistAuthSession({
+    token: payload.token,
+    refreshToken: payload.refreshToken,
+  });
+  return payload;
 };
 
 export const loginUser = async ({ email, password }) => {
@@ -212,54 +304,142 @@ export const loginUser = async ({ email, password }) => {
     },
     body: JSON.stringify({ email, password }),
   });
-  return parseResponse(response);
+  const payload = await parseResponse(response);
+  persistAuthSession({
+    token: payload.token,
+    refreshToken: payload.refreshToken,
+  });
+  return payload;
 };
 
 export const fetchMe = async (token) => {
-  const response = await fetchWithDiagnostics(`${API_BASE}/api/auth/me`, {
-    headers: withAuth(token),
-  });
+  const response = await fetchWithAuthRetry(`${API_BASE}/api/auth/me`, {}, token);
   return parseResponse(response);
 };
 
 export const updateUserSettings = async (token, settingsPayload) => {
-  const response = await fetchWithDiagnostics(`${API_BASE}/api/auth/settings`, {
-    method: "PATCH",
-    headers: withAuth(token, {
-      "Content-Type": "application/json",
-    }),
-    body: JSON.stringify(settingsPayload),
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/auth/settings`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(settingsPayload),
+    },
+    token
+  );
+  return parseResponse(response);
+};
+
+export const createProfile = async (token, profilePayload) => {
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/auth/profiles`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(profilePayload),
+    },
+    token
+  );
+  return parseResponse(response);
+};
+
+export const setActiveProfile = async (token, profileId) => {
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/auth/profiles/active`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ profileId }),
+    },
+    token
+  );
+
+  const payload = await parseResponse(response);
+  persistAuthSession({
+    token: payload.token || token,
+    refreshToken: readStorage(AUTH_REFRESH_STORAGE_KEY),
   });
+  return payload;
+};
+
+export const logoutSession = async ({ token, refreshToken, allSessions = false } = {}) => {
+  if (allSessions && token) {
+    const response = await fetchWithAuthRetry(
+      `${API_BASE}/api/auth/logout`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ allSessions: true }),
+      },
+      token
+    );
+    clearAuthSession();
+    return parseResponse(response);
+  }
+
+  const response = await fetchWithDiagnostics(`${API_BASE}/api/auth/logout`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      refreshToken: refreshToken || readStorage(AUTH_REFRESH_STORAGE_KEY),
+      allSessions: false,
+    }),
+  });
+  clearAuthSession();
   return parseResponse(response);
 };
 
 export const fetchTrades = async (filters, token) => {
-  const response = await fetchWithDiagnostics(`${API_BASE}/api/trades${queryString(filters)}`, {
-    headers: withAuth(token),
-  });
+  const response = await fetchWithAuthRetry(`${API_BASE}/api/trades${queryString(filters)}`, {}, token);
   return parseResponse(response);
 };
 
 export const fetchAnalytics = async (filters, token) => {
-  const response = await fetchWithDiagnostics(`${API_BASE}/api/trades/analytics${queryString(filters)}`, {
-    headers: withAuth(token),
-  });
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/trades/analytics${queryString(filters)}`,
+    {},
+    token
+  );
+  return parseResponse(response);
+};
+
+export const fetchWeeklyReview = async (filters, token) => {
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/trades/review/weekly${queryString(filters)}`,
+    {},
+    token
+  );
   return parseResponse(response);
 };
 
 export const createTrade = async (tradeFormData, token) => {
-  const response = await fetchWithDiagnostics(`${API_BASE}/api/trades`, {
-    method: "POST",
-    headers: withAuth(token),
-    body: tradeFormData,
-  });
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/trades`,
+    {
+      method: "POST",
+      body: tradeFormData,
+    },
+    token
+  );
   return parseResponse(response);
 };
 
 export const exportTradesCsv = async (filters, token) => {
-  const response = await fetchWithDiagnostics(`${API_BASE}/api/trades/export.csv${queryString(filters)}`, {
-    headers: withAuth(token),
-  });
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/trades/export.csv${queryString(filters)}`,
+    {},
+    token
+  );
   return parseResponse(response, { asBlob: true });
 };
 
@@ -267,11 +447,14 @@ export const importTradesCsv = async (file, token) => {
   const data = new FormData();
   data.append("file", file);
 
-  const response = await fetchWithDiagnostics(`${API_BASE}/api/trades/import.csv`, {
-    method: "POST",
-    headers: withAuth(token),
-    body: data,
-  });
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/trades/import.csv`,
+    {
+      method: "POST",
+      body: data,
+    },
+    token
+  );
   return parseResponse(response);
 };
 
@@ -291,6 +474,8 @@ export const readOfflineSnapshot = () => readJsonStorage(OFFLINE_SNAPSHOT_KEY, n
 const normalizeQueuedDraft = (draft = {}) => {
   const pair = String(draft.pair || "").trim().toUpperCase();
   return {
+    profileId: String(draft.profileId || "").trim(),
+    clientTradeId: String(draft.clientTradeId || "").trim(),
     pair,
     tradeDate: toIsoDate(draft.tradeDate),
     session: String(draft.session || "").trim(),
@@ -314,11 +499,15 @@ const normalizeQueuedDraft = (draft = {}) => {
     acceptGuardrailOverride: "true",
     screenshotBeforeName: String(draft.screenshotBeforeName || draft.screenshotBeforeFile?.name || "").trim(),
     screenshotAfterName: String(draft.screenshotAfterName || draft.screenshotAfterFile?.name || "").trim(),
+    screenshotBeforeNote: String(draft.screenshotBeforeNote || "").trim(),
+    screenshotAfterNote: String(draft.screenshotAfterNote || "").trim(),
   };
 };
 
 const buildOfflineDisplayTrade = (id, payload, queuedAt) => ({
   _id: id,
+  profileId: payload.profileId,
+  clientTradeId: payload.clientTradeId,
   pair: payload.pair,
   tradeDate: payload.tradeDate,
   session: payload.session,
@@ -346,12 +535,16 @@ const buildOfflineDisplayTrade = (id, payload, queuedAt) => ({
   screenshots: {
     before: "",
     after: "",
+    beforeNote: payload.screenshotBeforeNote,
+    afterNote: payload.screenshotAfterNote,
   },
   isOfflinePending: true,
   queuedAt,
   offlineMeta: {
     screenshotBeforeName: payload.screenshotBeforeName,
     screenshotAfterName: payload.screenshotAfterName,
+    screenshotBeforeNote: payload.screenshotBeforeNote,
+    screenshotAfterNote: payload.screenshotAfterNote,
   },
 });
 
@@ -418,6 +611,8 @@ export const clearOfflineQueue = async () => {
 const buildQueuedFormData = (payload = {}) => {
   const data = new FormData();
   const fields = [
+    "profileId",
+    "clientTradeId",
     "pair",
     "tradeDate",
     "session",
@@ -438,6 +633,8 @@ const buildQueuedFormData = (payload = {}) => {
     "priceAction",
     "executionReview",
     "emotionalState",
+    "screenshotBeforeNote",
+    "screenshotAfterNote",
     "acceptGuardrailOverride",
   ];
 

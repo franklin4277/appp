@@ -29,6 +29,7 @@ const SettingsPanel = ({ user, token, onUserUpdate, onSaved }) => {
       maxTradesPerSession: user?.settings?.riskControls?.maxTradesPerSession ?? 4,
       cooldownMinutesAfterLoss: user?.settings?.riskControls?.cooldownMinutesAfterLoss ?? 30,
       stopForDayLossRR: user?.settings?.riskControls?.stopForDayLossRR ?? 3,
+      strictChecklistGate: Boolean(user?.settings?.riskControls?.strictChecklistGate),
     }),
     [user]
   );
@@ -71,6 +72,7 @@ const SettingsPanel = ({ user, token, onUserUpdate, onSaved }) => {
           maxTradesPerSession: Number(state.maxTradesPerSession) || 0,
           cooldownMinutesAfterLoss: Number(state.cooldownMinutesAfterLoss) || 0,
           stopForDayLossRR: Number(state.stopForDayLossRR) || 0,
+          strictChecklistGate: state.strictChecklistGate,
         },
       };
 
@@ -147,6 +149,14 @@ const SettingsPanel = ({ user, token, onUserUpdate, onSaved }) => {
             onChange={(event) => onChange("requireRuleAlignment", event.target.checked)}
           />
           Require rule alignment or reason
+        </label>
+        <label className="flex items-center gap-2 text-sm text-textMain md:col-span-2">
+          <input
+            type="checkbox"
+            checked={state.strictChecklistGate}
+            onChange={(event) => onChange("strictChecklistGate", event.target.checked)}
+          />
+          Enforce checklist gate (Asia HL + POC + clean) before save
         </label>
         <label>
           <span className="label">Max trades/session</span>

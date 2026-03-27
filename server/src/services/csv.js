@@ -1,4 +1,6 @@
 const CSV_HEADERS = [
+  "profileId",
+  "clientTradeId",
   "pair",
   "tradeDate",
   "session",
@@ -21,6 +23,8 @@ const CSV_HEADERS = [
   "emotionalState",
   "screenshotBefore",
   "screenshotAfter",
+  "screenshotBeforeNote",
+  "screenshotAfterNote",
 ];
 
 const normalizeValue = (value) => (value === undefined || value === null ? "" : String(value));
@@ -69,6 +73,8 @@ export const buildTradesCsv = (trades = []) => {
 
   trades.forEach((trade) => {
     const row = [
+      trade.profileId,
+      trade.clientTradeId,
       trade.pair,
       trade.tradeDate,
       trade.session,
@@ -91,6 +97,8 @@ export const buildTradesCsv = (trades = []) => {
       trade.notes?.emotionalState,
       trade.screenshots?.before,
       trade.screenshots?.after,
+      trade.screenshots?.beforeNote,
+      trade.screenshots?.afterNote,
     ].map(escapeCell);
 
     lines.push(row.join(","));
@@ -119,4 +127,3 @@ export const parseTradesCsv = (csvText = "") => {
     return row;
   });
 };
-

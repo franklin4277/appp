@@ -1,24 +1,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  AUTH_STORAGE_KEY,
+  clearAuthSession,
   clearOfflineQueue,
+  createProfile,
   fetchAnalytics,
   fetchMe,
   fetchTrades,
   getOfflineQueue,
   isNetworkError,
+  logoutSession,
+  persistAuthSession,
   readOfflineSnapshot,
+  readStoredAuthSession,
   saveOfflineSnapshot,
+  setActiveProfile,
   syncOfflineQueue,
 } from "./api/tradesApi";
 import AuthPanel from "./components/AuthPanel";
 import BehaviorLab from "./components/BehaviorLab";
+import CalendarConsistency from "./components/CalendarConsistency";
 import CoachingSummary from "./components/CoachingSummary";
 import DataTools from "./components/DataTools";
 import DrawdownChart from "./components/DrawdownChart";
 import FiltersBar from "./components/FiltersBar";
 import HeatmapMatrix from "./components/HeatmapMatrix";
 import ProfitCurveChart from "./components/ProfitCurveChart";
+import ScreenshotReplay from "./components/ScreenshotReplay";
 import SessionPerformanceGraph from "./components/SessionPerformanceGraph";
 import SettingsPanel from "./components/SettingsPanel";
 import SetupBreakdown from "./components/SetupBreakdown";
@@ -27,6 +34,8 @@ import StreakTracker from "./components/StreakTracker";
 import TagAnalytics from "./components/TagAnalytics";
 import TradeEntryForm from "./components/TradeEntryForm";
 import TradesTable from "./components/TradesTable";
+import WeeklyReviewReport from "./components/WeeklyReviewReport";
+import { buildLocalDashboardAnalytics } from "./utils/offlineAnalytics";
 
 const emptySummary = {
   totalTrades: 0,
@@ -65,7 +74,6 @@ const emptyAnalytics = {
   },
 };
 
-const readStoredToken = () => localStorage.getItem(AUTH_STORAGE_KEY) || "";
 const PAGES = [
   { key: "dashboard", label: "Dashboard" },
   { key: "journal", label: "Journal" },
@@ -84,6 +92,9 @@ const matchesTypedFilter = (value, filterValue) => {
 };
 
 const matchesTradeFilters = (trade, filters) => {
+  if (filters.profileId && String(trade.profileId || "") !== String(filters.profileId)) {
+    return false;
+  }
   if (!matchesTypedFilter(trade.pair, filters.pair)) {
     return false;
   }
@@ -116,10 +127,13 @@ const formatSyncTime = (value) => {
 };
 
 const App = () => {
+  const storedSession = useMemo(() => readStoredAuthSession(), []);
   const [authLoading, setAuthLoading] = useState(true);
-  const [token, setToken] = useState(() => readStoredToken());
+  const [token, setToken] = useState(() => storedSession.token || "");
+  const [refreshToken, setRefreshToken] = useState(() => storedSession.refreshToken || "");
   const [user, setUser] = useState(null);
   const [filters, setFilters] = useState({
+    profileId: "",
     pair: "",
     session: "",
     setupType: "",
@@ -158,6 +172,12 @@ const App = () => {
   }, []);
 
   useEffect(() => {
+    if (token || refreshToken) {
+      persistAuthSession({ token, refreshToken });
+    }
+  }, [refreshToken, token]);
+
+  useEffect(() => {
     const loadSession = async () => {
       if (!token) {
         setAuthLoading(false);
@@ -167,9 +187,14 @@ const App = () => {
       try {
         const me = await fetchMe(token);
         setUser(me.user);
+        setFilters((prev) => ({
+          ...prev,
+          profileId: me.user?.activeProfileId || prev.profileId,
+        }));
       } catch {
-        localStorage.removeItem(AUTH_STORAGE_KEY);
+        clearAuthSession();
         setToken("");
+        setRefreshToken("");
         setUser(null);
       } finally {
         setAuthLoading(false);
@@ -195,6 +220,13 @@ const App = () => {
 
       const nextTrades = tradesResponse.data || [];
       const nextAnalytics = analyticsResponse || emptyAnalytics;
+      const latestSession = readStoredAuthSession();
+      if (latestSession.token && latestSession.token !== token) {
+        setToken(latestSession.token);
+      }
+      if (latestSession.refreshToken && latestSession.refreshToken !== refreshToken) {
+        setRefreshToken(latestSession.refreshToken);
+      }
 
       setTrades(nextTrades);
       setAnalytics(nextAnalytics);
@@ -226,11 +258,23 @@ const App = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters, token, user]);
+  }, [filters, refreshToken, token, user]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (!user?.activeProfileId) {
+      return;
+    }
+    if (filters.profileId !== user.activeProfileId) {
+      setFilters((prev) => ({
+        ...prev,
+        profileId: user.activeProfileId,
+      }));
+    }
+  }, [filters.profileId, user?.activeProfileId]);
 
   const onFilterChange = (key, value) => {
     setFilters((prev) => ({
@@ -284,6 +328,13 @@ const App = () => {
     try {
       const syncResult = await syncOfflineQueue(token);
       refreshOfflineQueue();
+      const latestSession = readStoredAuthSession();
+      if (latestSession.token && latestSession.token !== token) {
+        setToken(latestSession.token);
+      }
+      if (latestSession.refreshToken && latestSession.refreshToken !== refreshToken) {
+        setRefreshToken(latestSession.refreshToken);
+      }
 
       if (syncResult.synced > 0) {
         await loadData();
@@ -302,7 +353,7 @@ const App = () => {
       syncInFlightRef.current = false;
       setSyncingQueue(false);
     }
-  }, [isOnline, loadData, refreshOfflineQueue, token, user]);
+  }, [isOnline, loadData, refreshOfflineQueue, refreshToken, token, user]);
 
   useEffect(() => {
     syncQueuedData();
@@ -336,19 +387,37 @@ const App = () => {
     }
   };
 
-  const onAuthenticated = ({ token: nextToken, user: nextUser }) => {
-    localStorage.setItem(AUTH_STORAGE_KEY, nextToken);
+  const onAuthenticated = ({ token: nextToken, refreshToken: nextRefreshToken = "", user: nextUser }) => {
     setToken(nextToken);
+    setRefreshToken(nextRefreshToken || refreshToken);
     setUser(nextUser);
+    setFilters((prev) => ({
+      ...prev,
+      profileId: nextUser?.activeProfileId || prev.profileId,
+    }));
     setError("");
     setStatusMessage("");
     refreshOfflineQueue();
   };
 
-  const onLogout = () => {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
+  const onLogout = async () => {
+    try {
+      await logoutSession({ token, refreshToken });
+    } catch {
+      // Best effort logout when network is unavailable.
+    }
+
+    clearAuthSession();
     setToken("");
+    setRefreshToken("");
     setUser(null);
+    setFilters({
+      profileId: "",
+      pair: "",
+      session: "",
+      setupType: "",
+      cleanOnly: false,
+    });
     setTrades([]);
     setOfflineQueue([]);
     setAnalytics(emptyAnalytics);
@@ -362,6 +431,50 @@ const App = () => {
     setShowSettingsPanel(false);
     setSettingsSavedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
     setActivePage("journal");
+  };
+
+  const handleProfileSwitch = async (profileId) => {
+    if (!profileId || profileId === user?.activeProfileId) {
+      return;
+    }
+
+    try {
+      const response = await setActiveProfile(token, profileId);
+      setToken(response.token || token);
+      setUser(response.user);
+      setFilters((prev) => ({
+        ...prev,
+        profileId,
+      }));
+      setStatusMessage(`Switched to profile: ${(response.user?.profiles || []).find((p) => p.id === profileId)?.name || profileId}`);
+      setError("");
+    } catch (switchError) {
+      setError(switchError.message || "Could not switch profile.");
+    }
+  };
+
+  const handleCreateProfile = async () => {
+    const name = window.prompt("New profile name");
+    if (!name || !name.trim()) {
+      return;
+    }
+
+    try {
+      const response = await createProfile(token, {
+        name: name.trim(),
+        description: "",
+        makeActive: true,
+      });
+      setUser(response.user);
+      setFilters((prev) => ({
+        ...prev,
+        profileId: response.user?.activeProfileId || prev.profileId,
+      }));
+      setStatusMessage(`Created profile: ${name.trim()}`);
+      setError("");
+    } catch (createError) {
+      setError(createError.message || "Could not create profile.");
+    }
   };
 
   const handleQuickSave = () => {
@@ -383,23 +496,6 @@ const App = () => {
     setStatusMessage("Trade form reset.");
   };
 
-  const strategySignal = useMemo(() => {
-    if (offlineQueue.length) {
-      return `${offlineQueue.length} trade${offlineQueue.length === 1 ? "" : "s"} queued offline.`;
-    }
-
-    if (!analytics.overview.totalTrades) {
-      return "No data yet. Log your first Asia High/Low reaction.";
-    }
-
-    const bestTag = analytics.tagAnalytics.bestConditions?.[0]?.label;
-    if (bestTag) {
-      return `Best edge so far: ${bestTag}`;
-    }
-
-    return "Keep tagging Acceptance vs Rejection to reveal your edge.";
-  }, [analytics, offlineQueue.length]);
-
   const queuedTrades = useMemo(
     () =>
       offlineQueue
@@ -409,6 +505,28 @@ const App = () => {
   );
 
   const mergedTrades = useMemo(() => [...queuedTrades, ...trades], [queuedTrades, trades]);
+  const localAnalytics = useMemo(() => buildLocalDashboardAnalytics(mergedTrades), [mergedTrades]);
+  const displayAnalytics = useMemo(
+    () => ((!isOnline || offlineQueue.length) ? localAnalytics : analytics || emptyAnalytics),
+    [analytics, isOnline, localAnalytics, offlineQueue.length]
+  );
+
+  const strategySignal = useMemo(() => {
+    if (offlineQueue.length) {
+      return `${offlineQueue.length} trade${offlineQueue.length === 1 ? "" : "s"} queued offline.`;
+    }
+
+    if (!displayAnalytics.overview.totalTrades) {
+      return "No data yet. Log your first Asia High/Low reaction.";
+    }
+
+    const bestTag = displayAnalytics.tagAnalytics.bestConditions?.[0]?.label;
+    if (bestTag) {
+      return `Best edge so far: ${bestTag}`;
+    }
+
+    return "Keep tagging Acceptance vs Rejection to reveal your edge.";
+  }, [displayAnalytics, offlineQueue.length]);
 
   const queueInsights = useMemo(() => {
     if (!offlineQueue.length) {
@@ -464,6 +582,26 @@ const App = () => {
             <aside className="account-mini">
               <p className="text-sm font-semibold">{user.name}</p>
               <p className="text-xs text-textMuted">{user.email}</p>
+              <div className="mt-2 flex gap-2">
+                <select
+                  className="input !h-9 !rounded-full !py-1 text-xs"
+                  value={filters.profileId || user.activeProfileId || ""}
+                  onChange={(event) => handleProfileSwitch(event.target.value)}
+                >
+                  {(user.profiles || []).map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="chip text-textMain transition hover:border-accent"
+                  onClick={handleCreateProfile}
+                >
+                  New profile
+                </button>
+              </div>
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
                 <span className="chip">
                   {loading || syncingQueue ? "Syncing..." : isOnline ? "Online" : "Offline"}
@@ -555,7 +693,10 @@ const App = () => {
                   sessionOptions={user.settings?.options?.sessions || []}
                 />
               </div>
-              <StatCards overview={analytics.overview} cleanOnlyPerformance={analytics.cleanOnlyPerformance} />
+              <StatCards
+                overview={displayAnalytics.overview}
+                cleanOnlyPerformance={displayAnalytics.cleanOnlyPerformance}
+              />
             </section>
           ) : null}
 
@@ -570,6 +711,7 @@ const App = () => {
                 token={token}
                 settings={user.settings}
                 trades={mergedTrades}
+                activeProfileId={filters.profileId}
               />
             </section>
           ) : null}
@@ -580,16 +722,19 @@ const App = () => {
                 <h2>Analytics</h2>
                 <p>Performance</p>
               </div>
-              <StatCards overview={analytics.overview} cleanOnlyPerformance={analytics.cleanOnlyPerformance} />
+              <StatCards
+                overview={displayAnalytics.overview}
+                cleanOnlyPerformance={displayAnalytics.cleanOnlyPerformance}
+              />
               <BehaviorLab trades={mergedTrades} />
-              <StreakTracker streaks={analytics.streaks} />
-              <ProfitCurveChart points={analytics.profitCurve} />
-              <DrawdownChart points={analytics.drawdownCurve} />
-              <SetupBreakdown setupBreakdown={analytics.setupBreakdown} />
+              <StreakTracker streaks={displayAnalytics.streaks} />
+              <ProfitCurveChart points={displayAnalytics.profitCurve} />
+              <DrawdownChart points={displayAnalytics.drawdownCurve} />
+              <SetupBreakdown setupBreakdown={displayAnalytics.setupBreakdown} />
               <TagAnalytics
-                tagAnalytics={analytics.tagAnalytics}
-                cleanOnlyPerformance={analytics.cleanOnlyPerformance}
-                conditionScores={analytics.conditionScores}
+                tagAnalytics={displayAnalytics.tagAnalytics}
+                cleanOnlyPerformance={displayAnalytics.cleanOnlyPerformance}
+                conditionScores={displayAnalytics.conditionScores}
               />
             </section>
           ) : null}
@@ -600,8 +745,11 @@ const App = () => {
                 <h2>Review & Boards</h2>
                 <p>Reflection</p>
               </div>
-              <HeatmapMatrix heatmap={analytics.heatmap} />
-              <CoachingSummary coaching={analytics.coaching} />
+              <CalendarConsistency trades={mergedTrades} />
+              <HeatmapMatrix heatmap={displayAnalytics.heatmap} />
+              <CoachingSummary coaching={displayAnalytics.coaching} />
+              <ScreenshotReplay trades={mergedTrades} />
+              <WeeklyReviewReport token={token} profileId={filters.profileId} />
               <TradesTable trades={mergedTrades} />
             </section>
           ) : null}

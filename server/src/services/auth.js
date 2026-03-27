@@ -24,11 +24,22 @@ const resolveSecret = ({ envKey, fallback = "" }) => {
 
 const resolveAccessSecret = () => resolveSecret({ envKey: "JWT_SECRET", fallback: DEV_SECRET });
 
-const resolveRefreshSecret = () =>
-  resolveSecret({
-    envKey: "JWT_REFRESH_SECRET",
-    fallback: `${resolveAccessSecret()}::refresh`,
-  });
+let warnedRefreshFallback = false;
+const resolveRefreshSecret = () => {
+  const value = toString(process.env.JWT_REFRESH_SECRET);
+  if (value) {
+    return value;
+  }
+
+  const derived = `${resolveAccessSecret()}::refresh`;
+  if (process.env.NODE_ENV === "production" && !warnedRefreshFallback) {
+    warnedRefreshFallback = true;
+    console.warn(
+      "JWT_REFRESH_SECRET is not set in production; deriving refresh secret from JWT_SECRET as fallback."
+    );
+  }
+  return derived;
+};
 
 const parseExpiryToMs = (value, fallbackMs) => {
   const source = toString(value);

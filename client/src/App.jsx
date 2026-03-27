@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   clearAuthSession,
   clearOfflineQueue,
@@ -17,27 +17,28 @@ import {
   syncOfflineQueue,
 } from "./api/tradesApi";
 import AuthPanel from "./components/AuthPanel";
-import AccountSecurityPanel from "./components/AccountSecurityPanel";
-import BehaviorLab from "./components/BehaviorLab";
-import CalendarConsistency from "./components/CalendarConsistency";
-import CoachingSummary from "./components/CoachingSummary";
-import DataTools from "./components/DataTools";
-import DrawdownChart from "./components/DrawdownChart";
-import FiltersBar from "./components/FiltersBar";
-import HeatmapMatrix from "./components/HeatmapMatrix";
-import ProfitCurveChart from "./components/ProfitCurveChart";
-import ScreenshotReplay from "./components/ScreenshotReplay";
-import SessionPerformanceGraph from "./components/SessionPerformanceGraph";
-import SettingsPanel from "./components/SettingsPanel";
 import SharedWeeklyView from "./components/SharedWeeklyView";
-import SetupBreakdown from "./components/SetupBreakdown";
-import StatCards from "./components/StatCards";
-import StreakTracker from "./components/StreakTracker";
-import TagAnalytics from "./components/TagAnalytics";
-import TradeEntryForm from "./components/TradeEntryForm";
-import TradesTable from "./components/TradesTable";
-import WeeklyReviewReport from "./components/WeeklyReviewReport";
 import { buildLocalDashboardAnalytics } from "./utils/offlineAnalytics";
+
+const AccountSecurityPanel = lazy(() => import("./components/AccountSecurityPanel"));
+const BehaviorLab = lazy(() => import("./components/BehaviorLab"));
+const CalendarConsistency = lazy(() => import("./components/CalendarConsistency"));
+const CoachingSummary = lazy(() => import("./components/CoachingSummary"));
+const DataTools = lazy(() => import("./components/DataTools"));
+const DrawdownChart = lazy(() => import("./components/DrawdownChart"));
+const FiltersBar = lazy(() => import("./components/FiltersBar"));
+const HeatmapMatrix = lazy(() => import("./components/HeatmapMatrix"));
+const ProfitCurveChart = lazy(() => import("./components/ProfitCurveChart"));
+const ScreenshotReplay = lazy(() => import("./components/ScreenshotReplay"));
+const SessionPerformanceGraph = lazy(() => import("./components/SessionPerformanceGraph"));
+const SettingsPanel = lazy(() => import("./components/SettingsPanel"));
+const SetupBreakdown = lazy(() => import("./components/SetupBreakdown"));
+const StatCards = lazy(() => import("./components/StatCards"));
+const StreakTracker = lazy(() => import("./components/StreakTracker"));
+const TagAnalytics = lazy(() => import("./components/TagAnalytics"));
+const TradeEntryForm = lazy(() => import("./components/TradeEntryForm"));
+const TradesTable = lazy(() => import("./components/TradesTable"));
+const WeeklyReviewReport = lazy(() => import("./components/WeeklyReviewReport"));
 
 const emptySummary = {
   totalTrades: 0,
@@ -131,6 +132,13 @@ const formatSyncTime = (value) => {
 };
 
 const PAGE_STORAGE_KEY = "trading-journal-active-page";
+const ADVANCED_ANALYTICS_STORAGE_KEY = "trading-journal-advanced-analytics";
+
+const SectionLoader = ({ label = "Loading section..." }) => (
+  <section className="panel animate-riseIn">
+    <p className="text-sm text-textMuted">{label}</p>
+  </section>
+);
 
 const App = () => {
   const sharedToken = useMemo(() => {
@@ -162,6 +170,9 @@ const App = () => {
   const [syncingQueue, setSyncingQueue] = useState(false);
   const [showSettingsPanel, setShowSettingsPanel] = useState(true);
   const [settingsSavedAt, setSettingsSavedAt] = useState("");
+  const [showAdvancedAnalytics, setShowAdvancedAnalytics] = useState(() => {
+    return localStorage.getItem(ADVANCED_ANALYTICS_STORAGE_KEY) === "1";
+  });
   const [activePage, setActivePage] = useState(() => {
     const stored = localStorage.getItem(PAGE_STORAGE_KEY);
     return PAGES.some((page) => page.key === stored) ? stored : "journal";
@@ -312,6 +323,32 @@ const App = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (!token || !user) {
+      return undefined;
+    }
+
+    const preloadNonCriticalChunks = () => {
+      import("./components/StatCards");
+      import("./components/ProfitCurveChart");
+      import("./components/DrawdownChart");
+      import("./components/BehaviorLab");
+      import("./components/TagAnalytics");
+      import("./components/SettingsPanel");
+      import("./components/TradesTable");
+    };
+
+    if ("requestIdleCallback" in window) {
+      const idleId = window.requestIdleCallback(preloadNonCriticalChunks, {
+        timeout: 2500,
+      });
+      return () => window.cancelIdleCallback(idleId);
+    }
+
+    const timerId = window.setTimeout(preloadNonCriticalChunks, 1200);
+    return () => window.clearTimeout(timerId);
+  }, [token, user]);
 
   useEffect(() => {
     if (!user?.activeProfileId) {
@@ -631,6 +668,10 @@ const App = () => {
   }, [activePage]);
 
   useEffect(() => {
+    localStorage.setItem(ADVANCED_ANALYTICS_STORAGE_KEY, showAdvancedAnalytics ? "1" : "0");
+  }, [showAdvancedAnalytics]);
+
+  useEffect(() => {
     const onKeyDown = (event) => {
       if (profileModalOpen && event.key === "Escape") {
         setProfileModalOpen(false);
@@ -754,15 +795,25 @@ const App = () => {
           </div>
 
           {error ? (
-            <p className="mb-4 rounded-md border border-danger/40 bg-danger/10 p-3 text-sm text-danger">{error}</p>
+            <p
+              className="mb-4 rounded-xl border border-danger/40 bg-danger/10 p-3 text-sm text-danger"
+              role="alert"
+              aria-live="assertive"
+            >
+              {error}
+            </p>
           ) : null}
           {statusMessage ? (
-            <p className="mb-4 rounded-md border border-border bg-panelMuted p-3 text-sm text-textMuted">
+            <p
+              className="mb-4 rounded-xl border border-border bg-panelMuted p-3 text-sm text-textMuted"
+              role="status"
+              aria-live="polite"
+            >
               {statusMessage}
             </p>
           ) : null}
           {queueInsights ? (
-            <div className="mb-4 rounded-md border border-border bg-panelMuted p-3 text-sm text-textMuted">
+            <div className="mb-4 rounded-xl border border-border bg-panelMuted p-3 text-sm text-textMuted">
               <p>
                 Queue: {queueInsights.total} pending
                 {queueInsights.failed ? ` | ${queueInsights.failed} need review` : ""}
@@ -770,7 +821,11 @@ const App = () => {
                   ? ` | next retry ${queueInsights.nextRetryLabel}`
                   : ""}
               </p>
-              {queueInsights.firstError ? <p className="mt-1 text-danger">{queueInsights.firstError}</p> : null}
+              {queueInsights.firstError ? (
+                <p className="mt-1 text-danger" role="alert" aria-live="assertive">
+                  {queueInsights.firstError}
+                </p>
+              ) : null}
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
                 <button
                   type="button"
@@ -799,116 +854,142 @@ const App = () => {
           ) : null}
 
           {activePage === "dashboard" ? (
-            <section className="space-y-4">
-              <div className="section-title">
-                <h2>Filters & Session Activity</h2>
-                <p>Preparation</p>
-              </div>
-              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-                <FiltersBar filters={filters} onChange={onFilterChange} options={user.settings?.options} />
-                <SessionPerformanceGraph
-                  trades={mergedTrades}
-                  sessionOptions={user.settings?.options?.sessions || []}
+            <Suspense fallback={<SectionLoader label="Loading dashboard..." />}>
+              <section className="space-y-4">
+                <div className="section-title">
+                  <h2>Filters & Session Activity</h2>
+                  <p>Preparation</p>
+                </div>
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+                  <FiltersBar filters={filters} onChange={onFilterChange} options={user.settings?.options} />
+                  <SessionPerformanceGraph
+                    trades={mergedTrades}
+                    sessionOptions={user.settings?.options?.sessions || []}
+                  />
+                </div>
+                <StatCards
+                  overview={displayAnalytics.overview}
+                  cleanOnlyPerformance={displayAnalytics.cleanOnlyPerformance}
                 />
-              </div>
-              <StatCards
-                overview={displayAnalytics.overview}
-                cleanOnlyPerformance={displayAnalytics.cleanOnlyPerformance}
-              />
-            </section>
+              </section>
+            </Suspense>
           ) : null}
 
           {activePage === "journal" ? (
-            <section className="space-y-4">
-              <div className="section-title">
-                <h2>Trade Entry</h2>
-                <p>Execution</p>
-              </div>
-              <TradeEntryForm
-                onTradeSaved={onTradeSaved}
-                token={token}
-                settings={user.settings}
-                trades={mergedTrades}
-                activeProfileId={filters.profileId}
-              />
-            </section>
+            <Suspense fallback={<SectionLoader label="Loading journal..." />}>
+              <section className="space-y-4">
+                <div className="section-title">
+                  <h2>Trade Entry</h2>
+                  <p>Execution</p>
+                </div>
+                <TradeEntryForm
+                  onTradeSaved={onTradeSaved}
+                  token={token}
+                  settings={user.settings}
+                  trades={mergedTrades}
+                  activeProfileId={filters.profileId}
+                />
+              </section>
+            </Suspense>
           ) : null}
 
           {activePage === "analytics" ? (
-            <section className="space-y-4">
-              <div className="section-title">
-                <h2>Analytics</h2>
-                <p>Performance</p>
-              </div>
-              <StatCards
-                overview={displayAnalytics.overview}
-                cleanOnlyPerformance={displayAnalytics.cleanOnlyPerformance}
-              />
-              <BehaviorLab trades={mergedTrades} />
-              <StreakTracker streaks={displayAnalytics.streaks} />
-              <ProfitCurveChart points={displayAnalytics.profitCurve} />
-              <DrawdownChart points={displayAnalytics.drawdownCurve} />
-              <SetupBreakdown setupBreakdown={displayAnalytics.setupBreakdown} />
-              <TagAnalytics
-                tagAnalytics={displayAnalytics.tagAnalytics}
-                cleanOnlyPerformance={displayAnalytics.cleanOnlyPerformance}
-                conditionScores={displayAnalytics.conditionScores}
-              />
-            </section>
+            <Suspense fallback={<SectionLoader label="Loading analytics..." />}>
+              <section className="space-y-4">
+                <div className="section-title">
+                  <h2>Analytics</h2>
+                  <p>Performance</p>
+                </div>
+                <div className="soft-frame flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm text-textMuted">
+                    Core analytics stay visible. Advanced panels are optional to reduce noise.
+                  </p>
+                  <button
+                    type="button"
+                    className="chip text-textMain transition hover:border-accent"
+                    onClick={() => setShowAdvancedAnalytics((prev) => !prev)}
+                  >
+                    {showAdvancedAnalytics ? "Hide advanced analytics" : "Show advanced analytics"}
+                  </button>
+                </div>
+                <StatCards
+                  overview={displayAnalytics.overview}
+                  cleanOnlyPerformance={displayAnalytics.cleanOnlyPerformance}
+                />
+                <BehaviorLab trades={mergedTrades} />
+                <ProfitCurveChart points={displayAnalytics.profitCurve} />
+                <SetupBreakdown setupBreakdown={displayAnalytics.setupBreakdown} />
+                {showAdvancedAnalytics ? (
+                  <>
+                    <StreakTracker streaks={displayAnalytics.streaks} />
+                    <DrawdownChart points={displayAnalytics.drawdownCurve} />
+                    <TagAnalytics
+                      tagAnalytics={displayAnalytics.tagAnalytics}
+                      cleanOnlyPerformance={displayAnalytics.cleanOnlyPerformance}
+                      conditionScores={displayAnalytics.conditionScores}
+                    />
+                  </>
+                ) : null}
+              </section>
+            </Suspense>
           ) : null}
 
           {activePage === "review" ? (
-            <section className="space-y-4">
-              <div className="section-title">
-                <h2>Review & Boards</h2>
-                <p>Reflection</p>
-              </div>
-              <CalendarConsistency trades={mergedTrades} />
-              <HeatmapMatrix heatmap={displayAnalytics.heatmap} />
-              <CoachingSummary coaching={displayAnalytics.coaching} />
-              <ScreenshotReplay trades={mergedTrades} />
-              <WeeklyReviewReport token={token} profileId={filters.profileId} />
-              <TradesTable trades={mergedTrades} />
-            </section>
+            <Suspense fallback={<SectionLoader label="Loading review..." />}>
+              <section className="space-y-4">
+                <div className="section-title">
+                  <h2>Review & Boards</h2>
+                  <p>Reflection</p>
+                </div>
+                <CalendarConsistency trades={mergedTrades} />
+                <HeatmapMatrix heatmap={displayAnalytics.heatmap} />
+                <CoachingSummary coaching={displayAnalytics.coaching} />
+                <ScreenshotReplay trades={mergedTrades} />
+                <WeeklyReviewReport token={token} profileId={filters.profileId} />
+                <TradesTable trades={mergedTrades} />
+              </section>
+            </Suspense>
           ) : null}
 
           {activePage === "settings" ? (
-            <section className="space-y-4">
-              <div className="section-title">
-                <h2>Settings & Data Tools</h2>
-                <p>Configuration</p>
-              </div>
-              {showSettingsPanel ? (
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-                  <SettingsPanel
-                    user={user}
-                    token={token}
-                    onUserUpdate={setUser}
-                    onSaved={onSettingsSaved}
-                  />
-                  <DataTools token={token} filters={filters} onImported={loadData} />
-                  <AccountSecurityPanel user={user} token={token} onUserUpdate={setUser} />
+            <Suspense fallback={<SectionLoader label="Loading settings..." />}>
+              <section className="space-y-4">
+                <div className="section-title">
+                  <h2>Settings & Data Tools</h2>
+                  <p>Configuration</p>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="soft-frame flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm text-textMuted">
-                      Settings hidden
-                      {settingsSavedAt ? ` after save at ${settingsSavedAt}.` : "."}
-                    </p>
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      onClick={() => setShowSettingsPanel(true)}
-                    >
-                      Change settings
-                    </button>
+                {showSettingsPanel ? (
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+                    <SettingsPanel
+                      user={user}
+                      token={token}
+                      onUserUpdate={setUser}
+                      onSaved={onSettingsSaved}
+                    />
+                    <DataTools token={token} filters={filters} onImported={loadData} />
+                    <AccountSecurityPanel user={user} token={token} onUserUpdate={setUser} />
                   </div>
-                  <AccountSecurityPanel user={user} token={token} onUserUpdate={setUser} />
-                  <DataTools token={token} filters={filters} onImported={loadData} />
-                </div>
-              )}
-            </section>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="soft-frame flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm text-textMuted">
+                        Settings hidden
+                        {settingsSavedAt ? ` after save at ${settingsSavedAt}.` : "."}
+                      </p>
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        onClick={() => setShowSettingsPanel(true)}
+                      >
+                        Change settings
+                      </button>
+                    </div>
+                    <AccountSecurityPanel user={user} token={token} onUserUpdate={setUser} />
+                    <DataTools token={token} filters={filters} onImported={loadData} />
+                  </div>
+                )}
+              </section>
+            </Suspense>
           ) : null}
         </section>
       </section>

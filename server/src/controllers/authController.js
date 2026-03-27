@@ -16,6 +16,7 @@ import {
   verifyRefreshToken,
 } from "../services/auth.js";
 import { sendAlert } from "../services/alerts.js";
+import { isMailerConfigured, sendEmail } from "../services/mailer.js";
 import { trackFailedLoginAttempt } from "../services/security.js";
 
 const normalizeEmail = (value = "") => String(value).trim().toLowerCase();
@@ -64,6 +65,9 @@ const EMAIL_VERIFY_TTL_MS = envDurationToMs(process.env.EMAIL_VERIFY_EXPIRES_IN 
 const TWO_FACTOR_TTL_MS = envDurationToMs(process.env.TWO_FACTOR_EXPIRES_IN || "10m", 10 * 60_000);
 
 const includeDebugSecrets = () => !isProd || process.env.ALLOW_DEBUG_AUTH_SECRETS === "true";
+const appLabel = "The Trading Journal";
+const supportFooter = "If you did not request this, you can ignore this message.";
+const minutesLabel = (milliseconds) => Math.max(1, Math.round(milliseconds / 60_000));
 
 const slugify = (value = "") =>
   String(value || "")
@@ -182,6 +186,60 @@ const createPasswordResetForUser = (user) => {
   return token;
 };
 
+const sendTwoFactorCodeEmail = async ({ user, code }) => {
+  const ttlMinutes = minutesLabel(TWO_FACTOR_TTL_MS);
+  return sendEmail({
+    to: user.email,
+    subject: `${appLabel} login verification code`,
+    text:
+      `${appLabel} two-factor code: ${code}\n\n` +
+      `This code expires in ${ttlMinutes} minutes.\n\n` +
+      `${supportFooter}`,
+    html:
+      `<p>Your <strong>${appLabel}</strong> login verification code is:</p>` +
+      `<h2 style="letter-spacing:2px;">${code}</h2>` +
+      `<p>This code expires in ${ttlMinutes} minutes.</p>` +
+      `<p>${supportFooter}</p>`,
+  });
+};
+
+const sendEmailVerificationTokenEmail = async ({ user, token }) => {
+  const verifyUrlBase = String(process.env.PUBLIC_SHARE_BASE_URL || "").trim().replace(/\/$/, "");
+  const verifyUrl = verifyUrlBase ? `${verifyUrlBase}/verify-email?token=${encodeURIComponent(token)}` : "";
+  return sendEmail({
+    to: user.email,
+    subject: `${appLabel} email verification`,
+    text:
+      `${appLabel} email verification token:\n${token}\n\n` +
+      (verifyUrl ? `Verification link: ${verifyUrl}\n\n` : "") +
+      `${supportFooter}`,
+    html:
+      `<p>Use this verification token:</p><p><strong>${token}</strong></p>` +
+      (verifyUrl ? `<p>Verification link: <a href="${verifyUrl}">${verifyUrl}</a></p>` : "") +
+      `<p>${supportFooter}</p>`,
+  });
+};
+
+const sendPasswordResetTokenEmail = async ({ user, token }) => {
+  const resetUrlBase = String(process.env.PUBLIC_SHARE_BASE_URL || "").trim().replace(/\/$/, "");
+  const resetUrl = resetUrlBase ? `${resetUrlBase}/reset-password?token=${encodeURIComponent(token)}` : "";
+  const ttlMinutes = minutesLabel(PASSWORD_RESET_TTL_MS);
+  return sendEmail({
+    to: user.email,
+    subject: `${appLabel} password reset`,
+    text:
+      `${appLabel} password reset token:\n${token}\n\n` +
+      (resetUrl ? `Reset link: ${resetUrl}\n\n` : "") +
+      `This token expires in ${ttlMinutes} minutes.\n\n` +
+      `${supportFooter}`,
+    html:
+      `<p>Use this password reset token:</p><p><strong>${token}</strong></p>` +
+      (resetUrl ? `<p>Reset link: <a href="${resetUrl}">${resetUrl}</a></p>` : "") +
+      `<p>This token expires in ${ttlMinutes} minutes.</p>` +
+      `<p>${supportFooter}</p>`,
+  });
+};
+
 const dispatchSecurityMessage = ({ level = "info", event, message, details = {} }) => {
   sendAlert({
     level,
@@ -237,6 +295,10 @@ export const register = async (req, res, next) => {
 
     const verificationToken = createEmailVerificationForUser(user);
     await user.save();
+    const verificationMail = await sendEmailVerificationTokenEmail({
+      user,
+      token: verificationToken,
+    });
 
     await recordAudit({
       req,
@@ -253,6 +315,8 @@ export const register = async (req, res, next) => {
       details: {
         email: user.email,
         expiresAt: user.emailVerification?.expiresAt?.toISOString?.() || null,
+        mailSent: verificationMail.sent,
+        mailError: verificationMail.sent ? "" : verificationMail.error,
         debugToken: includeDebugSecrets() ? verificationToken : undefined,
       },
     });
@@ -326,6 +390,18 @@ export const login = async (req, res, next) => {
         challengeAttempts: 0,
         lastChallengeAt: new Date(),
       };
+      const twoFactorMail = await sendTwoFactorCodeEmail({ user, code });
+
+      if (!twoFactorMail.sent && !includeDebugSecrets()) {
+        clearTwoFactorChallenge(user);
+        await user.save();
+        const unavailable = new Error(
+          "2FA email delivery is unavailable. Configure SMTP settings or disable 2FA temporarily."
+        );
+        unavailable.statusCode = 503;
+        throw unavailable;
+      }
+
       await user.save();
 
       await recordAudit({
@@ -342,6 +418,8 @@ export const login = async (req, res, next) => {
         details: {
           email: user.email,
           expiresAt: user.twoFactor.challengeExpiresAt?.toISOString?.() || null,
+          mailSent: twoFactorMail.sent,
+          mailError: twoFactorMail.sent ? "" : twoFactorMail.error,
           debugCode: includeDebugSecrets() ? code : undefined,
         },
       });
@@ -349,7 +427,10 @@ export const login = async (req, res, next) => {
       res.status(202).json({
         requiresTwoFactor: true,
         challengeId,
-        message: "Two-factor verification code required.",
+        message: twoFactorMail.sent
+          ? "Two-factor verification code sent to your email."
+          : "Two-factor verification code generated (debug mode).",
+        delivery: twoFactorMail.sent ? "email" : "debug",
         ...(includeDebugSecrets() ? { debugCode: code } : {}),
       });
       return;
@@ -583,12 +664,20 @@ export const requestPasswordReset = async (req, res, next) => {
 
     const user = await User.findOne({ email });
     let debugToken = "";
+    let mailSent = false;
+    let mailError = "";
 
     if (user) {
       const resetToken = createPasswordResetForUser(user);
       clearTwoFactorChallenge(user);
       await user.save();
       debugToken = resetToken;
+      const resetMail = await sendPasswordResetTokenEmail({
+        user,
+        token: resetToken,
+      });
+      mailSent = resetMail.sent;
+      mailError = resetMail.error || "";
 
       await recordAudit({
         req,
@@ -604,6 +693,8 @@ export const requestPasswordReset = async (req, res, next) => {
         details: {
           email,
           expiresAt: user.passwordReset?.expiresAt?.toISOString?.() || null,
+          mailSent,
+          mailError,
           debugToken: includeDebugSecrets() ? resetToken : undefined,
         },
       });
@@ -611,7 +702,11 @@ export const requestPasswordReset = async (req, res, next) => {
 
     res.json({
       ok: true,
-      message: "If the account exists, reset instructions were generated.",
+      message: user
+        ? mailSent
+          ? "Password reset instructions sent to email."
+          : "Password reset token generated but email delivery failed."
+        : "If the account exists, reset instructions were generated.",
       ...(includeDebugSecrets() && debugToken
         ? {
             debugToken,
@@ -691,6 +786,10 @@ export const requestEmailVerification = async (req, res, next) => {
 
     const verificationToken = createEmailVerificationForUser(user);
     await user.save();
+    const verificationMail = await sendEmailVerificationTokenEmail({
+      user,
+      token: verificationToken,
+    });
 
     await recordAudit({
       req,
@@ -706,13 +805,17 @@ export const requestEmailVerification = async (req, res, next) => {
       details: {
         email: user.email,
         expiresAt: user.emailVerification?.expiresAt?.toISOString?.() || null,
+        mailSent: verificationMail.sent,
+        mailError: verificationMail.sent ? "" : verificationMail.error,
         debugToken: includeDebugSecrets() ? verificationToken : undefined,
       },
     });
 
     res.json({
       ok: true,
-      message: "Verification token generated.",
+      message: verificationMail.sent
+        ? "Verification token sent to email."
+        : "Verification token generated but email delivery failed.",
       ...(includeDebugSecrets()
         ? {
             debugToken: verificationToken,
@@ -773,6 +876,14 @@ export const verifyEmail = async (req, res, next) => {
 
 export const enableTwoFactor = async (req, res, next) => {
   try {
+    if (!isMailerConfigured() && !includeDebugSecrets()) {
+      const error = new Error(
+        "Cannot enable 2FA: SMTP email is not configured. Add SMTP settings first."
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
     const password = String(req.body.password || "");
     if (!password) {
       throw badRequest("Password confirmation is required.");

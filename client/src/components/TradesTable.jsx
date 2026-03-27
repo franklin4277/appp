@@ -3,9 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 const MOBILE_BATCH_SIZE = 60;
 
 const resultStyles = {
-  Win: "text-accent",
-  Loss: "text-danger",
-  BE: "text-textMuted",
+  Win: "border border-accent/50 bg-accent/15 text-textMain",
+  Loss: "border border-danger/50 bg-danger/15 text-danger",
+  BE: "border border-border bg-panel text-textMuted",
 };
 
 const formatDate = (value) =>
@@ -52,7 +52,9 @@ const TradesTable = ({ trades }) => {
                   <p className="text-sm font-semibold">{trade.pair}</p>
                   {trade.isOfflinePending ? <span className="chip">Queued</span> : null}
                 </div>
-                <p className={`text-sm font-semibold ${resultStyles[trade.result]}`}>{trade.result}</p>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${resultStyles[trade.result]}`}>
+                  {trade.result}
+                </span>
               </div>
               <p className="text-xs text-textMuted">{formatDate(trade.tradeDate)}</p>
               <div className="mt-2 flex flex-wrap gap-2 text-xs text-textMuted">
@@ -83,9 +85,9 @@ const TradesTable = ({ trades }) => {
         ) : null}
       </div>
 
-      <div className="hidden overflow-auto md:block">
+      <div className="table-shell hidden overflow-auto md:block">
         <table className="w-full min-w-[760px] border-collapse text-sm">
-          <thead>
+          <thead className="table-head sticky top-0 z-[1]">
             <tr className="border-b border-border text-left text-textMuted">
               <th className="pb-2 pr-2 font-medium">Time</th>
               <th className="pb-2 pr-2 font-medium">Pair</th>
@@ -100,14 +102,18 @@ const TradesTable = ({ trades }) => {
           <tbody>
             {trades.length ? (
               trades.map((trade) => (
-                <tr key={trade._id} className="border-b border-border/60">
+                <tr key={trade._id} className="table-row border-b border-border/60">
                   <td className="py-2 pr-2 text-textMuted">{formatDate(trade.tradeDate)}</td>
                   <td className="py-2 pr-2">{trade.pair}</td>
                   <td className="py-2 pr-2">{trade.session}</td>
                   <td className="py-2 pr-2">
                     {trade.setupType === "Asia Break -> Continuation" ? "Cont." : "Rev."}
                   </td>
-                  <td className={`py-2 pr-2 font-semibold ${resultStyles[trade.result]}`}>{trade.result}</td>
+                  <td className="py-2 pr-2">
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${resultStyles[trade.result]}`}>
+                      {trade.result}
+                    </span>
+                  </td>
                   <td className="py-2 pr-2">{trade.rrAchieved}</td>
                   <td className="py-2 pr-2 text-xs text-textMuted">
                     {trade.isOfflinePending ? "Queued | " : ""}

@@ -15,12 +15,15 @@ const SetupBreakdown = ({ setupBreakdown }) => {
       <h3 className="mb-3 text-sm font-semibold">Setup Breakdown</h3>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {rows.map((row) => (
-          <article key={row.title} className="rounded-lg border border-border bg-panelMuted p-3">
+          <article key={row.title} className="rounded-xl border border-border bg-panelMuted p-3">
             <p className="text-xs uppercase tracking-wide text-textMuted">{row.title}</p>
-            <p className="mt-1 text-xl font-semibold">{row.data.winRate}% win</p>
+            <p className="mt-1 text-xl font-semibold text-textMain">{row.data.winRate}% win</p>
             <p className="text-sm text-textMuted">
               {row.data.totalTrades} trades | Avg RR {row.data.averageRR}
             </p>
+            <div className="metric-track" role="presentation" aria-hidden="true">
+              <div className="metric-fill" style={{ width: `${Math.max(2, row.data.winRate || 0)}%` }} />
+            </div>
           </article>
         ))}
       </div>

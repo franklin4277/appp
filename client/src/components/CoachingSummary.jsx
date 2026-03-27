@@ -1,7 +1,7 @@
 import SectionEmptyState from "./SectionEmptyState";
 
 const SummaryCard = ({ title, block, caption }) => (
-  <article className="rounded-md border border-border bg-panelMuted p-3">
+  <article className="rounded-xl border border-border bg-panelMuted p-3">
     <p className="text-xs uppercase tracking-wide text-textMuted">{title}</p>
     <p className="mt-1 text-sm text-textMuted">{caption}</p>
     <p className="mt-2 text-sm text-textMain">
@@ -35,7 +35,7 @@ const SummaryCard = ({ title, block, caption }) => (
       )}
     </div>
 
-    <p className="mt-2 rounded-md border border-border bg-panel px-2 py-1 text-xs text-textMain">{block.focus}</p>
+    <p className="mt-2 rounded-xl border border-border bg-panel px-2 py-1 text-xs text-textMain">{block.focus}</p>
   </article>
 );
 

@@ -89,15 +89,21 @@ const FiltersBar = ({ filters, onChange, options = {} }) => {
           </div>
         </label>
 
-        <label className="flex min-h-[72px] items-center rounded-md border border-border bg-panelMuted px-3 text-sm text-textMain">
-          <input
-            type="checkbox"
-            className="mr-2"
-            checked={filters.cleanOnly}
-            onChange={(event) => onChange("cleanOnly", event.target.checked)}
-          />
+        <button
+          type="button"
+          className={`flex min-h-[72px] items-center rounded-xl border px-3 text-sm transition ${
+            filters.cleanOnly
+              ? "border-accent bg-accent/20 text-textMain"
+              : "border-border bg-panelMuted text-textMuted hover:border-accent"
+          }`}
+          onClick={() => onChange("cleanOnly", !filters.cleanOnly)}
+          aria-pressed={filters.cleanOnly}
+        >
+          <span className="mr-2 inline-flex h-4 w-4 items-center justify-center rounded-sm border border-border text-[10px]">
+            {filters.cleanOnly ? "A" : ""}
+          </span>
           A+ setups only
-        </label>
+        </button>
       </div>
     </section>
   );

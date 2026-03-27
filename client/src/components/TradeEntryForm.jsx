@@ -125,7 +125,7 @@ const ScreenshotField = ({ label, file, note, onFileChange, onNoteChange }) => {
     <div className="space-y-2">
       <span className="label">{label}</span>
       <div
-        className={`rounded-md border p-3 text-xs transition ${
+        className={`rounded-xl border p-3 text-xs transition ${
           dragOver ? "border-accent bg-panel" : "border-border bg-panelMuted"
         }`}
         onDragOver={(event) => {
@@ -811,7 +811,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
           </div>
         </div>
 
-        <div className="rounded-md border border-border bg-panelMuted p-2 text-xs text-textMuted">
+        <div className="rounded-xl border border-border bg-panelMuted p-2 text-xs text-textMuted">
           <p className="font-medium text-textMain">{qualityAssessment.tip}</p>
           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-panel">
             <div
@@ -825,7 +825,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
         </div>
 
         {savedDraft?.savedAt ? (
-          <div className="rounded-md border border-border bg-panelMuted p-2 text-xs text-textMuted">
+          <div className="rounded-xl border border-border bg-panelMuted p-2 text-xs text-textMuted">
             <p>
               Draft available from {new Date(savedDraft.savedAt).toLocaleString([], { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" })}.
             </p>
@@ -849,21 +849,21 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
         ) : null}
 
         {preTradeAlerts.length ? (
-          <div className="rounded-md border border-danger/40 bg-danger/10 p-2 text-xs text-danger">
+          <div className="rounded-xl border border-danger/40 bg-danger/10 p-2 text-xs text-danger">
             {preTradeAlerts.map((alert) => (
               <p key={alert}>{alert}</p>
             ))}
           </div>
         ) : null}
 
-        <div className="rounded-md border border-border bg-panelMuted p-2 text-xs text-textMuted">
+        <div className="rounded-xl border border-border bg-panelMuted p-2 text-xs text-textMuted">
           Coach:
           {" "}
           {qualityAssessment.grade === "A+" || qualityAssessment.grade === "A"
             ? "A-grade setup. Keep execution clean and stick to your plan."
             : "Wait for cleaner context if this setup is not fully aligned."}
         </div>
-        <div className="rounded-md border border-border bg-panelMuted p-2 text-xs text-textMuted">
+        <div className="rounded-xl border border-border bg-panelMuted p-2 text-xs text-textMuted">
           Guardrails:
           {" "}
           Max/session {activeRiskControls.maxTradesPerSession}
@@ -1069,7 +1069,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
           <input className="input" readOnly value={achievedRR} />
         </Field>
 
-        <div className="col-span-full rounded-md border border-border bg-panelMuted p-3">
+        <div className="col-span-full rounded-xl border border-border bg-panelMuted p-3">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs font-medium uppercase tracking-wide text-textMuted">Lot Size (Optional)</span>
             <label className="flex items-center gap-2 text-xs text-textMuted">
@@ -1118,7 +1118,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
           </div>
         </div>
 
-        <div className="col-span-full rounded-md border border-border bg-panelMuted p-3">
+        <div className="col-span-full rounded-xl border border-border bg-panelMuted p-3">
           <h3 className="mb-2 text-sm font-semibold">Strategy Tags</h3>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <Field label="Asia High/Low Used">
@@ -1185,7 +1185,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
           ) : null}
         </div>
 
-        <div className="col-span-full rounded-md border border-border bg-panelMuted p-3">
+        <div className="col-span-full rounded-xl border border-border bg-panelMuted p-3">
           <h3 className="mb-2 text-sm font-semibold">Notes</h3>
           <div className="grid grid-cols-1 gap-3">
             <Field label="What did price do?">
@@ -1231,7 +1231,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
         </div>
 
         {checklistWarnings.length ? (
-          <div className="col-span-full rounded-md border border-danger/40 bg-danger/10 p-3">
+          <div className="col-span-full rounded-xl border border-danger/40 bg-danger/10 p-3">
             <p className="text-xs uppercase tracking-wide text-danger">Checklist Gate</p>
             <ul className="mt-2 list-disc pl-4 text-sm text-danger">
               {checklistWarnings.map((warning) => (
@@ -1250,7 +1250,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
         ) : null}
 
         {guardrailWarnings.length ? (
-          <div className="col-span-full rounded-md border border-border bg-panelMuted p-3">
+          <div className="col-span-full rounded-xl border border-border bg-panelMuted p-3">
             <p className="text-xs uppercase tracking-wide text-textMuted">Guardrail warnings</p>
             <ul className="mt-2 list-disc pl-4 text-sm text-textMain">
               {guardrailWarnings.map((warning) => (
@@ -1269,12 +1269,12 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
         ) : null}
 
         {error ? (
-          <p className="col-span-full rounded-md border border-danger/40 bg-danger/10 p-2 text-sm text-danger">
+          <p className="col-span-full rounded-xl border border-danger/40 bg-danger/10 p-2 text-sm text-danger">
             {error}
           </p>
         ) : null}
         {successWarning ? (
-          <p className="col-span-full rounded-md border border-border bg-panelMuted p-2 text-sm text-textMuted">
+          <p className="col-span-full rounded-xl border border-border bg-panelMuted p-2 text-sm text-textMuted">
             {successWarning}
           </p>
         ) : null}

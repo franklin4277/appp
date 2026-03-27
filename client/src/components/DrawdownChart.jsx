@@ -49,8 +49,8 @@ const DrawdownChart = ({ points = [] }) => {
         <span className="chip">Worst {worst}</span>
       </div>
       <svg className="h-44 w-full sm:h-48" viewBox={`0 0 ${width} ${height}`}>
-        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#25344f" />
-        <polyline fill="none" stroke="#6a7f9d" strokeWidth="2.2" points={polyline} />
+        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#304463" />
+        <polyline fill="none" stroke="#d7898f" strokeWidth="2.2" points={polyline} />
       </svg>
       <p className="mt-2 text-xs text-textMuted">Closer to 0 is healthier. Deeper negatives indicate larger drawdowns.</p>
     </section>

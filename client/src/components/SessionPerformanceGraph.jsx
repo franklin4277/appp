@@ -53,7 +53,7 @@ const SessionPerformanceGraph = ({ trades, sessionOptions = [] }) => {
       </div>
 
       <svg className="h-40 w-full" viewBox={`0 0 ${chartWidth} 160`} preserveAspectRatio="xMidYMid meet">
-        <line x1="30" y1={baseY} x2={chartWidth - 30} y2={baseY} stroke="#25344f" strokeWidth="1" />
+        <line x1="30" y1={baseY} x2={chartWidth - 30} y2={baseY} stroke="#304463" strokeWidth="1" />
         {fallbackSessions.map((session, index) => {
           const x = 44 + index * (barWidth + gap);
           const sessionData = sessions[session] || { total: 0, winRate: 0, avgRR: 0 };
@@ -62,8 +62,8 @@ const SessionPerformanceGraph = ({ trades, sessionOptions = [] }) => {
 
           return (
             <g key={session}>
-              <rect x={x} y={y} width={barWidth} height={barHeight} rx="8" fill="#314667" />
-              <rect x={x} y={y} width={barWidth} height="6" rx="6" fill="#415777" />
+              <rect x={x} y={y} width={barWidth} height={barHeight} rx="10" fill="#4f658b" />
+              <rect x={x} y={y} width={barWidth} height="7" rx="7" fill="#8aa0c4" />
               <text x={x + barWidth / 2} y="150" textAnchor="middle" fill="#9fb0ca" fontSize="11">
                 {session}
               </text>
@@ -77,7 +77,7 @@ const SessionPerformanceGraph = ({ trades, sessionOptions = [] }) => {
 
       <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
         {fallbackSessions.map((session) => (
-          <div key={session} className="rounded-md border border-border bg-panelMuted px-3 py-2 text-xs">
+          <div key={session} className="rounded-xl border border-border bg-panelMuted px-3 py-2 text-xs">
             <p className="text-textMuted">{session}</p>
             <p className="mt-1 text-textMain">
               Win {sessions[session]?.winRate || 0}% | Avg RR {sessions[session]?.avgRR || 0}

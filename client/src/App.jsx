@@ -712,7 +712,7 @@ const App = () => {
                 <span className="chip">
                   {loading || syncingQueue ? "Syncing..." : isOnline ? "Online" : "Offline"}
                 </span>
-                <span className="chip">Alt+1..5 pages</span>
+                <span className="chip hidden sm:inline-flex">Alt+1..5 pages</span>
                 {offlineQueue.length ? (
                   <span className="chip">{offlineQueue.length} queued</span>
                 ) : null}

@@ -59,12 +59,12 @@ const ProfitCurveChart = ({ points }) => {
           y1={height - padding}
           x2={width - padding}
           y2={height - padding}
-          stroke="#25344f"
+          stroke="#304463"
           strokeWidth="1"
         />
-        <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#25344f" strokeWidth="1" />
-        <polyline fill="none" stroke="#7391be" strokeWidth="2.5" points={polyline} />
-        <circle cx={lastX} cy={lastY} r="3.2" fill="#9fb0ca" />
+        <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#304463" strokeWidth="1" />
+        <polyline fill="none" stroke="#89a6ce" strokeWidth="2.5" points={polyline} />
+        <circle cx={lastX} cy={lastY} r="3.2" fill="#d4e0f5" />
       </svg>
 
       <div className="mt-2 flex justify-between text-xs text-textMuted">

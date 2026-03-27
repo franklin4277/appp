@@ -161,6 +161,40 @@ body::before {
   font-weight: 600;
 }
 
+.top-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.brand-block {
+  display: flex;
+  align-items: center;
+  gap: 0.78rem;
+}
+
+.brand-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: rgba(15, 23, 40, 0.75);
+  box-shadow: 0 8px 20px rgba(6, 10, 24, 0.35);
+}
+
+.brand-title {
+  font-size: clamp(1.25rem, 1.6vw, 1.8rem);
+  line-height: 1.05;
+}
+
+.hero-sub {
+  margin: 0.2rem 0 0;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+
 .dashboard-frame {
   border-radius: 20px;
   border: 1px solid var(--line);
@@ -275,6 +309,14 @@ body::before {
   background: linear-gradient(180deg, rgba(53, 75, 108, 0.9), rgba(41, 59, 86, 0.9)) !important;
 }
 
+.account-mini {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.62rem 0.72rem;
+  background: rgba(17, 27, 46, 0.85);
+  min-width: 235px;
+}
+
 @media (min-width: 900px) {
   .hero-grid {
     grid-template-columns: 1fr auto;
@@ -331,6 +373,26 @@ body::before {
   .hero-meta {
     font-size: 0.6rem;
     letter-spacing: 0.08em;
+  }
+
+  .brand-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .brand-title {
+    font-size: 1.22rem;
+  }
+
+  .hero-sub {
+    font-size: 0.76rem;
+  }
+
+  .account-mini {
+    width: 100%;
+    min-width: 0;
+    margin-top: 0.15rem;
   }
 
   .panel {

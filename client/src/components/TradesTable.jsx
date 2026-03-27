@@ -26,7 +26,10 @@ const TradesTable = ({ trades }) => {
           trades.map((trade) => (
             <article key={trade._id} className="mobile-card">
               <div className="mb-1 flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold">{trade.pair}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold">{trade.pair}</p>
+                  {trade.isOfflinePending ? <span className="chip">Queued</span> : null}
+                </div>
                 <p className={`text-sm font-semibold ${resultStyles[trade.result]}`}>{trade.result}</p>
               </div>
               <p className="text-xs text-textMuted">{formatDate(trade.tradeDate)}</p>
@@ -76,6 +79,7 @@ const TradesTable = ({ trades }) => {
                   <td className={`py-2 pr-2 font-semibold ${resultStyles[trade.result]}`}>{trade.result}</td>
                   <td className="py-2 pr-2">{trade.rrAchieved}</td>
                   <td className="py-2 pr-2 text-xs text-textMuted">
+                    {trade.isOfflinePending ? "Queued | " : ""}
                     {trade.tags.cleanSetup ? "A+ " : ""}
                     {trade.tags.pocOutcome || "No POC"}
                   </td>

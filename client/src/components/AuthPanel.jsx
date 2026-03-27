@@ -33,8 +33,13 @@ const AuthPanel = ({ onAuthenticated }) => {
       <section className="journal-shell app-journal w-full max-w-4xl p-0 sm:p-4 md:p-6">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-[1.1fr_0.9fr]">
           <aside className="panel animate-riseIn">
-            <p className="section-kicker">Welcome Back</p>
-            <h1 className="hero-title mt-1">The Trading Journal</h1>
+            <div className="brand-block">
+              <img src="/pwa-192x192.png" alt="Trading Journal logo" className="brand-logo" />
+              <div>
+                <p className="section-kicker">Welcome Back</p>
+                <h1 className="hero-title brand-title mt-1">The Trading Journal</h1>
+              </div>
+            </div>
             <p className="hero-meta">PERSONAL ACCOUNT | PRIVATE DATA | RULE-BASED EXECUTION</p>
             <p className="mt-3 text-sm text-textMuted">
               Keep your process consistent, protect your edge, and review behavior patterns with a clean

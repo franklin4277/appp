@@ -4,7 +4,7 @@ import App from "./App.jsx";
 import "./styles/index.css";
 import { registerSW } from "virtual:pwa-register";
 
-const shouldEnablePwa = import.meta.env.VITE_ENABLE_PWA === "true";
+const shouldEnablePwa = import.meta.env.VITE_ENABLE_PWA !== "false";
 
 if ("serviceWorker" in navigator) {
   if (shouldEnablePwa) {

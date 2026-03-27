@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createTrade } from "../api/tradesApi";
+import { createTrade, isNetworkError, queueTradeOffline } from "../api/tradesApi";
 import { POC_OUTCOMES, PAIRS, RESULTS, SESSIONS, SETUP_TYPES, TRADE_TYPES } from "../utils/options";
 import { calculateAchievedRR, calculateLotSize, calculatePlannedRR, round } from "../utils/tradeMath";
 
@@ -183,36 +183,73 @@ const TradeEntryForm = ({ onTradeSaved, token, settings }) => {
     }));
   };
 
-  const buildPayload = (acceptGuardrailOverride = false) => {
-    const data = new FormData();
-    data.append("pair", form.pair);
-    data.append(
-      "tradeDate",
-      form.tradeDate ? new Date(form.tradeDate).toISOString() : new Date().toISOString()
-    );
-    data.append("session", form.session);
-    data.append("tradeType", form.tradeType);
-    data.append("setupType", form.setupType);
-    data.append("entryPrice", form.entryPrice);
-    data.append("stopLoss", form.stopLoss);
-    data.append("takeProfit", form.takeProfit);
-    data.append("riskPercent", form.riskPercent);
-    data.append("result", form.result);
-    data.append("rrAchieved", String(achievedRR));
-    data.append("asiaHighLowUsed", form.asiaHighLowUsed);
-    data.append("pocInteraction", form.pocInteraction);
-    data.append("pocOutcome", form.pocInteraction === "true" ? form.pocOutcome : "");
-    data.append("cleanSetup", String(form.cleanSetup));
-    data.append("ruleBreakReason", form.ruleBreakReason);
-    data.append("priceAction", form.priceAction);
-    data.append("executionReview", form.executionReview);
-    data.append("emotionalState", form.emotionalState);
-    data.append("acceptGuardrailOverride", String(acceptGuardrailOverride));
+  const resetTradeForm = () => {
+    setForm((prev) => ({
+      ...prev,
+      tradeDate: localNow(),
+      entryPrice: "",
+      stopLoss: "",
+      takeProfit: "",
+      result: optionLists.results[0] || "Win",
+      lotSize: "",
+      ruleBreakReason: "",
+      priceAction: "",
+      executionReview: "",
+      emotionalState: "",
+      screenshotBefore: null,
+      screenshotAfter: null,
+    }));
 
-    const lotSizeToSave = autoLotSize ? computedLotSize : Number(form.lotSize || 0);
-    if (lotSizeToSave > 0) {
-      data.append("lotSize", String(round(lotSizeToSave, 2)));
+    if (formRef.current) {
+      formRef.current.reset();
     }
+  };
+
+  const buildTradePayload = (acceptGuardrailOverride = false) => {
+    const lotSizeToSave = autoLotSize ? computedLotSize : Number(form.lotSize || 0);
+
+    return {
+      pair: form.pair,
+      tradeDate: form.tradeDate ? new Date(form.tradeDate).toISOString() : new Date().toISOString(),
+      session: form.session,
+      tradeType: form.tradeType,
+      setupType: form.setupType,
+      entryPrice: form.entryPrice,
+      stopLoss: form.stopLoss,
+      takeProfit: form.takeProfit,
+      riskPercent: form.riskPercent,
+      lotSize: lotSizeToSave > 0 ? String(round(lotSizeToSave, 2)) : "",
+      result: form.result,
+      rrAchieved: String(achievedRR),
+      asiaHighLowUsed: form.asiaHighLowUsed,
+      pocInteraction: form.pocInteraction,
+      pocOutcome: form.pocInteraction === "true" ? form.pocOutcome : "",
+      cleanSetup: String(form.cleanSetup),
+      ruleBreakReason: form.ruleBreakReason,
+      priceAction: form.priceAction,
+      executionReview: form.executionReview,
+      emotionalState: form.emotionalState,
+      acceptGuardrailOverride: String(acceptGuardrailOverride),
+      screenshotBeforeName: form.screenshotBefore?.name || "",
+      screenshotAfterName: form.screenshotAfter?.name || "",
+    };
+  };
+
+  const buildPayload = (acceptGuardrailOverride = false) => {
+    const tradePayload = buildTradePayload(acceptGuardrailOverride);
+    const data = new FormData();
+
+    Object.entries(tradePayload).forEach(([field, value]) => {
+      if (field.endsWith("Name")) {
+        return;
+      }
+
+      if (value === undefined || value === null) {
+        return;
+      }
+
+      data.append(field, value);
+    });
 
     if (form.screenshotBefore) {
       data.append("screenshotBefore", form.screenshotBefore);
@@ -231,7 +268,10 @@ const TradeEntryForm = ({ onTradeSaved, token, settings }) => {
     try {
       const payload = buildPayload(acceptGuardrailOverride);
       const savedTrade = await createTrade(payload, token);
-      onTradeSaved(savedTrade);
+      onTradeSaved({
+        mode: "online",
+        trade: savedTrade,
+      });
 
       const warnings = savedTrade?.guardrails?.warnings || [];
       if (warnings.length) {
@@ -241,29 +281,32 @@ const TradeEntryForm = ({ onTradeSaved, token, settings }) => {
       }
 
       setGuardrailWarnings([]);
-      setForm((prev) => ({
-        ...prev,
-        tradeDate: localNow(),
-        entryPrice: "",
-        stopLoss: "",
-        takeProfit: "",
-        result: optionLists.results[0] || "Win",
-        lotSize: "",
-        ruleBreakReason: "",
-        priceAction: "",
-        executionReview: "",
-        emotionalState: "",
-        screenshotBefore: null,
-        screenshotAfter: null,
-      }));
-      if (formRef.current) {
-        formRef.current.reset();
-      }
+      resetTradeForm();
     } catch (submitError) {
       if (submitError.code === "GUARDRAIL_CONFIRMATION_REQUIRED") {
         const warnings = submitError.payload?.guardrails?.warnings || [];
         setGuardrailWarnings(warnings);
         setError("Guardrail warning detected. Review and confirm to save this trade.");
+      } else if (isNetworkError(submitError) || !navigator.onLine) {
+        const tradePayload = buildTradePayload(true);
+        const queuedTrade = queueTradeOffline({
+          ...tradePayload,
+          asiaHighLowUsed: tradePayload.asiaHighLowUsed === "true",
+          pocInteraction: tradePayload.pocInteraction === "true",
+          cleanSetup: tradePayload.cleanSetup === "true",
+        });
+
+        onTradeSaved({
+          mode: "offline",
+          trade: queuedTrade.displayTrade,
+        });
+
+        setGuardrailWarnings([]);
+        setError("");
+        setSuccessWarning(
+          "Saved offline. It will sync automatically when internet returns. Screenshots need re-upload after sync."
+        );
+        resetTradeForm();
       } else {
         setError(submitError.message);
       }

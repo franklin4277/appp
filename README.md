@@ -107,6 +107,8 @@ npm test
 - `POST /api/auth/password-reset/request`
 - `POST /api/auth/password-reset/confirm`
 - `POST /api/auth/email-verification/verify`
+- `GET /api/auth/email-delivery/status`
+- `POST /api/auth/email-delivery/test`
 - `GET /api/auth/me`
 - `PATCH /api/auth/settings`
 - `POST /api/auth/email-verification/request`

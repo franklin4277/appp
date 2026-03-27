@@ -2,7 +2,9 @@ import { useState } from "react";
 import {
   disableTwoFactorAuth,
   enableTwoFactorAuth,
+  fetchEmailDeliveryStatus,
   requestEmailVerification,
+  sendEmailDeliveryTest,
   verifyEmailToken,
 } from "../api/tradesApi";
 
@@ -14,6 +16,8 @@ const AccountSecurityPanel = ({ user, token, onUserUpdate }) => {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [debugToken, setDebugToken] = useState("");
   const [deliveryHint, setDeliveryHint] = useState("");
+  const [testEmail, setTestEmail] = useState("");
+  const [smtpInfo, setSmtpInfo] = useState(null);
 
   const resetFeedback = () => {
     setError("");
@@ -32,6 +36,43 @@ const AccountSecurityPanel = ({ user, token, onUserUpdate }) => {
       setDeliveryHint(payload.delivery?.hint || "");
       if (!payload.delivery?.sent && payload.delivery?.error) {
         setError(payload.delivery.error);
+      }
+    } catch (actionError) {
+      setError(actionError.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleCheckEmailDelivery = async () => {
+    setBusy(true);
+    resetFeedback();
+    try {
+      const payload = await fetchEmailDeliveryStatus(token);
+      setSmtpInfo(payload.mailer || null);
+      if (payload.mailer?.configured) {
+        setMessage("SMTP mailer is configured.");
+      } else {
+        setError("SMTP mailer is not fully configured.");
+      }
+    } catch (actionError) {
+      setError(actionError.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    setBusy(true);
+    resetFeedback();
+    try {
+      const payload = await sendEmailDeliveryTest(token, testEmail || user?.email || "");
+      setSmtpInfo(payload.mailer || null);
+      if (payload.delivery?.sent) {
+        setMessage(`Test email sent to ${payload.recipient}.`);
+      } else {
+        setError(payload.delivery?.error || "Test email failed.");
+        setDeliveryHint(payload.delivery?.hint || "");
       }
     } catch (actionError) {
       setError(actionError.message);
@@ -96,6 +137,45 @@ const AccountSecurityPanel = ({ user, token, onUserUpdate }) => {
           <p className="text-textMain">
             Email status: <span className="font-medium">{user?.emailVerified ? "Verified" : "Not verified"}</span>
           </p>
+          <div className="mt-2 space-y-2">
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="chip text-textMain transition hover:border-accent"
+                onClick={handleCheckEmailDelivery}
+                disabled={busy}
+              >
+                {busy ? "Checking..." : "Check SMTP"}
+              </button>
+              <button
+                type="button"
+                className="chip text-textMain transition hover:border-accent"
+                onClick={handleSendTestEmail}
+                disabled={busy}
+              >
+                {busy ? "Sending..." : "Send test email"}
+              </button>
+            </div>
+            <input
+              className="input !h-9 text-sm"
+              value={testEmail}
+              onChange={(event) => setTestEmail(event.target.value)}
+              placeholder="Test email (optional)"
+            />
+            {smtpInfo ? (
+              <div className="rounded-md border border-border/70 bg-panel p-2 text-xs">
+                <p>
+                  SMTP: {smtpInfo.configured ? "Configured" : "Not configured"} | Host: {smtpInfo.host || "-"} | Port:{" "}
+                  {smtpInfo.port || "-"}
+                </p>
+                <p>
+                  Secure: {smtpInfo.secure ? "true" : "false"} | Require TLS:{" "}
+                  {smtpInfo.requireTls ? "true" : "false"} | From: {smtpInfo.from || "-"}
+                </p>
+              </div>
+            ) : null}
+          </div>
+
           {!user?.emailVerified ? (
             <div className="mt-2 space-y-2">
               <button

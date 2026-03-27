@@ -4,6 +4,7 @@ import {
   createProfile,
   disableTwoFactor,
   enableTwoFactor,
+  getEmailDeliveryStatus,
   getMe,
   login,
   logout,
@@ -12,6 +13,7 @@ import {
   requestPasswordReset,
   refreshSession,
   register,
+  sendEmailDeliveryTest,
   verifyEmail,
   verifyTwoFactorLogin,
   setActiveProfile,
@@ -70,6 +72,8 @@ router.patch("/settings", requireAuth, updateSettings);
 router.post("/profiles", requireAuth, createProfile);
 router.patch("/profiles/active", requireAuth, setActiveProfile);
 router.post("/email-verification/request", requireAuth, recoveryLimiter, requestEmailVerification);
+router.get("/email-delivery/status", requireAuth, getEmailDeliveryStatus);
+router.post("/email-delivery/test", requireAuth, recoveryLimiter, sendEmailDeliveryTest);
 router.post("/2fa/enable", requireAuth, authLimiter, enableTwoFactor);
 router.post("/2fa/disable", requireAuth, authLimiter, disableTwoFactor);
 

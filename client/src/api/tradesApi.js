@@ -432,6 +432,28 @@ export const requestEmailVerification = async (token) => {
   return parseResponse(response);
 };
 
+export const fetchEmailDeliveryStatus = async (token) => {
+  const response = await fetchWithAuthRetry(`${API_BASE}/api/auth/email-delivery/status`, {}, token);
+  return parseResponse(response);
+};
+
+export const sendEmailDeliveryTest = async (token, email = "") => {
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/auth/email-delivery/test`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: String(email || "").trim(),
+      }),
+    },
+    token
+  );
+  return parseResponse(response);
+};
+
 export const verifyEmailToken = async ({ token }) => {
   const response = await fetchWithDiagnostics(`${API_BASE}/api/auth/email-verification/verify`, {
     method: "POST",

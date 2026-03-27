@@ -16,7 +16,7 @@ import {
   verifyRefreshToken,
 } from "../services/auth.js";
 import { sendAlert } from "../services/alerts.js";
-import { isMailerConfigured, sendEmail } from "../services/mailer.js";
+import { getMailerDiagnostics, isMailerConfigured, sendEmail } from "../services/mailer.js";
 import { trackFailedLoginAttempt } from "../services/security.js";
 
 const normalizeEmail = (value = "") => String(value).trim().toLowerCase();
@@ -850,6 +850,65 @@ export const requestEmailVerification = async (req, res, next) => {
             debugToken: verificationToken,
           }
         : {}),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getEmailDeliveryStatus = async (_req, res, next) => {
+  try {
+    res.json({
+      ok: true,
+      mailer: getMailerDiagnostics(),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const sendEmailDeliveryTest = async (req, res, next) => {
+  try {
+    const recipient = normalizeEmail(req.body.email || req.user?.email || "");
+    if (!recipient) {
+      throw badRequest("Recipient email is required.");
+    }
+
+    const delivery = await sendEmail({
+      to: recipient,
+      subject: `${appLabel} SMTP delivery test`,
+      text:
+        `This is a test email from ${appLabel}.\n\n` +
+        `If this arrives, SMTP delivery is working correctly.\n\n` +
+        `${supportFooter}`,
+      html:
+        `<p>This is a test email from <strong>${appLabel}</strong>.</p>` +
+        `<p>If this arrives, SMTP delivery is working correctly.</p>` +
+        `<p>${supportFooter}</p>`,
+    });
+
+    await recordAudit({
+      req,
+      userId: req.user?._id,
+      action: "auth.email.delivery.test",
+      targetType: "email",
+      targetId: recipient,
+      metadata: {
+        sent: delivery.sent,
+        errorCode: delivery.errorCode || "",
+      },
+    });
+
+    res.json({
+      ok: delivery.sent,
+      recipient,
+      delivery: {
+        sent: delivery.sent,
+        error: delivery.error || "",
+        errorCode: delivery.errorCode || "",
+        hint: delivery.errorHint || "",
+      },
+      mailer: getMailerDiagnostics(),
     });
   } catch (error) {
     next(error);

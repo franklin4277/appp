@@ -34,6 +34,26 @@ export const isMailerConfigured = () => {
   return Boolean(hasTransport && config.from);
 };
 
+export const getMailerDiagnostics = () => {
+  const config = smtpConfig();
+  const hasTransport = Boolean(config.url || (config.host && config.port > 0));
+
+  return {
+    configured: isMailerConfigured(),
+    hasTransport,
+    hasFrom: Boolean(config.from),
+    mode: config.url ? "url" : "host",
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    requireTls: config.requireTls,
+    tlsRejectUnauthorized: config.rejectUnauthorized,
+    tlsServerName: config.serverName,
+    authUser: config.user,
+    from: config.from,
+  };
+};
+
 let transporter = null;
 let cachedKey = "";
 let verified = false;

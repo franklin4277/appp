@@ -76,6 +76,9 @@ body::before {
   background: linear-gradient(180deg, rgba(19, 30, 50, 0.92), rgba(16, 25, 42, 0.9));
   backdrop-filter: blur(8px);
   transition: border-color 180ms ease, transform 180ms ease, box-shadow 220ms ease;
+  contain: layout paint style;
+  content-visibility: auto;
+  contain-intrinsic-size: 260px;
 }
 
 .panel:hover {
@@ -458,10 +461,18 @@ body::before {
 }
 
 @media (max-width: 768px) {
+  html {
+    scroll-behavior: auto;
+  }
+
   body {
     background:
       radial-gradient(circle at 80% -10%, rgba(72, 99, 142, 0.27), transparent 36%),
       linear-gradient(180deg, var(--bg-soft), var(--bg-deep));
+  }
+
+  body::before {
+    display: none;
   }
 
   .app-shell {
@@ -495,7 +506,8 @@ body::before {
     position: sticky;
     top: 0.4rem;
     z-index: 12;
-    backdrop-filter: blur(8px);
+    backdrop-filter: none;
+    background: rgba(12, 20, 34, 0.96);
   }
 
   .hero-meta {
@@ -526,11 +538,41 @@ body::before {
   .panel {
     @apply p-3;
     border-radius: 14px;
-    backdrop-filter: blur(6px);
+    backdrop-filter: none;
+    box-shadow: none;
+    transition: none;
+    background: rgba(15, 24, 40, 0.94);
+  }
+
+  .panel:hover {
+    box-shadow: none;
+    transform: none;
+    border-color: var(--line);
   }
 
   .hero-account {
     padding: 0.65rem;
+  }
+
+  .chip {
+    backdrop-filter: none;
+  }
+
+  .mobile-action-bar {
+    backdrop-filter: none;
+  }
+
+  .modal-backdrop {
+    backdrop-filter: none;
+    background: rgba(6, 10, 20, 0.82);
+  }
+
+  .strategy-badge {
+    background: rgba(25, 38, 60, 0.92);
+  }
+
+  .dashboard-frame {
+    contain: layout paint;
   }
 }
 

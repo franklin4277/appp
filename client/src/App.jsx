@@ -166,6 +166,9 @@ const App = () => {
     const stored = localStorage.getItem(PAGE_STORAGE_KEY);
     return PAGES.some((page) => page.key === stored) ? stored : "journal";
   });
+  const [isCompactMobile, setIsCompactMobile] = useState(() =>
+    window.matchMedia ? window.matchMedia("(max-width: 768px)").matches : false
+  );
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [offlineQueue, setOfflineQueue] = useState([]);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
@@ -181,6 +184,24 @@ const App = () => {
   useEffect(() => {
     refreshOfflineQueue();
   }, [refreshOfflineQueue]);
+
+  useEffect(() => {
+    if (!window.matchMedia) {
+      return undefined;
+    }
+
+    const media = window.matchMedia("(max-width: 768px)");
+    const update = () => setIsCompactMobile(media.matches);
+    update();
+
+    if (media.addEventListener) {
+      media.addEventListener("change", update);
+      return () => media.removeEventListener("change", update);
+    }
+
+    media.addListener(update);
+    return () => media.removeListener(update);
+  }, []);
 
   useEffect(() => {
     const updateOnlineStatus = () => setIsOnline(navigator.onLine);
@@ -240,8 +261,9 @@ const App = () => {
     setError("");
     setStatusMessage("");
     try {
+      const tradeLimit = isCompactMobile ? 220 : 500;
       const [tradesResponse, analyticsResponse] = await Promise.all([
-        fetchTrades({ ...filters, limit: 500 }, token),
+        fetchTrades({ ...filters, limit: tradeLimit }, token),
         fetchAnalytics(filters, token),
       ]);
 
@@ -285,7 +307,7 @@ const App = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters, refreshToken, token, user]);
+  }, [filters, isCompactMobile, refreshToken, token, user]);
 
   useEffect(() => {
     loadData();

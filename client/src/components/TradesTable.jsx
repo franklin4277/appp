@@ -1,3 +1,7 @@
+import { useEffect, useMemo, useState } from "react";
+
+const MOBILE_BATCH_SIZE = 60;
+
 const resultStyles = {
   Win: "text-accent",
   Loss: "text-danger",
@@ -20,6 +24,18 @@ const formatDate = (value) =>
   })();
 
 const TradesTable = ({ trades }) => {
+  const [mobileVisibleCount, setMobileVisibleCount] = useState(MOBILE_BATCH_SIZE);
+
+  useEffect(() => {
+    setMobileVisibleCount(MOBILE_BATCH_SIZE);
+  }, [trades.length]);
+
+  const mobileTrades = useMemo(
+    () => trades.slice(0, Math.max(MOBILE_BATCH_SIZE, mobileVisibleCount)),
+    [mobileVisibleCount, trades]
+  );
+  const hasMoreMobileTrades = trades.length > mobileTrades.length;
+
   return (
     <section className="panel animate-riseIn">
       <div className="mb-3 flex items-center justify-between">
@@ -28,8 +44,8 @@ const TradesTable = ({ trades }) => {
       </div>
 
       <div className="space-y-3 md:hidden">
-        {trades.length ? (
-          trades.map((trade) => (
+        {mobileTrades.length ? (
+          mobileTrades.map((trade) => (
             <article key={trade._id} className="mobile-card">
               <div className="mb-1 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
@@ -56,6 +72,15 @@ const TradesTable = ({ trades }) => {
         ) : (
           <div className="mobile-card text-sm text-textMuted">No trades yet for current filters.</div>
         )}
+        {hasMoreMobileTrades ? (
+          <button
+            type="button"
+            className="btn-primary w-full"
+            onClick={() => setMobileVisibleCount((prev) => prev + MOBILE_BATCH_SIZE)}
+          >
+            Load more trades
+          </button>
+        ) : null}
       </div>
 
       <div className="hidden overflow-auto md:block">

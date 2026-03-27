@@ -182,6 +182,23 @@ const parseResponse = async (response, { asBlob = false } = {}) => {
     return response.blob();
   }
 
+  const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+  const isJson = contentType.includes("application/json");
+
+  if (!isJson) {
+    const text = await response.text().catch(() => "");
+    const bodyPreview = String(text || "").slice(0, 80).toLowerCase();
+    const looksLikeHtml = bodyPreview.includes("<!doctype") || bodyPreview.includes("<html");
+    if (looksLikeHtml || response.ok) {
+      const error = new Error(
+        "API misconfiguration detected. The app received HTML instead of JSON. Set VITE_API_URL to your backend service URL and redeploy frontend."
+      );
+      error.status = response.status;
+      error.code = "API_RESPONSE_NOT_JSON";
+      throw error;
+    }
+  }
+
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const error = new Error(payload.message || "Request failed");
@@ -289,6 +306,11 @@ export const registerUser = async ({ name, email, password }) => {
     body: JSON.stringify({ name, email, password }),
   });
   const payload = await parseResponse(response);
+  if (!payload?.token) {
+    throw new Error(
+      "Registration failed: backend response was invalid. Confirm VITE_API_URL points to your API and CORS CLIENT_URL is configured."
+    );
+  }
   persistAuthSession({
     token: payload.token,
     refreshToken: payload.refreshToken,
@@ -305,6 +327,11 @@ export const loginUser = async ({ email, password }) => {
     body: JSON.stringify({ email, password }),
   });
   const payload = await parseResponse(response);
+  if (!payload?.requiresTwoFactor && !payload?.token) {
+    throw new Error(
+      "Login failed: backend response was invalid. Confirm VITE_API_URL points to your API and backend auth routes are reachable."
+    );
+  }
   if (payload.token) {
     persistAuthSession({
       token: payload.token,

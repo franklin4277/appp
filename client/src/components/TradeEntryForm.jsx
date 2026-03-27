@@ -1,9 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createTrade, isNetworkError, queueTradeOffline } from "../api/tradesApi";
 import { POC_OUTCOMES, PAIRS, RESULTS, SESSIONS, SETUP_TYPES, TRADE_TYPES } from "../utils/options";
 import { calculateAchievedRR, calculateLotSize, calculatePlannedRR, round } from "../utils/tradeMath";
 
 const PRESET_STORAGE_KEY = "trading-journal-presets";
+const LAST_STRUCTURE_STORAGE_KEY = "trading-journal-last-structure";
+const NEGATIVE_EMOTION_TOKENS = [
+  "fomo",
+  "rushed",
+  "rush",
+  "revenge",
+  "tilt",
+  "angry",
+  "fear",
+  "anxious",
+  "anxiety",
+  "tired",
+  "impatient",
+  "stressed",
+  "overconfident",
+];
 
 const localNow = () => {
   const date = new Date();
@@ -51,7 +67,44 @@ const Field = ({ label, children }) => (
   </label>
 );
 
-const TradeEntryForm = ({ onTradeSaved, token, settings }) => {
+const toTime = (trade) => {
+  const value = trade?.tradeDate || trade?.createdAt || "";
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+};
+
+const toDayKey = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+};
+
+const normalizeEmotionTokens = (text = "") =>
+  String(text)
+    .toLowerCase()
+    .split(/[,\|/; ]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const scoreToGrade = (score) => {
+  if (score >= 90) {
+    return "A+";
+  }
+  if (score >= 80) {
+    return "A";
+  }
+  if (score >= 65) {
+    return "B";
+  }
+  if (score >= 50) {
+    return "C";
+  }
+  return "D";
+};
+
+const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [] }) => {
   const optionLists = useMemo(() => buildOptionLists(settings), [settings]);
   const [form, setForm] = useState(() => buildInitialState(optionLists));
   const [accountBalance, setAccountBalance] = useState("10000");
@@ -61,6 +114,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings }) => {
   const [error, setError] = useState("");
   const [presets, setPresets] = useState([]);
   const [presetName, setPresetName] = useState("");
+  const [lastStructure, setLastStructure] = useState(null);
   const [guardrailWarnings, setGuardrailWarnings] = useState([]);
   const [successWarning, setSuccessWarning] = useState("");
   const formRef = useRef(null);
@@ -99,6 +153,137 @@ const TradeEntryForm = ({ onTradeSaved, token, settings }) => {
 
   const requiresRuleBreakReason = form.asiaHighLowUsed !== "true" || form.pocInteraction !== "true";
 
+  const qualityAssessment = useMemo(() => {
+    let score = 55;
+    const notes = [];
+
+    if (form.asiaHighLowUsed === "true") {
+      score += 18;
+    } else {
+      score -= 24;
+      notes.push("Missing Asia High/Low reaction.");
+    }
+
+    if (form.pocInteraction === "true") {
+      score += 16;
+      if (String(form.pocOutcome || "").trim()) {
+        score += 6;
+      }
+    } else {
+      score -= 20;
+      notes.push("No POC interaction marked.");
+    }
+
+    if (form.cleanSetup) {
+      score += 16;
+    } else {
+      score -= 10;
+      notes.push("Not marked as clean setup.");
+    }
+
+    const rr = Number(plannedRR) || 0;
+    if (rr >= 2) {
+      score += 10;
+    } else if (rr >= 1.2) {
+      score += 4;
+    } else if (rr > 0 && rr < 1) {
+      score -= 16;
+      notes.push("Planned RR is below 1.0.");
+    }
+
+    if (String(form.ruleBreakReason || "").trim()) {
+      score -= 8;
+      notes.push("Rule-break reason entered.");
+    }
+
+    const emotionFlags = normalizeEmotionTokens(form.emotionalState).filter((token) =>
+      NEGATIVE_EMOTION_TOKENS.includes(token)
+    );
+    if (emotionFlags.length) {
+      score -= Math.min(emotionFlags.length * 6, 18);
+      notes.push(`Emotional risk: ${emotionFlags.slice(0, 3).join(", ")}.`);
+    }
+
+    const clamped = Math.max(0, Math.min(100, Math.round(score)));
+    const grade = scoreToGrade(clamped);
+    let tip = "Quality looks strong. Keep execution tight.";
+
+    if (grade === "B" || grade === "C") {
+      tip = "Confirm Asia High/Low and clean context before entry.";
+    }
+    if (grade === "D") {
+      tip = "High-risk setup. Consider skipping this trade.";
+    }
+
+    return {
+      score: clamped,
+      grade,
+      notes: notes.slice(0, 3),
+      tip,
+    };
+  }, [
+    form.asiaHighLowUsed,
+    form.cleanSetup,
+    form.emotionalState,
+    form.pocInteraction,
+    form.pocOutcome,
+    form.ruleBreakReason,
+    plannedRR,
+  ]);
+
+  const preTradeAlerts = useMemo(() => {
+    const warnings = [];
+    const tradeTs = new Date(form.tradeDate || new Date()).getTime();
+    const safeTs = Number.isFinite(tradeTs) ? tradeTs : Date.now();
+    const dayKey = toDayKey(safeTs);
+
+    const historical = [...trades].sort((a, b) => toTime(b) - toTime(a));
+
+    const sameSessionToday = historical.filter(
+      (trade) =>
+        trade.session === form.session &&
+        toDayKey(trade.tradeDate) === dayKey &&
+        toTime(trade) <= safeTs
+    );
+
+    if (sameSessionToday.length >= Number(activeRiskControls.maxTradesPerSession || 0)) {
+      warnings.push(
+        `Overtrading risk: ${sameSessionToday.length} ${form.session} trades already logged today.`
+      );
+    }
+
+    const lastLoss = historical.find((trade) => trade.result === "Loss" && toTime(trade) <= safeTs);
+    if (lastLoss) {
+      const minutesSinceLoss = Math.floor((safeTs - toTime(lastLoss)) / 60000);
+      const cooldown = Number(activeRiskControls.cooldownMinutesAfterLoss || 0);
+      if (cooldown > 0 && minutesSinceLoss < cooldown) {
+        warnings.push(`Cooldown active: wait ${cooldown - minutesSinceLoss} more minutes after last loss.`);
+      }
+    }
+
+    const todayNetRR = historical
+      .filter((trade) => toDayKey(trade.tradeDate) === dayKey && toTime(trade) <= safeTs)
+      .reduce((sum, trade) => sum + (Number(trade.rrAchieved) || 0), 0);
+    const stopDayRR = -Math.abs(Number(activeRiskControls.stopForDayLossRR || 0));
+    if (stopDayRR < 0 && todayNetRR <= stopDayRR) {
+      warnings.push(`Daily loss guardrail reached (${todayNetRR.toFixed(2)} RR). Stand down for today.`);
+    }
+
+    if (qualityAssessment.grade === "D") {
+      warnings.push("Setup quality is D-grade. Wait for a cleaner confirmation.");
+    }
+
+    return warnings;
+  }, [
+    activeRiskControls.cooldownMinutesAfterLoss,
+    activeRiskControls.maxTradesPerSession,
+    activeRiskControls.stopForDayLossRR,
+    form.session,
+    form.tradeDate,
+    qualityAssessment.grade,
+    trades,
+  ]);
+
   useEffect(() => {
     const onKeyDown = (event) => {
       if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
@@ -121,6 +306,19 @@ const TradeEntryForm = ({ onTradeSaved, token, settings }) => {
   }, []);
 
   useEffect(() => {
+    const stored = localStorage.getItem(LAST_STRUCTURE_STORAGE_KEY);
+    if (!stored) {
+      return;
+    }
+
+    try {
+      setLastStructure(JSON.parse(stored));
+    } catch {
+      setLastStructure(null);
+    }
+  }, []);
+
+  useEffect(() => {
     setForm((prev) => ({
       ...prev,
       pair: prev.pair || optionLists.pairs[0] || "",
@@ -135,6 +333,25 @@ const TradeEntryForm = ({ onTradeSaved, token, settings }) => {
   const persistPresets = (next) => {
     setPresets(next);
     localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(next));
+  };
+
+  const captureTradeStructure = () => ({
+    pair: form.pair,
+    session: form.session,
+    tradeType: form.tradeType,
+    setupType: form.setupType,
+    result: form.result,
+    riskPercent: form.riskPercent,
+    asiaHighLowUsed: form.asiaHighLowUsed,
+    pocInteraction: form.pocInteraction,
+    pocOutcome: form.pocOutcome,
+    cleanSetup: form.cleanSetup,
+  });
+
+  const persistLastStructure = () => {
+    const structure = captureTradeStructure();
+    setLastStructure(structure);
+    localStorage.setItem(LAST_STRUCTURE_STORAGE_KEY, JSON.stringify(structure));
   };
 
   const handleSavePreset = () => {
@@ -173,6 +390,27 @@ const TradeEntryForm = ({ onTradeSaved, token, settings }) => {
     persistPresets(presets.filter((item) => item.label !== label));
   };
 
+  const handleApplyLastStructure = () => {
+    if (!lastStructure) {
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      pair: lastStructure.pair || prev.pair,
+      session: lastStructure.session || prev.session,
+      tradeType: lastStructure.tradeType || prev.tradeType,
+      setupType: lastStructure.setupType || prev.setupType,
+      result: lastStructure.result || prev.result,
+      riskPercent: lastStructure.riskPercent || prev.riskPercent,
+      asiaHighLowUsed: lastStructure.asiaHighLowUsed || prev.asiaHighLowUsed,
+      pocInteraction: lastStructure.pocInteraction || prev.pocInteraction,
+      pocOutcome: lastStructure.pocOutcome || prev.pocOutcome,
+      cleanSetup:
+        typeof lastStructure.cleanSetup === "boolean" ? lastStructure.cleanSetup : prev.cleanSetup,
+    }));
+  };
+
   const handleChange = (field, value) => {
     setError("");
     setGuardrailWarnings([]);
@@ -183,7 +421,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings }) => {
     }));
   };
 
-  const resetTradeForm = () => {
+  const resetTradeForm = useCallback(() => {
     setForm((prev) => ({
       ...prev,
       tradeDate: localNow(),
@@ -203,7 +441,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings }) => {
     if (formRef.current) {
       formRef.current.reset();
     }
-  };
+  }, [optionLists.results]);
 
   const buildTradePayload = (acceptGuardrailOverride = false) => {
     const lotSizeToSave = autoLotSize ? computedLotSize : Number(form.lotSize || 0);
@@ -268,6 +506,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings }) => {
     try {
       const payload = buildPayload(acceptGuardrailOverride);
       const savedTrade = await createTrade(payload, token);
+      persistLastStructure();
       onTradeSaved({
         mode: "online",
         trade: savedTrade,
@@ -289,12 +528,15 @@ const TradeEntryForm = ({ onTradeSaved, token, settings }) => {
         setError("Guardrail warning detected. Review and confirm to save this trade.");
       } else if (isNetworkError(submitError) || !navigator.onLine) {
         const tradePayload = buildTradePayload(true);
-        const queuedTrade = queueTradeOffline({
+        const queuedTrade = await queueTradeOffline({
           ...tradePayload,
           asiaHighLowUsed: tradePayload.asiaHighLowUsed === "true",
           pocInteraction: tradePayload.pocInteraction === "true",
           cleanSetup: tradePayload.cleanSetup === "true",
+          screenshotBeforeFile: form.screenshotBefore,
+          screenshotAfterFile: form.screenshotAfter,
         });
+        persistLastStructure();
 
         onTradeSaved({
           mode: "offline",
@@ -303,9 +545,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings }) => {
 
         setGuardrailWarnings([]);
         setError("");
-        setSuccessWarning(
-          "Saved offline. It will sync automatically when internet returns. Screenshots need re-upload after sync."
-        );
+        setSuccessWarning("Saved offline. It will sync automatically when internet returns.");
         resetTradeForm();
       } else {
         setError(submitError.message);
@@ -320,12 +560,61 @@ const TradeEntryForm = ({ onTradeSaved, token, settings }) => {
     await submitTrade(false);
   };
 
+  useEffect(() => {
+    const onSaveRequest = () => {
+      formRef.current?.requestSubmit();
+    };
+
+    const onNewRequest = () => {
+      setError("");
+      setGuardrailWarnings([]);
+      setSuccessWarning("");
+      resetTradeForm();
+    };
+
+    window.addEventListener("journal-save-request", onSaveRequest);
+    window.addEventListener("journal-new-request", onNewRequest);
+
+    return () => {
+      window.removeEventListener("journal-save-request", onSaveRequest);
+      window.removeEventListener("journal-new-request", onNewRequest);
+    };
+  }, [resetTradeForm]);
+
   return (
     <section className="panel animate-riseIn">
       <div className="mb-3 space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-base font-semibold">Trade Entry</h2>
-          <span className="chip">Ctrl+Enter to save</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="chip">Ctrl+Enter to save</span>
+            <span className="chip">
+              Quality {qualityAssessment.grade} ({qualityAssessment.score})
+            </span>
+          </div>
+        </div>
+
+        <div className="rounded-md border border-border bg-panelMuted p-2 text-xs text-textMuted">
+          <p className="font-medium text-textMain">{qualityAssessment.tip}</p>
+          {qualityAssessment.notes.length ? (
+            <p className="mt-1">{qualityAssessment.notes.join(" | ")}</p>
+          ) : null}
+        </div>
+
+        {preTradeAlerts.length ? (
+          <div className="rounded-md border border-danger/40 bg-danger/10 p-2 text-xs text-danger">
+            {preTradeAlerts.map((alert) => (
+              <p key={alert}>{alert}</p>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="rounded-md border border-border bg-panelMuted p-2 text-xs text-textMuted">
+          Coach:
+          {" "}
+          {qualityAssessment.grade === "A+" || qualityAssessment.grade === "A"
+            ? "A-grade setup. Keep execution clean and stick to your plan."
+            : "Wait for cleaner context if this setup is not fully aligned."}
         </div>
         <div className="rounded-md border border-border bg-panelMuted p-2 text-xs text-textMuted">
           Guardrails:
@@ -345,6 +634,14 @@ const TradeEntryForm = ({ onTradeSaved, token, settings }) => {
           />
           <button type="button" className="btn-primary !px-3 !py-1 text-xs" onClick={handleSavePreset}>
             Save preset
+          </button>
+          <button
+            type="button"
+            className="chip text-textMain transition hover:border-accent"
+            onClick={handleApplyLastStructure}
+            disabled={!lastStructure}
+          >
+            Repeat last
           </button>
         </div>
         {presets.length ? (

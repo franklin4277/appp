@@ -317,6 +317,47 @@ body::before {
   min-width: 235px;
 }
 
+.mobile-action-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  padding: 0.55rem 0.65rem calc(0.55rem + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(9, 16, 28, 0.72), rgba(9, 16, 28, 0.95));
+  border-top: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+}
+
+.mobile-action-btn {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(19, 30, 50, 0.9);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.55rem 0.4rem;
+  transition: border-color 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.mobile-action-btn:hover {
+  border-color: rgba(107, 132, 169, 0.82);
+  color: var(--text-main);
+}
+
+.mobile-action-btn:active {
+  transform: translateY(1px);
+}
+
+.mobile-action-btn-primary {
+  color: var(--text-main);
+  border-color: rgba(107, 132, 169, 0.95);
+  background: linear-gradient(180deg, rgba(65, 89, 125, 0.95), rgba(49, 68, 97, 0.95));
+}
+
 @media (min-width: 900px) {
   .hero-grid {
     grid-template-columns: 1fr auto;

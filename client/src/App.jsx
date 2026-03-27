@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AUTH_STORAGE_KEY,
+  clearOfflineQueue,
   fetchAnalytics,
   fetchMe,
   fetchTrades,
@@ -129,11 +130,13 @@ const App = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  const [syncingQueue, setSyncingQueue] = useState(false);
   const [showSettingsPanel, setShowSettingsPanel] = useState(true);
   const [settingsSavedAt, setSettingsSavedAt] = useState("");
   const [activePage, setActivePage] = useState("journal");
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [offlineQueue, setOfflineQueue] = useState([]);
+  const syncInFlightRef = useRef(false);
 
   const refreshOfflineQueue = useCallback(() => {
     setOfflineQueue(getOfflineQueue());
@@ -250,34 +253,88 @@ const App = () => {
     loadData();
   };
 
-  const syncQueuedData = useCallback(async () => {
-    if (!token || !user || !isOnline) {
+  const syncQueuedData = useCallback(async (manual = false) => {
+    if (syncInFlightRef.current) {
+      return;
+    }
+
+    if (!token || !user) {
+      return;
+    }
+
+    if (!isOnline) {
+      if (manual) {
+        setStatusMessage("You are offline. Queue will sync automatically when internet returns.");
+      }
       return;
     }
 
     const hasPendingQueue = getOfflineQueue().length > 0;
     if (!hasPendingQueue) {
       refreshOfflineQueue();
+      if (manual) {
+        setStatusMessage("No queued offline trades to sync.");
+      }
       return;
     }
 
-    const syncResult = await syncOfflineQueue(token);
-    refreshOfflineQueue();
+    syncInFlightRef.current = true;
+    setSyncingQueue(true);
 
-    if (syncResult.synced > 0) {
-      await loadData();
-      setStatusMessage(`Synced ${syncResult.synced} offline trade${syncResult.synced === 1 ? "" : "s"}.`);
-    }
+    try {
+      const syncResult = await syncOfflineQueue(token);
+      refreshOfflineQueue();
 
-    if (syncResult.failed > 0) {
-      const firstError = syncResult.errors?.[0]?.message || "Some offline trades could not sync.";
-      setError(firstError);
+      if (syncResult.synced > 0) {
+        await loadData();
+        setStatusMessage(`Synced ${syncResult.synced} offline trade${syncResult.synced === 1 ? "" : "s"}.`);
+      } else if (manual) {
+        setStatusMessage("Sync checked. Queued trades are waiting for retry window or review.");
+      }
+
+      if (syncResult.failed > 0) {
+        const firstError = syncResult.errors?.[0]?.message || "Some offline trades could not sync.";
+        setError(firstError);
+      }
+    } catch (syncError) {
+      setError(syncError.message || "Failed to sync queued trades.");
+    } finally {
+      syncInFlightRef.current = false;
+      setSyncingQueue(false);
     }
   }, [isOnline, loadData, refreshOfflineQueue, token, user]);
 
   useEffect(() => {
     syncQueuedData();
   }, [syncQueuedData]);
+
+  useEffect(() => {
+    if (!isOnline || !token || !user) {
+      return undefined;
+    }
+
+    const timer = window.setInterval(() => {
+      syncQueuedData();
+    }, 20000);
+
+    return () => window.clearInterval(timer);
+  }, [isOnline, syncQueuedData, token, user]);
+
+  const handleClearQueuedTrades = async () => {
+    const shouldClear = window.confirm("Clear queued offline trades? This cannot be undone.");
+    if (!shouldClear) {
+      return;
+    }
+
+    try {
+      const result = await clearOfflineQueue();
+      refreshOfflineQueue();
+      setError("");
+      setStatusMessage(`Cleared ${result.cleared} queued trade${result.cleared === 1 ? "" : "s"}.`);
+    } catch (clearError) {
+      setError(clearError.message || "Could not clear queue.");
+    }
+  };
 
   const onAuthenticated = ({ token: nextToken, user: nextUser }) => {
     localStorage.setItem(AUTH_STORAGE_KEY, nextToken);
@@ -297,12 +354,33 @@ const App = () => {
     setAnalytics(emptyAnalytics);
     setError("");
     setStatusMessage("");
+    setSyncingQueue(false);
+    syncInFlightRef.current = false;
   };
 
   const onSettingsSaved = () => {
     setShowSettingsPanel(false);
     setSettingsSavedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
     setActivePage("journal");
+  };
+
+  const handleQuickSave = () => {
+    if (activePage !== "journal") {
+      setActivePage("journal");
+      setStatusMessage("Journal page ready. Tap Save again to submit.");
+      return;
+    }
+    window.dispatchEvent(new Event("journal-save-request"));
+  };
+
+  const handleQuickNew = () => {
+    if (activePage !== "journal") {
+      setActivePage("journal");
+      setStatusMessage("Journal page ready. Tap New again to reset the form.");
+      return;
+    }
+    window.dispatchEvent(new Event("journal-new-request"));
+    setStatusMessage("Trade form reset.");
   };
 
   const strategySignal = useMemo(() => {
@@ -332,6 +410,31 @@ const App = () => {
 
   const mergedTrades = useMemo(() => [...queuedTrades, ...trades], [queuedTrades, trades]);
 
+  const queueInsights = useMemo(() => {
+    if (!offlineQueue.length) {
+      return null;
+    }
+
+    const failedItems = offlineQueue.filter((item) => Boolean(item.lastError));
+    const waitingItems = offlineQueue.filter((item) => {
+      const retryAt = item.nextRetryAt ? new Date(item.nextRetryAt).getTime() : 0;
+      return retryAt > Date.now();
+    });
+
+    const nextRetryAt = waitingItems
+      .map((item) => item.nextRetryAt)
+      .filter(Boolean)
+      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0];
+
+    return {
+      total: offlineQueue.length,
+      failed: failedItems.length,
+      waiting: waitingItems.length,
+      nextRetryLabel: formatSyncTime(nextRetryAt),
+      firstError: failedItems[0]?.lastError || "",
+    };
+  }, [offlineQueue]);
+
   if (authLoading) {
     return (
       <main className="mx-auto flex min-h-screen w-full max-w-[560px] items-center justify-center p-4">
@@ -345,7 +448,7 @@ const App = () => {
   }
 
   return (
-    <main className="app-shell mx-auto w-full max-w-[1600px] p-0 sm:p-3 md:p-5">
+    <main className="app-shell mx-auto w-full max-w-[1600px] p-0 pb-20 sm:p-3 sm:pb-20 md:p-5 md:pb-5">
       <section className="journal-shell app-journal p-0 sm:p-4 md:p-6">
         <header className="journal-hero mb-4 md:mb-5">
           <div className="top-header">
@@ -362,7 +465,9 @@ const App = () => {
               <p className="text-sm font-semibold">{user.name}</p>
               <p className="text-xs text-textMuted">{user.email}</p>
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                <span className="chip">{loading ? "Syncing..." : isOnline ? "Online" : "Offline"}</span>
+                <span className="chip">
+                  {loading || syncingQueue ? "Syncing..." : isOnline ? "Online" : "Offline"}
+                </span>
                 {offlineQueue.length ? (
                   <span className="chip">{offlineQueue.length} queued</span>
                 ) : null}
@@ -404,6 +509,36 @@ const App = () => {
               {statusMessage}
             </p>
           ) : null}
+          {queueInsights ? (
+            <div className="mb-4 rounded-md border border-border bg-panelMuted p-3 text-sm text-textMuted">
+              <p>
+                Queue: {queueInsights.total} pending
+                {queueInsights.failed ? ` | ${queueInsights.failed} need review` : ""}
+                {queueInsights.waiting && queueInsights.nextRetryLabel
+                  ? ` | next retry ${queueInsights.nextRetryLabel}`
+                  : ""}
+              </p>
+              {queueInsights.firstError ? <p className="mt-1 text-danger">{queueInsights.firstError}</p> : null}
+              <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                <button
+                  type="button"
+                  className="chip text-textMain transition hover:border-accent"
+                  onClick={() => syncQueuedData(true)}
+                  disabled={!isOnline || syncingQueue}
+                >
+                  {syncingQueue ? "Syncing..." : "Retry sync now"}
+                </button>
+                <button
+                  type="button"
+                  className="chip text-textMain transition hover:border-danger"
+                  onClick={handleClearQueuedTrades}
+                  disabled={syncingQueue}
+                >
+                  Clear queue
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           <div className="section-divider mb-4" />
 
@@ -430,7 +565,12 @@ const App = () => {
                 <h2>Trade Entry</h2>
                 <p>Execution</p>
               </div>
-              <TradeEntryForm onTradeSaved={onTradeSaved} token={token} settings={user.settings} />
+              <TradeEntryForm
+                onTradeSaved={onTradeSaved}
+                token={token}
+                settings={user.settings}
+                trades={mergedTrades}
+              />
             </section>
           ) : null}
 
@@ -504,6 +644,17 @@ const App = () => {
           ) : null}
         </section>
       </section>
+      <nav className="mobile-action-bar md:hidden">
+        <button type="button" className="mobile-action-btn" onClick={handleQuickNew}>
+          New
+        </button>
+        <button type="button" className="mobile-action-btn mobile-action-btn-primary" onClick={handleQuickSave}>
+          Save
+        </button>
+        <button type="button" className="mobile-action-btn" onClick={() => setActivePage("analytics")}>
+          Analytics
+        </button>
+      </nav>
     </main>
   );
 };

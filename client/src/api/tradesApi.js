@@ -2,6 +2,10 @@ const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 export const AUTH_STORAGE_KEY = "trading-journal-token";
 const OFFLINE_QUEUE_KEY = "trading-journal-offline-queue";
 const OFFLINE_SNAPSHOT_KEY = "trading-journal-offline-snapshot";
+const OFFLINE_FILES_DB = "trading-journal-offline-files";
+const OFFLINE_FILES_STORE = "attachments";
+
+let offlineDbPromise = null;
 
 const readJsonStorage = (key, fallback) => {
   try {
@@ -31,6 +35,100 @@ const toIsoDate = (value) => {
     return new Date().toISOString();
   }
   return date.toISOString();
+};
+
+const retryDelayMs = (attempts) => {
+  const normalized = Math.max(Number(attempts) || 1, 1);
+  const step = Math.min(normalized - 1, 5);
+  return Math.min(15000 * 2 ** step, 5 * 60 * 1000);
+};
+
+const attachmentKey = (queueId, slot) => `${queueId}:${slot}`;
+
+const waitForTransaction = (transaction) =>
+  new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error || new Error("Offline storage transaction failed."));
+    transaction.onabort = () => reject(transaction.error || new Error("Offline storage transaction aborted."));
+  });
+
+const requestResult = (request) =>
+  new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("Offline storage request failed."));
+  });
+
+const openOfflineFilesDb = async () => {
+  if (typeof indexedDB === "undefined") {
+    return null;
+  }
+
+  if (!offlineDbPromise) {
+    offlineDbPromise = new Promise((resolve) => {
+      const request = indexedDB.open(OFFLINE_FILES_DB, 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(OFFLINE_FILES_STORE)) {
+          db.createObjectStore(OFFLINE_FILES_STORE, { keyPath: "id" });
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve(null);
+      request.onblocked = () => resolve(null);
+    });
+  }
+
+  return offlineDbPromise;
+};
+
+const saveOfflineAttachment = async (queueId, slot, file) => {
+  if (!file) {
+    return;
+  }
+
+  const db = await openOfflineFilesDb();
+  if (!db) {
+    return;
+  }
+
+  const transaction = db.transaction(OFFLINE_FILES_STORE, "readwrite");
+  const store = transaction.objectStore(OFFLINE_FILES_STORE);
+
+  store.put({
+    id: attachmentKey(queueId, slot),
+    blob: file,
+    name: file.name || `${slot}.png`,
+    mimeType: file.type || "application/octet-stream",
+    updatedAt: new Date().toISOString(),
+  });
+
+  await waitForTransaction(transaction);
+};
+
+const readOfflineAttachment = async (queueId, slot) => {
+  const db = await openOfflineFilesDb();
+  if (!db) {
+    return null;
+  }
+
+  const transaction = db.transaction(OFFLINE_FILES_STORE, "readonly");
+  const store = transaction.objectStore(OFFLINE_FILES_STORE);
+  const record = await requestResult(store.get(attachmentKey(queueId, slot)));
+  await waitForTransaction(transaction);
+  return record || null;
+};
+
+const deleteOfflineAttachments = async (queueId) => {
+  const db = await openOfflineFilesDb();
+  if (!db) {
+    return;
+  }
+
+  const transaction = db.transaction(OFFLINE_FILES_STORE, "readwrite");
+  const store = transaction.objectStore(OFFLINE_FILES_STORE);
+  store.delete(attachmentKey(queueId, "before"));
+  store.delete(attachmentKey(queueId, "after"));
+  await waitForTransaction(transaction);
 };
 
 const queryString = (params = {}) => {
@@ -214,8 +312,8 @@ const normalizeQueuedDraft = (draft = {}) => {
     executionReview: String(draft.executionReview || "").trim(),
     emotionalState: String(draft.emotionalState || "").trim(),
     acceptGuardrailOverride: "true",
-    screenshotBeforeName: String(draft.screenshotBeforeName || "").trim(),
-    screenshotAfterName: String(draft.screenshotAfterName || "").trim(),
+    screenshotBeforeName: String(draft.screenshotBeforeName || draft.screenshotBeforeFile?.name || "").trim(),
+    screenshotAfterName: String(draft.screenshotAfterName || draft.screenshotAfterFile?.name || "").trim(),
   };
 };
 
@@ -269,7 +367,7 @@ const writeOfflineQueue = (items = []) => {
   writeJsonStorage(OFFLINE_QUEUE_KEY, items);
 };
 
-export const queueTradeOffline = (draft = {}) => {
+export const queueTradeOffline = async (draft = {}) => {
   const payload = normalizeQueuedDraft(draft);
   const queuedAt = new Date().toISOString();
   const id = `offline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -278,13 +376,43 @@ export const queueTradeOffline = (draft = {}) => {
     queuedAt,
     attempts: 0,
     lastError: "",
+    nextRetryAt: "",
     payload,
     displayTrade: buildOfflineDisplayTrade(id, payload, queuedAt),
   };
 
   const queue = getOfflineQueue();
   writeOfflineQueue([queuedItem, ...queue]);
+
+  try {
+    await Promise.all([
+      saveOfflineAttachment(id, "before", draft.screenshotBeforeFile),
+      saveOfflineAttachment(id, "after", draft.screenshotAfterFile),
+    ]);
+  } catch {
+    // Keep the queue item even if offline attachment storage is unavailable.
+  }
+
   return queuedItem;
+};
+
+export const clearOfflineQueue = async () => {
+  const queue = getOfflineQueue();
+  writeOfflineQueue([]);
+
+  await Promise.all(
+    queue.map(async (item) => {
+      try {
+        await deleteOfflineAttachments(item.id);
+      } catch {
+        // Ignore cleanup errors to avoid blocking queue clear.
+      }
+    })
+  );
+
+  return {
+    cleared: queue.length,
+  };
 };
 
 const buildQueuedFormData = (payload = {}) => {
@@ -339,20 +467,53 @@ export const syncOfflineQueue = async (token) => {
   const errors = [];
   let synced = 0;
   let failed = 0;
+  const now = Date.now();
 
   for (let index = 0; index < ordered.length; index += 1) {
     const item = ordered[index];
+    const retryAt = item.nextRetryAt ? new Date(item.nextRetryAt).getTime() : 0;
+    if (retryAt && retryAt > now) {
+      nextQueue.push(item);
+      continue;
+    }
+
     try {
       const payload = buildQueuedFormData(item.payload);
+      const [beforeAttachment, afterAttachment] = await Promise.all([
+        readOfflineAttachment(item.id, "before"),
+        readOfflineAttachment(item.id, "after"),
+      ]);
+
+      if (beforeAttachment?.blob) {
+        payload.append(
+          "screenshotBefore",
+          beforeAttachment.blob,
+          beforeAttachment.name || item.payload?.screenshotBeforeName || "before.png"
+        );
+      }
+
+      if (afterAttachment?.blob) {
+        payload.append(
+          "screenshotAfter",
+          afterAttachment.blob,
+          afterAttachment.name || item.payload?.screenshotAfterName || "after.png"
+        );
+      }
+
       await createTrade(payload, token);
+      await deleteOfflineAttachments(item.id);
       synced += 1;
     } catch (error) {
+      const attempts = (item.attempts || 0) + 1;
+      const backoffUntil = new Date(Date.now() + retryDelayMs(attempts)).toISOString();
+
       if (isNetworkError(error)) {
         nextQueue.push(
           {
             ...item,
-            attempts: (item.attempts || 0) + 1,
+            attempts,
             lastError: error.message,
+            nextRetryAt: backoffUntil,
           },
           ...ordered.slice(index + 1)
         );
@@ -366,8 +527,9 @@ export const syncOfflineQueue = async (token) => {
       });
       nextQueue.push({
         ...item,
-        attempts: (item.attempts || 0) + 1,
+        attempts,
         lastError: error.message || "Sync failed",
+        nextRetryAt: backoffUntil,
       });
     }
   }

@@ -67,6 +67,13 @@ export const refreshTokenExpiresIn = () => process.env.JWT_REFRESH_EXPIRES_IN ||
 export const hashToken = (value = "") => crypto.createHash("sha256").update(String(value)).digest("hex");
 
 export const createSessionId = () => crypto.randomBytes(24).toString("hex");
+export const createOneTimeToken = (bytes = 32) => crypto.randomBytes(bytes).toString("hex");
+export const createOneTimeCode = (digits = 6) => {
+  const size = Math.max(Number(digits) || 6, 4);
+  const max = 10 ** size;
+  const min = 10 ** (size - 1);
+  return String(Math.floor(Math.random() * (max - min)) + min);
+};
 
 export const ensureUserProfiles = (user) => {
   if (!Array.isArray(user?.profiles) || !user.profiles.length) {
@@ -211,6 +218,8 @@ export const toPublicUser = (user) => {
     id: user._id?.toString?.() || user.id,
     name: user.name,
     email: user.email,
+    emailVerified: Boolean(user.emailVerified),
+    twoFactorEnabled: Boolean(user.twoFactor?.enabled),
     settings: user.settings,
     profiles: user.profiles || [],
     activeProfileId: user.activeProfileId || DEFAULT_PROFILE_ID,

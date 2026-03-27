@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { loginUser, registerUser } from "../api/tradesApi";
+import {
+  confirmPasswordReset,
+  loginUser,
+  registerUser,
+  requestPasswordReset,
+  verifyTwoFactorLogin,
+} from "../api/tradesApi";
 
 const AuthPanel = ({ onAuthenticated }) => {
   const [mode, setMode] = useState("login");
@@ -8,11 +14,19 @@ const AuthPanel = ({ onAuthenticated }) => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [twoFactorPending, setTwoFactorPending] = useState(null);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [resetToken, setResetToken] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
+  const [debugSecret, setDebugSecret] = useState("");
 
-  const handleSubmit = async (event) => {
+  const handlePrimarySubmit = async (event) => {
     event.preventDefault();
     setLoading(true);
     setError("");
+    setMessage("");
+    setDebugSecret("");
 
     try {
       const payload =
@@ -20,7 +34,88 @@ const AuthPanel = ({ onAuthenticated }) => {
           ? await registerUser({ name: name || "Trader", email, password })
           : await loginUser({ email, password });
 
+      if (payload.requiresTwoFactor) {
+        setTwoFactorPending({
+          email,
+          challengeId: payload.challengeId,
+        });
+        setDebugSecret(payload.debugCode || "");
+        setMessage("Enter the 2FA code to complete login.");
+        return;
+      }
+
+      if (payload.debug?.emailVerificationToken) {
+        setDebugSecret(payload.debug.emailVerificationToken);
+      }
+
       onAuthenticated(payload);
+    } catch (submitError) {
+      setError(submitError.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTwoFactorSubmit = async (event) => {
+    event.preventDefault();
+    if (!twoFactorPending) {
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    try {
+      const payload = await verifyTwoFactorLogin({
+        email: twoFactorPending.email,
+        challengeId: twoFactorPending.challengeId,
+        code: twoFactorCode,
+      });
+      setTwoFactorPending(null);
+      setTwoFactorCode("");
+      onAuthenticated(payload);
+    } catch (submitError) {
+      setError(submitError.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetRequest = async () => {
+    if (!email) {
+      setError("Enter your email to request reset.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setMessage("");
+    setDebugSecret("");
+    try {
+      const payload = await requestPasswordReset({ email });
+      setMessage(payload.message || "Reset instructions generated.");
+      setDebugSecret(payload.debugToken || "");
+      setMode("reset");
+    } catch (submitError) {
+      setError(submitError.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetConfirm = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+    setMessage("");
+    try {
+      const payload = await confirmPasswordReset({
+        token: resetToken,
+        newPassword: resetPassword,
+      });
+      setMessage(payload.message || "Password updated. You can now log in.");
+      setMode("login");
+      setResetToken("");
+      setResetPassword("");
     } catch (submitError) {
       setError(submitError.message);
     } finally {
@@ -52,62 +147,177 @@ const AuthPanel = ({ onAuthenticated }) => {
             </div>
           </aside>
 
-          <form onSubmit={handleSubmit} className="panel animate-riseIn space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold">{mode === "register" ? "Create account" : "Log in"}</h2>
-            <button
-              type="button"
-              className="chip text-textMain transition hover:border-accent"
-              onClick={() => setMode((prev) => (prev === "register" ? "login" : "register"))}
-            >
-              {mode === "register" ? "Have account?" : "New account"}
-            </button>
-          </div>
+          {twoFactorPending ? (
+            <form onSubmit={handleTwoFactorSubmit} className="panel animate-riseIn space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-semibold">Two-factor verification</h2>
+                <button
+                  type="button"
+                  className="chip text-textMain transition hover:border-accent"
+                  onClick={() => {
+                    setTwoFactorPending(null);
+                    setTwoFactorCode("");
+                  }}
+                >
+                  Back
+                </button>
+              </div>
+              <p className="text-sm text-textMuted">
+                Enter the verification code sent for <span className="font-medium">{twoFactorPending.email}</span>.
+              </p>
+              <label>
+                <span className="label">Verification code</span>
+                <input
+                  className="input"
+                  value={twoFactorCode}
+                  onChange={(event) => setTwoFactorCode(event.target.value)}
+                  placeholder="6-digit code"
+                  required
+                />
+              </label>
+              {debugSecret ? (
+                <p className="rounded-md border border-accent/40 bg-accent/10 p-2 text-xs text-accent">
+                  Dev code: {debugSecret}
+                </p>
+              ) : null}
+              {error ? (
+                <p className="rounded-md border border-danger/40 bg-danger/10 p-2 text-sm text-danger">{error}</p>
+              ) : null}
+              <button className="btn-primary w-full" type="submit" disabled={loading}>
+                {loading ? "Checking..." : "Verify and log in"}
+              </button>
+            </form>
+          ) : mode === "reset" ? (
+            <form onSubmit={handleResetConfirm} className="panel animate-riseIn space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-semibold">Reset password</h2>
+                <button
+                  type="button"
+                  className="chip text-textMain transition hover:border-accent"
+                  onClick={() => setMode("login")}
+                >
+                  Back to login
+                </button>
+              </div>
 
-          {mode === "register" ? (
-            <label>
-              <span className="label">Name</span>
-              <input
-                className="input"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Your name"
-                required
-              />
-            </label>
-          ) : null}
+              <label>
+                <span className="label">Reset token</span>
+                <input
+                  className="input"
+                  value={resetToken}
+                  onChange={(event) => setResetToken(event.target.value)}
+                  placeholder="Paste reset token"
+                  required
+                />
+              </label>
 
-          <label>
-            <span className="label">Email</span>
-            <input
-              className="input"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
-              required
-            />
-          </label>
+              <label>
+                <span className="label">New password</span>
+                <input
+                  className="input"
+                  type="password"
+                  value={resetPassword}
+                  onChange={(event) => setResetPassword(event.target.value)}
+                  placeholder="Minimum 8 characters"
+                  minLength={8}
+                  required
+                />
+              </label>
 
-          <label>
-            <span className="label">Password</span>
-            <input
-              className="input"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Minimum 8 characters"
-              minLength={8}
-              required
-            />
-          </label>
+              {debugSecret ? (
+                <p className="rounded-md border border-accent/40 bg-accent/10 p-2 text-xs text-accent">
+                  Dev token: {debugSecret}
+                </p>
+              ) : null}
+              {message ? (
+                <p className="rounded-md border border-accent/40 bg-accent/10 p-2 text-sm text-accent">{message}</p>
+              ) : null}
+              {error ? (
+                <p className="rounded-md border border-danger/40 bg-danger/10 p-2 text-sm text-danger">{error}</p>
+              ) : null}
 
-          {error ? <p className="rounded-md border border-danger/40 bg-danger/10 p-2 text-sm text-danger">{error}</p> : null}
+              <button className="btn-primary w-full" type="submit" disabled={loading}>
+                {loading ? "Please wait..." : "Update password"}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handlePrimarySubmit} className="panel animate-riseIn space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-semibold">{mode === "register" ? "Create account" : "Log in"}</h2>
+                <button
+                  type="button"
+                  className="chip text-textMain transition hover:border-accent"
+                  onClick={() => setMode((prev) => (prev === "register" ? "login" : "register"))}
+                >
+                  {mode === "register" ? "Have account?" : "New account"}
+                </button>
+              </div>
 
-          <button className="btn-primary w-full" type="submit" disabled={loading}>
-            {loading ? "Please wait..." : mode === "register" ? "Create account" : "Log in"}
-          </button>
-          </form>
+              {mode === "register" ? (
+                <label>
+                  <span className="label">Name</span>
+                  <input
+                    className="input"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="Your name"
+                    required
+                  />
+                </label>
+              ) : null}
+
+              <label>
+                <span className="label">Email</span>
+                <input
+                  className="input"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="you@example.com"
+                  required
+                />
+              </label>
+
+              <label>
+                <span className="label">Password</span>
+                <input
+                  className="input"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="Minimum 8 characters"
+                  minLength={8}
+                  required
+                />
+              </label>
+
+              {message ? (
+                <p className="rounded-md border border-accent/40 bg-accent/10 p-2 text-sm text-accent">{message}</p>
+              ) : null}
+              {error ? (
+                <p className="rounded-md border border-danger/40 bg-danger/10 p-2 text-sm text-danger">{error}</p>
+              ) : null}
+              {debugSecret ? (
+                <p className="rounded-md border border-accent/40 bg-accent/10 p-2 text-xs text-accent">
+                  Dev token/code: {debugSecret}
+                </p>
+              ) : null}
+
+              <button className="btn-primary w-full" type="submit" disabled={loading}>
+                {loading ? "Please wait..." : mode === "register" ? "Create account" : "Log in"}
+              </button>
+              {mode === "login" ? (
+                <button
+                  type="button"
+                  className="chip text-textMain transition hover:border-accent"
+                  onClick={handleResetRequest}
+                  disabled={loading}
+                >
+                  Forgot password
+                </button>
+              ) : null}
+            </form>
+          )}
         </div>
       </section>
     </main>

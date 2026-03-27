@@ -6,7 +6,9 @@
   "main": "src/index.js",
   "scripts": {
     "dev": "nodemon src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "test": "node --test",
+    "migrate:v2": "node scripts/migrate-v2-security-and-profiles.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

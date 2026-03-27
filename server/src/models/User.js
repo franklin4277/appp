@@ -83,6 +83,72 @@ const refreshSessionSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const tokenFlowSchema = new mongoose.Schema(
+  {
+    tokenHash: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    expiresAt: {
+      type: Date,
+      default: null,
+    },
+    requestedAt: {
+      type: Date,
+      default: null,
+    },
+    usedAt: {
+      type: Date,
+      default: null,
+    },
+    verifiedAt: {
+      type: Date,
+      default: null,
+    },
+  },
+  { _id: false }
+);
+
+const twoFactorSchema = new mongoose.Schema(
+  {
+    enabled: {
+      type: Boolean,
+      default: false,
+    },
+    method: {
+      type: String,
+      default: "email_code",
+      trim: true,
+      maxlength: 40,
+    },
+    challengeId: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 120,
+    },
+    challengeHash: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    challengeExpiresAt: {
+      type: Date,
+      default: null,
+    },
+    challengeAttempts: {
+      type: Number,
+      default: 0,
+    },
+    lastChallengeAt: {
+      type: Date,
+      default: null,
+    },
+  },
+  { _id: false }
+);
+
 const buildDefaultSettings = () => ({
   options: {
     pairs: cloneList(DEFAULT_STRATEGY_OPTIONS.pairs),
@@ -154,6 +220,19 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    emailVerification: {
+      type: tokenFlowSchema,
+      default: () => ({}),
+    },
+    passwordReset: {
+      type: tokenFlowSchema,
+      default: () => ({}),
+    },
     settings: {
       type: settingsSchema,
       default: buildDefaultSettings,
@@ -177,6 +256,10 @@ const userSchema = new mongoose.Schema(
     refreshSessions: {
       type: [refreshSessionSchema],
       default: [],
+    },
+    twoFactor: {
+      type: twoFactorSchema,
+      default: () => ({}),
     },
     lastLoginAt: {
       type: Date,
@@ -216,8 +299,21 @@ userSchema.pre("save", function normalizeProfiles(next) {
     return Number.isFinite(expiresAt) && expiresAt > now.getTime();
   });
 
+  if (!this.emailVerification || typeof this.emailVerification !== "object") {
+    this.emailVerification = {};
+  }
+  if (!this.passwordReset || typeof this.passwordReset !== "object") {
+    this.passwordReset = {};
+  }
+  if (!this.twoFactor || typeof this.twoFactor !== "object") {
+    this.twoFactor = {};
+  }
+
   next();
 });
+
+userSchema.index({ "emailVerification.tokenHash": 1 });
+userSchema.index({ "passwordReset.tokenHash": 1 });
 
 const User = mongoose.model("User", userSchema);
 

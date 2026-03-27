@@ -305,11 +305,52 @@ export const loginUser = async ({ email, password }) => {
     body: JSON.stringify({ email, password }),
   });
   const payload = await parseResponse(response);
+  if (payload.token) {
+    persistAuthSession({
+      token: payload.token,
+      refreshToken: payload.refreshToken,
+    });
+  }
+  return payload;
+};
+
+export const verifyTwoFactorLogin = async ({ email, challengeId, code }) => {
+  const response = await fetchWithDiagnostics(`${API_BASE}/api/auth/2fa/verify-login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email, challengeId, code }),
+  });
+
+  const payload = await parseResponse(response);
   persistAuthSession({
     token: payload.token,
     refreshToken: payload.refreshToken,
   });
   return payload;
+};
+
+export const requestPasswordReset = async ({ email }) => {
+  const response = await fetchWithDiagnostics(`${API_BASE}/api/auth/password-reset/request`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email }),
+  });
+  return parseResponse(response);
+};
+
+export const confirmPasswordReset = async ({ token, newPassword }) => {
+  const response = await fetchWithDiagnostics(`${API_BASE}/api/auth/password-reset/confirm`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ token, newPassword }),
+  });
+  return parseResponse(response);
 };
 
 export const fetchMe = async (token) => {
@@ -326,6 +367,58 @@ export const updateUserSettings = async (token, settingsPayload) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(settingsPayload),
+    },
+    token
+  );
+  return parseResponse(response);
+};
+
+export const requestEmailVerification = async (token) => {
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/auth/email-verification/request`,
+    {
+      method: "POST",
+    },
+    token
+  );
+  return parseResponse(response);
+};
+
+export const verifyEmailToken = async ({ token }) => {
+  const response = await fetchWithDiagnostics(`${API_BASE}/api/auth/email-verification/verify`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ token }),
+  });
+  return parseResponse(response);
+};
+
+export const enableTwoFactorAuth = async (token, password) => {
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/auth/2fa/enable`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ password }),
+    },
+    token
+  );
+  return parseResponse(response);
+};
+
+export const disableTwoFactorAuth = async (token, password) => {
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/auth/2fa/disable`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ password }),
     },
     token
   );
@@ -417,6 +510,46 @@ export const fetchWeeklyReview = async (filters, token) => {
   const response = await fetchWithAuthRetry(
     `${API_BASE}/api/trades/review/weekly${queryString(filters)}`,
     {},
+    token
+  );
+  return parseResponse(response);
+};
+
+export const fetchSharedWeeklyReview = async (shareToken) => {
+  const token = String(shareToken || "").trim();
+  if (!token) {
+    throw new Error("Share token is required.");
+  }
+  const response = await fetchWithDiagnostics(`${API_BASE}/api/trades/review/shared/${encodeURIComponent(token)}`);
+  return parseResponse(response);
+};
+
+export const createWeeklyReviewShare = async (token, payload = {}) => {
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/trades/review/share`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    },
+    token
+  );
+  return parseResponse(response);
+};
+
+export const listWeeklyReviewShares = async (token) => {
+  const response = await fetchWithAuthRetry(`${API_BASE}/api/trades/review/shares`, {}, token);
+  return parseResponse(response);
+};
+
+export const revokeWeeklyReviewShare = async (token, shareId) => {
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/trades/review/share/${encodeURIComponent(shareId)}`,
+    {
+      method: "DELETE",
+    },
     token
   );
   return parseResponse(response);

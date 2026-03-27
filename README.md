@@ -11,6 +11,8 @@ Minimal, fast, session-based Forex journal with per-user accounts and behavior c
 ## Major Features
 
 - User auth (register/login) with private trade data isolation
+- Refresh-session auth with rotation + revoke support
+- Password reset flow + email verification + optional 2FA login (email code)
 - Flexible text fields and per-user strategy lists (pairs/sessions/setups/etc.)
 - Rule guardrails:
   - Require Asia High/Low + POC alignment, or force rule-break reason
@@ -27,6 +29,13 @@ Minimal, fast, session-based Forex journal with per-user accounts and behavior c
   - CSV export/import
   - Scheduled JSON auto backups
   - Screenshot upload with optional Cloudinary storage (local fallback)
+  - Offline queue + retry + local snapshot fallback
+  - Idempotent trade writes via client trade IDs
+- Collaboration:
+  - Read-only shared weekly review links (expiring + revokable)
+- Monitoring:
+  - `/api/metrics` endpoint (token-protected optional)
+  - Alert webhook hooks for auth abuse + server error bursts
 
 ## Project Structure
 
@@ -57,6 +66,17 @@ Optional env:
 - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_FOLDER`
 - `BACKUP_INTERVAL_MINUTES`, `BACKUP_DIR`, `DISABLE_AUTO_BACKUP`
 - `API_RATE_LIMIT_MAX`
+- `METRICS_TOKEN` (protect `/api/metrics`)
+- `ALERT_WEBHOOK_URL` (Slack/Discord/custom webhook)
+- `PASSWORD_RESET_EXPIRES_IN`, `EMAIL_VERIFY_EXPIRES_IN`, `TWO_FACTOR_EXPIRES_IN`
+- `PUBLIC_SHARE_BASE_URL`
+
+Migration (legacy data backfill for profiles + security fields):
+
+```powershell
+cd server
+npm run migrate:v2
+```
 
 ### 2) Frontend
 
@@ -71,17 +91,37 @@ Frontend env:
 
 - `VITE_API_URL` (example: `http://localhost:5000`)
 
+## Tests
+
+```powershell
+cd server
+npm test
+```
+
 ## API Summary
 
 - `POST /api/auth/register`
 - `POST /api/auth/login`
+- `POST /api/auth/2fa/verify-login`
+- `POST /api/auth/password-reset/request`
+- `POST /api/auth/password-reset/confirm`
+- `POST /api/auth/email-verification/verify`
 - `GET /api/auth/me`
 - `PATCH /api/auth/settings`
+- `POST /api/auth/email-verification/request`
+- `POST /api/auth/2fa/enable`
+- `POST /api/auth/2fa/disable`
 - `POST /api/trades`
 - `GET /api/trades`
 - `GET /api/trades/analytics`
+- `GET /api/trades/review/weekly`
+- `POST /api/trades/review/share`
+- `GET /api/trades/review/shares`
+- `DELETE /api/trades/review/share/:shareId`
+- `GET /api/trades/review/shared/:token` (public read-only)
 - `GET /api/trades/export.csv`
 - `POST /api/trades/import.csv`
+- `GET /api/metrics`
 
 All `/api/trades/*` endpoints require `Authorization: Bearer <token>`.
 
@@ -90,4 +130,3 @@ All `/api/trades/*` endpoints require `Authorization: Bearer <token>`.
 - Keep all secrets in env vars only.
 - Rotate MongoDB credentials before production release.
 - Use a long random `JWT_SECRET` in production.
-

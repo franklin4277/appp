@@ -17,6 +17,7 @@ import {
   syncOfflineQueue,
 } from "./api/tradesApi";
 import AuthPanel from "./components/AuthPanel";
+import AccountSecurityPanel from "./components/AccountSecurityPanel";
 import BehaviorLab from "./components/BehaviorLab";
 import CalendarConsistency from "./components/CalendarConsistency";
 import CoachingSummary from "./components/CoachingSummary";
@@ -28,6 +29,7 @@ import ProfitCurveChart from "./components/ProfitCurveChart";
 import ScreenshotReplay from "./components/ScreenshotReplay";
 import SessionPerformanceGraph from "./components/SessionPerformanceGraph";
 import SettingsPanel from "./components/SettingsPanel";
+import SharedWeeklyView from "./components/SharedWeeklyView";
 import SetupBreakdown from "./components/SetupBreakdown";
 import StatCards from "./components/StatCards";
 import StreakTracker from "./components/StreakTracker";
@@ -127,6 +129,15 @@ const formatSyncTime = (value) => {
 };
 
 const App = () => {
+  const sharedToken = useMemo(() => {
+    const path = String(window.location.pathname || "");
+    const marker = "/shared/";
+    if (!path.startsWith(marker)) {
+      return "";
+    }
+    return decodeURIComponent(path.slice(marker.length));
+  }, []);
+
   const storedSession = useMemo(() => readStoredAuthSession(), []);
   const [authLoading, setAuthLoading] = useState(true);
   const [token, setToken] = useState(() => storedSession.token || "");
@@ -179,6 +190,11 @@ const App = () => {
 
   useEffect(() => {
     const loadSession = async () => {
+      if (sharedToken) {
+        setAuthLoading(false);
+        return;
+      }
+
       if (!token) {
         setAuthLoading(false);
         return;
@@ -202,7 +218,7 @@ const App = () => {
     };
 
     loadSession();
-  }, [token]);
+  }, [sharedToken, token]);
 
   const loadData = useCallback(async () => {
     if (!token || !user) {
@@ -561,6 +577,10 @@ const App = () => {
     );
   }
 
+  if (sharedToken) {
+    return <SharedWeeklyView shareToken={sharedToken} />;
+  }
+
   if (!token || !user) {
     return <AuthPanel onAuthenticated={onAuthenticated} />;
   }
@@ -761,7 +781,7 @@ const App = () => {
                 <p>Configuration</p>
               </div>
               {showSettingsPanel ? (
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
                   <SettingsPanel
                     user={user}
                     token={token}
@@ -769,6 +789,7 @@ const App = () => {
                     onSaved={onSettingsSaved}
                   />
                   <DataTools token={token} filters={filters} onImported={loadData} />
+                  <AccountSecurityPanel user={user} token={token} onUserUpdate={setUser} />
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -785,6 +806,7 @@ const App = () => {
                       Change settings
                     </button>
                   </div>
+                  <AccountSecurityPanel user={user} token={token} onUserUpdate={setUser} />
                   <DataTools token={token} filters={filters} onImported={loadData} />
                 </div>
               )}

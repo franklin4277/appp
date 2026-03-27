@@ -1,9 +1,12 @@
+import crypto from "crypto";
 import Trade from "../models/Trade.js";
+import WeeklyReviewShare from "../models/WeeklyReviewShare.js";
 import { buildDashboardAnalytics } from "../services/analytics.js";
 import { parseTradesCsv, buildTradesCsv } from "../services/csv.js";
 import { evaluateGuardrails } from "../services/guardrails.js";
-import { resolveActiveProfileId, resolveDefaultProfileId } from "../services/auth.js";
+import { hashToken, resolveActiveProfileId, resolveDefaultProfileId } from "../services/auth.js";
 import { recordAudit } from "../services/audit.js";
+import { summarizeWeeklyReview, weekRange } from "../services/review.js";
 import { formatStoredFileUrl, storeScreenshot } from "../services/storage.js";
 
 const toBoolean = (value) => {
@@ -26,11 +29,6 @@ const toBoolean = (value) => {
 const toNumber = (value, fallback = 0) => {
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
-};
-
-const round = (value, precision = 2) => {
-  const factor = 10 ** precision;
-  return Math.round((Number(value) + Number.EPSILON) * factor) / factor;
 };
 
 const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -81,13 +79,6 @@ const parseDate = (value) => {
 const ensurePair = (value = "") => String(value || "").trim().toUpperCase();
 const ensureText = (value = "") => String(value || "").trim();
 
-const splitEmotionTokens = (value = "") =>
-  String(value || "")
-    .toLowerCase()
-    .split(/[,\|/;\s]+/g)
-    .map((item) => item.trim())
-    .filter(Boolean);
-
 const resolveProfileId = (req, source = {}) => {
   const requested = ensureText(source.profileId || req.query.profileId || req.body.profileId);
   if (!requested) {
@@ -110,28 +101,36 @@ const transformTrade = (trade, req) => ({
   },
 });
 
+const applyProfileScopeFilter = ({ filter = {}, user, profileId }) => {
+  const next = { ...filter };
+  const defaultProfileId = resolveDefaultProfileId(user);
+
+  if (profileId === defaultProfileId) {
+    next.$or = [{ profileId }, { profileId: { $exists: false } }, { profileId: null }];
+  } else {
+    next.profileId = profileId;
+  }
+
+  return next;
+};
+
 const buildFilterFromRequest = (req) => {
   const { pair, session, setupType, cleanOnly = "false" } = req.query;
   const profileId = resolveProfileId(req);
-  const defaultProfileId = resolveDefaultProfileId(req.user);
   const filter = {
     userId: req.user._id,
   };
 
-  if (profileId === defaultProfileId) {
-    filter.$or = [{ profileId }, { profileId: { $exists: false } }, { profileId: null }];
-  } else {
-    filter.profileId = profileId;
-  }
+  const scopedFilter = applyProfileScopeFilter({ filter, user: req.user, profileId });
 
-  applyTextFilter(filter, "pair", pair);
-  applyTextFilter(filter, "session", session);
-  applyTextFilter(filter, "setupType", setupType);
+  applyTextFilter(scopedFilter, "pair", pair);
+  applyTextFilter(scopedFilter, "session", session);
+  applyTextFilter(scopedFilter, "setupType", setupType);
   if (cleanOnly === "true") {
-    filter["tags.cleanSetup"] = true;
+    scopedFilter["tags.cleanSetup"] = true;
   }
 
-  return filter;
+  return scopedFilter;
 };
 
 const resolveTradePayload = ({ req, source, files = {} }) => {
@@ -417,159 +416,38 @@ const mapCsvRowToPayload = (row = {}, req) => {
   return normalized;
 };
 
-const weekRange = (referenceDate = new Date()) => {
-  const end = new Date(referenceDate);
-  end.setUTCHours(23, 59, 59, 999);
-
-  const start = new Date(end);
-  start.setUTCDate(start.getUTCDate() - 6);
-  start.setUTCHours(0, 0, 0, 0);
-
-  return { start, end };
-};
-
-const summarizeWeeklyReview = (trades = []) => {
-  const total = trades.length;
-  const wins = trades.filter((trade) => trade.result === "Win").length;
-  const totalRR = trades.reduce((sum, trade) => sum + toNumber(trade.rrAchieved), 0);
-  const averageRR = total ? totalRR / total : 0;
-
-  const setups = new Map();
-  const emotions = new Map();
-
-  let mistakeCounters = {
-    nonClean: 0,
-    noAsiaHL: 0,
-    noPoc: 0,
-    ruleBreak: 0,
+const buildWeeklyReviewPayload = async ({ user, profileId }) => {
+  const { start, end } = weekRange(new Date());
+  const baseFilter = {
+    userId: user._id,
+    tradeDate: { $gte: start, $lte: end },
   };
-
-  trades.forEach((trade) => {
-    const setupKey = ensureText(trade.setupType) || "Unlabeled setup";
-    const setupBucket = setups.get(setupKey) || { total: 0, wins: 0, rr: 0 };
-    setupBucket.total += 1;
-    setupBucket.rr += toNumber(trade.rrAchieved);
-    if (trade.result === "Win") {
-      setupBucket.wins += 1;
-    }
-    setups.set(setupKey, setupBucket);
-
-    splitEmotionTokens(trade.notes?.emotionalState).forEach((emotion) => {
-      const emotionBucket = emotions.get(emotion) || { total: 0, rr: 0, wins: 0 };
-      emotionBucket.total += 1;
-      emotionBucket.rr += toNumber(trade.rrAchieved);
-      if (trade.result === "Win") {
-        emotionBucket.wins += 1;
-      }
-      emotions.set(emotion, emotionBucket);
-    });
-
-    if (!trade.tags?.cleanSetup) {
-      mistakeCounters.nonClean += 1;
-    }
-    if (!trade.tags?.asiaHighLowUsed) {
-      mistakeCounters.noAsiaHL += 1;
-    }
-    if (!trade.tags?.pocInteraction) {
-      mistakeCounters.noPoc += 1;
-    }
-    if (ensureText(trade.ruleBreakReason)) {
-      mistakeCounters.ruleBreak += 1;
-    }
+  const filter = applyProfileScopeFilter({
+    filter: baseFilter,
+    user,
+    profileId,
   });
 
-  const bestSetup = [...setups.entries()]
-    .map(([label, bucket]) => ({
-      label,
-      total: bucket.total,
-      winRate: bucket.total ? round((bucket.wins / bucket.total) * 100, 1) : 0,
-      averageRR: bucket.total ? round(bucket.rr / bucket.total, 2) : 0,
-    }))
-    .sort((a, b) => b.averageRR - a.averageRR)[0] || {
-    label: "No setup data",
-    total: 0,
-    winRate: 0,
-    averageRR: 0,
-  };
-
-  const biggestMistake = Object.entries(mistakeCounters)
-    .map(([key, count]) => ({ key, count }))
-    .sort((a, b) => b.count - a.count)[0] || { key: "none", count: 0 };
-
-  const mistakeLabels = {
-    nonClean: "Too many non-clean setups",
-    noAsiaHL: "Trades without Asia High/Low reaction",
-    noPoc: "Trades without POC interaction",
-    ruleBreak: "Frequent rule breaks",
-    none: "No major recurring mistake detected",
-  };
-
-  const topEmotion = [...emotions.entries()]
-    .map(([label, bucket]) => ({
-      label,
-      total: bucket.total,
-      winRate: bucket.total ? round((bucket.wins / bucket.total) * 100, 1) : 0,
-      averageRR: bucket.total ? round(bucket.rr / bucket.total, 2) : 0,
-    }))
-    .filter((item) => item.total >= 2)
-    .sort((a, b) => b.averageRR - a.averageRR)[0] || {
-    label: "Not enough emotion tags",
-    total: 0,
-    winRate: 0,
-    averageRR: 0,
-  };
-
-  const actionPlan = [];
-  if (bestSetup.total >= 2) {
-    actionPlan.push(`Prioritize ${bestSetup.label} where context matches your rules.`);
-  }
-  if (biggestMistake.count > 0) {
-    actionPlan.push(`Reduce ${mistakeLabels[biggestMistake.key].toLowerCase()} this week.`);
-  }
-  if (topEmotion.total >= 2) {
-    actionPlan.push(`Repeat the routine that creates the '${topEmotion.label}' state before entries.`);
-  }
-  if (averageRR < 0.25) {
-    actionPlan.push("Only take setups with planned RR >= 1.2 and clean confirmation.");
-  }
-  if (!actionPlan.length) {
-    actionPlan.push("Keep current execution process and review screenshots for micro improvements.");
-  }
+  const trades = await Trade.find(filter).sort({ tradeDate: -1 });
+  const summary = summarizeWeeklyReview(trades.map((trade) => trade.toObject()));
 
   return {
-    totalTrades: total,
-    winRate: total ? round((wins / total) * 100, 1) : 0,
-    netRR: round(totalRR, 2),
-    averageRR: round(averageRR, 2),
-    bestSetup,
-    biggestMistake: {
-      label: mistakeLabels[biggestMistake.key] || mistakeLabels.none,
-      count: biggestMistake.count || 0,
-    },
-    emotionPattern: topEmotion,
-    actionPlan: actionPlan.slice(0, 4),
+    generatedAt: new Date().toISOString(),
+    profileId,
+    periodStart: start.toISOString().slice(0, 10),
+    periodEnd: end.toISOString().slice(0, 10),
+    summary,
+    rows: trades.length,
   };
 };
 
 export const getWeeklyReview = async (req, res, next) => {
   try {
     const profileId = resolveProfileId(req);
-    const { start, end } = weekRange(new Date());
-
-    const filter = {
-      userId: req.user._id,
-      tradeDate: { $gte: start, $lte: end },
-    };
-
-    const defaultProfileId = resolveDefaultProfileId(req.user);
-    if (profileId === defaultProfileId) {
-      filter.$or = [{ profileId }, { profileId: { $exists: false } }, { profileId: null }];
-    } else {
-      filter.profileId = profileId;
-    }
-
-    const trades = await Trade.find(filter).sort({ tradeDate: -1 });
-    const summary = summarizeWeeklyReview(trades.map((trade) => trade.toObject()));
+    const review = await buildWeeklyReviewPayload({
+      user: req.user,
+      profileId,
+    });
 
     await recordAudit({
       req,
@@ -578,16 +456,212 @@ export const getWeeklyReview = async (req, res, next) => {
       targetType: "trade",
       metadata: {
         profileId,
-        rows: trades.length,
+        rows: review.rows,
+      },
+    });
+
+    res.json(review);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const sanitizeShareTitle = (value = "", fallback = "") => {
+  const title = ensureText(value).slice(0, 120);
+  if (title) {
+    return title;
+  }
+  return ensureText(fallback).slice(0, 120) || "Weekly report";
+};
+
+const clampShareExpiryDays = (value, fallback = 7) => Math.min(Math.max(toNumber(value, fallback), 1), 90);
+
+const resolveShareBaseUrl = (req) => {
+  const envBase =
+    String(process.env.PUBLIC_SHARE_BASE_URL || "").trim() ||
+    String(process.env.CLIENT_URL || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)[0];
+
+  if (envBase) {
+    return envBase.replace(/\/$/, "");
+  }
+
+  return `${req.protocol}://${req.get("host")}`;
+};
+
+export const createSharedWeeklyReview = async (req, res, next) => {
+  try {
+    const profileId = resolveProfileId(req, req.body || {});
+    const review = await buildWeeklyReviewPayload({
+      user: req.user,
+      profileId,
+    });
+
+    const shareToken = crypto.randomBytes(24).toString("hex");
+    const expiresInDays = clampShareExpiryDays(req.body?.expiresInDays, 7);
+    const expiresAt = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000);
+    const title = sanitizeShareTitle(req.body?.title, `${review.periodStart} to ${review.periodEnd}`);
+
+    const created = await WeeklyReviewShare.create({
+      userId: req.user._id,
+      profileId,
+      tokenHash: hashToken(shareToken),
+      title,
+      periodStart: review.periodStart,
+      periodEnd: review.periodEnd,
+      summary: review.summary,
+      generatedAt: review.generatedAt,
+      expiresAt,
+    });
+
+    const sharePath = `/shared/${shareToken}`;
+    const shareUrl = `${resolveShareBaseUrl(req)}${sharePath}`;
+    const apiUrl = `${req.protocol}://${req.get("host")}/api/trades/review/shared/${shareToken}`;
+
+    await recordAudit({
+      req,
+      userId: req.user._id,
+      action: "review.weekly.share.created",
+      targetType: "weekly-share",
+      targetId: created._id.toString(),
+      metadata: {
+        profileId,
+        periodStart: created.periodStart,
+        periodEnd: created.periodEnd,
+        expiresAt: created.expiresAt.toISOString(),
+      },
+    });
+
+    res.status(201).json({
+      id: created._id.toString(),
+      profileId: created.profileId,
+      title: created.title,
+      periodStart: created.periodStart,
+      periodEnd: created.periodEnd,
+      expiresAt: created.expiresAt.toISOString(),
+      shareUrl,
+      apiUrl,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const listWeeklyReviewShares = async (req, res, next) => {
+  try {
+    const shares = await WeeklyReviewShare.find({
+      userId: req.user._id,
+      revokedAt: null,
+    })
+      .sort({ createdAt: -1 })
+      .limit(30);
+
+    res.json({
+      data: shares.map((share) => ({
+        id: share._id.toString(),
+        profileId: share.profileId,
+        title: share.title,
+        periodStart: share.periodStart,
+        periodEnd: share.periodEnd,
+        expiresAt: share.expiresAt.toISOString(),
+        createdAt: share.createdAt?.toISOString?.() || null,
+        lastAccessedAt: share.lastAccessedAt?.toISOString?.() || null,
+        isExpired: new Date(share.expiresAt).getTime() <= Date.now(),
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const revokeWeeklyReviewShare = async (req, res, next) => {
+  try {
+    const shareId = ensureText(req.params.shareId);
+    if (!shareId || !/^[a-f0-9]{24}$/i.test(shareId)) {
+      const error = new Error("shareId is required.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const share = await WeeklyReviewShare.findOne({
+      _id: shareId,
+      userId: req.user._id,
+      revokedAt: null,
+    });
+
+    if (!share) {
+      const error = new Error("Shared report not found.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    share.revokedAt = new Date();
+    await share.save();
+
+    await recordAudit({
+      req,
+      userId: req.user._id,
+      action: "review.weekly.share.revoked",
+      targetType: "weekly-share",
+      targetId: share._id.toString(),
+      metadata: {
+        profileId: share.profileId,
+      },
+    });
+
+    res.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getSharedWeeklyReview = async (req, res, next) => {
+  try {
+    const token = ensureText(req.params.token);
+    if (!token) {
+      const error = new Error("Shared review not found.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const share = await WeeklyReviewShare.findOne({
+      tokenHash: hashToken(token),
+      revokedAt: null,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (!share) {
+      const error = new Error("Shared review link is invalid or expired.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    share.lastAccessedAt = new Date();
+    await share.save();
+
+    await recordAudit({
+      req,
+      userId: share.userId,
+      action: "review.weekly.share.viewed",
+      targetType: "weekly-share",
+      targetId: share._id.toString(),
+      metadata: {
+        profileId: share.profileId,
       },
     });
 
     res.json({
-      generatedAt: new Date().toISOString(),
-      profileId,
-      periodStart: start.toISOString().slice(0, 10),
-      periodEnd: end.toISOString().slice(0, 10),
-      summary,
+      shared: true,
+      readOnly: true,
+      title: share.title,
+      profileId: share.profileId,
+      periodStart: share.periodStart,
+      periodEnd: share.periodEnd,
+      generatedAt: new Date(share.generatedAt).toISOString(),
+      expiresAt: new Date(share.expiresAt).toISOString(),
+      summary: share.summary || {},
     });
   } catch (error) {
     next(error);

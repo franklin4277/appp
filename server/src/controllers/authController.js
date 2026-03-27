@@ -3,6 +3,8 @@ import User from "../models/User.js";
 import { DEFAULT_RISK_CONTROLS, DEFAULT_STRATEGY_OPTIONS } from "../constants/defaults.js";
 import { recordAudit } from "../services/audit.js";
 import {
+  createOneTimeCode,
+  createOneTimeToken,
   ensureUserProfiles,
   findRefreshSession,
   hashToken,
@@ -13,9 +15,12 @@ import {
   toPublicUser,
   verifyRefreshToken,
 } from "../services/auth.js";
+import { sendAlert } from "../services/alerts.js";
+import { trackFailedLoginAttempt } from "../services/security.js";
 
 const normalizeEmail = (value = "") => String(value).trim().toLowerCase();
 const normalizeName = (value = "") => String(value).trim();
+const isProd = process.env.NODE_ENV === "production";
 
 const asStringArray = (value = []) => {
   const source = Array.isArray(value) ? value : String(value).split(/[,\n]/g);
@@ -26,6 +31,39 @@ const toNumber = (value, fallback) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 };
+
+const envDurationToMs = (value, fallbackMs) => {
+  const source = String(value || "").trim();
+  if (!source) {
+    return fallbackMs;
+  }
+
+  if (/^\d+$/.test(source)) {
+    return Math.max(Number(source) * 1000, 60_000);
+  }
+
+  const match = source.match(/^(\d+)\s*([smhd])$/i);
+  if (!match) {
+    return fallbackMs;
+  }
+
+  const amount = Number(match[1]);
+  const unit = match[2].toLowerCase();
+  const multipliers = {
+    s: 1000,
+    m: 60_000,
+    h: 3_600_000,
+    d: 86_400_000,
+  };
+
+  return Math.max(amount * (multipliers[unit] || 1000), 60_000);
+};
+
+const PASSWORD_RESET_TTL_MS = envDurationToMs(process.env.PASSWORD_RESET_EXPIRES_IN || "30m", 30 * 60_000);
+const EMAIL_VERIFY_TTL_MS = envDurationToMs(process.env.EMAIL_VERIFY_EXPIRES_IN || "48h", 48 * 3_600_000);
+const TWO_FACTOR_TTL_MS = envDurationToMs(process.env.TWO_FACTOR_EXPIRES_IN || "10m", 10 * 60_000);
+
+const includeDebugSecrets = () => !isProd || process.env.ALLOW_DEBUG_AUTH_SECRETS === "true";
 
 const slugify = (value = "") =>
   String(value || "")
@@ -49,6 +87,12 @@ const uniqueProfileId = (user, name) => {
 const unauthorized = (message = "Invalid session.") => {
   const error = new Error(message);
   error.statusCode = 401;
+  return error;
+};
+
+const badRequest = (message) => {
+  const error = new Error(message);
+  error.statusCode = 400;
   return error;
 };
 
@@ -104,7 +148,51 @@ const mergeSettings = (current = {}, next = {}) => {
   };
 };
 
-const respondWithAuth = async ({ req, res, user, statusCode = 200 }) => {
+const clearTwoFactorChallenge = (user) => {
+  user.twoFactor = {
+    ...(user.twoFactor || {}),
+    challengeId: "",
+    challengeHash: "",
+    challengeExpiresAt: null,
+    challengeAttempts: 0,
+  };
+};
+
+const createEmailVerificationForUser = (user) => {
+  const token = createOneTimeToken(24);
+  user.emailVerification = {
+    tokenHash: hashToken(token),
+    expiresAt: new Date(Date.now() + EMAIL_VERIFY_TTL_MS),
+    requestedAt: new Date(),
+    usedAt: null,
+    verifiedAt: null,
+  };
+  return token;
+};
+
+const createPasswordResetForUser = (user) => {
+  const token = createOneTimeToken(24);
+  user.passwordReset = {
+    tokenHash: hashToken(token),
+    expiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MS),
+    requestedAt: new Date(),
+    usedAt: null,
+    verifiedAt: null,
+  };
+  return token;
+};
+
+const dispatchSecurityMessage = ({ level = "info", event, message, details = {} }) => {
+  sendAlert({
+    level,
+    event,
+    message,
+    details,
+    source: "auth",
+  });
+};
+
+const respondWithAuth = async ({ req, res, user, statusCode = 200, extras = {} }) => {
   ensureUserProfiles(user);
   const authPayload = issueAuthTokens(user, req);
   await user.save();
@@ -113,6 +201,7 @@ const respondWithAuth = async ({ req, res, user, statusCode = 200 }) => {
     token: authPayload.token,
     refreshToken: authPayload.refreshToken,
     user: toPublicUser(user),
+    ...extras,
   });
 };
 
@@ -123,22 +212,18 @@ export const register = async (req, res, next) => {
     const password = String(req.body.password || "");
 
     if (!email || !password) {
-      const error = new Error("Email and password are required.");
-      error.statusCode = 400;
-      throw error;
+      throw badRequest("Email and password are required.");
     }
 
     if (password.length < 8) {
-      const error = new Error("Password must be at least 8 characters.");
-      error.statusCode = 400;
-      throw error;
+      throw badRequest("Password must be at least 8 characters.");
     }
 
     const existing = await User.findOne({ email });
     if (existing) {
-      const error = new Error("An account with this email already exists.");
-      error.statusCode = 409;
-      throw error;
+      const conflict = new Error("An account with this email already exists.");
+      conflict.statusCode = 409;
+      throw conflict;
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
@@ -147,7 +232,11 @@ export const register = async (req, res, next) => {
       name,
       passwordHash,
       settings: mergeSettings(),
+      emailVerified: false,
     });
+
+    const verificationToken = createEmailVerificationForUser(user);
+    await user.save();
 
     await recordAudit({
       req,
@@ -158,11 +247,28 @@ export const register = async (req, res, next) => {
       metadata: { email: user.email },
     });
 
+    dispatchSecurityMessage({
+      event: "auth.email.verification.requested",
+      message: "Email verification token generated for newly registered account.",
+      details: {
+        email: user.email,
+        expiresAt: user.emailVerification?.expiresAt?.toISOString?.() || null,
+        debugToken: includeDebugSecrets() ? verificationToken : undefined,
+      },
+    });
+
     await respondWithAuth({
       req,
       res,
       user,
       statusCode: 201,
+      extras: includeDebugSecrets()
+        ? {
+            debug: {
+              emailVerificationToken: verificationToken,
+            },
+          }
+        : {},
     });
   } catch (error) {
     next(error);
@@ -175,13 +281,12 @@ export const login = async (req, res, next) => {
     const password = String(req.body.password || "");
 
     if (!email || !password) {
-      const error = new Error("Email and password are required.");
-      error.statusCode = 400;
-      throw error;
+      throw badRequest("Email and password are required.");
     }
 
     const user = await User.findOne({ email });
     if (!user) {
+      trackFailedLoginAttempt({ req, email });
       await recordAudit({
         req,
         action: "auth.login.failed",
@@ -193,6 +298,7 @@ export const login = async (req, res, next) => {
 
     const isValid = await bcrypt.compare(password, user.passwordHash);
     if (!isValid) {
+      trackFailedLoginAttempt({ req, email });
       await recordAudit({
         req,
         userId: user._id,
@@ -206,10 +312,118 @@ export const login = async (req, res, next) => {
     ensureUserProfiles(user);
     user.lastLoginAt = new Date();
 
+    if (user.twoFactor?.enabled) {
+      const challengeId = createOneTimeToken(12);
+      const code = createOneTimeCode(6);
+
+      user.twoFactor = {
+        ...(user.twoFactor || {}),
+        enabled: true,
+        method: "email_code",
+        challengeId,
+        challengeHash: hashToken(code),
+        challengeExpiresAt: new Date(Date.now() + TWO_FACTOR_TTL_MS),
+        challengeAttempts: 0,
+        lastChallengeAt: new Date(),
+      };
+      await user.save();
+
+      await recordAudit({
+        req,
+        userId: user._id,
+        action: "auth.login.2fa.challenge",
+        targetType: "user",
+        targetId: user._id.toString(),
+      });
+
+      dispatchSecurityMessage({
+        event: "auth.2fa.challenge.issued",
+        message: "2FA challenge issued for login.",
+        details: {
+          email: user.email,
+          expiresAt: user.twoFactor.challengeExpiresAt?.toISOString?.() || null,
+          debugCode: includeDebugSecrets() ? code : undefined,
+        },
+      });
+
+      res.status(202).json({
+        requiresTwoFactor: true,
+        challengeId,
+        message: "Two-factor verification code required.",
+        ...(includeDebugSecrets() ? { debugCode: code } : {}),
+      });
+      return;
+    }
+
     await recordAudit({
       req,
       userId: user._id,
       action: "auth.login.success",
+      targetType: "user",
+      targetId: user._id.toString(),
+      metadata: { activeProfileId: user.activeProfileId },
+    });
+
+    await respondWithAuth({
+      req,
+      res,
+      user,
+      statusCode: 200,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const verifyTwoFactorLogin = async (req, res, next) => {
+  try {
+    const email = normalizeEmail(req.body.email);
+    const challengeId = String(req.body.challengeId || "").trim();
+    const code = String(req.body.code || "").trim();
+
+    if (!email || !challengeId || !code) {
+      throw badRequest("email, challengeId and code are required.");
+    }
+
+    const user = await User.findOne({ email });
+    if (!user || !user.twoFactor?.enabled) {
+      throw unauthorized("2FA verification failed.");
+    }
+
+    const challengeMatches = user.twoFactor.challengeId === challengeId && user.twoFactor.challengeHash;
+    if (!challengeMatches) {
+      throw unauthorized("2FA challenge is invalid.");
+    }
+
+    const expiresAt = user.twoFactor.challengeExpiresAt ? new Date(user.twoFactor.challengeExpiresAt).getTime() : 0;
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      clearTwoFactorChallenge(user);
+      await user.save();
+      throw unauthorized("2FA challenge expired. Please log in again.");
+    }
+
+    const attempts = Number(user.twoFactor.challengeAttempts || 0);
+    if (attempts >= 5) {
+      clearTwoFactorChallenge(user);
+      await user.save();
+      throw unauthorized("Too many invalid 2FA attempts. Please log in again.");
+    }
+
+    if (hashToken(code) !== user.twoFactor.challengeHash) {
+      user.twoFactor.challengeAttempts = attempts + 1;
+      await user.save();
+      trackFailedLoginAttempt({ req, email });
+      throw unauthorized("Invalid 2FA code.");
+    }
+
+    clearTwoFactorChallenge(user);
+    ensureUserProfiles(user);
+    user.lastLoginAt = new Date();
+
+    await recordAudit({
+      req,
+      userId: user._id,
+      action: "auth.login.2fa.success",
       targetType: "user",
       targetId: user._id.toString(),
       metadata: { activeProfileId: user.activeProfileId },
@@ -360,6 +574,285 @@ export const getMe = async (req, res) => {
   });
 };
 
+export const requestPasswordReset = async (req, res, next) => {
+  try {
+    const email = normalizeEmail(req.body.email);
+    if (!email) {
+      throw badRequest("Email is required.");
+    }
+
+    const user = await User.findOne({ email });
+    let debugToken = "";
+
+    if (user) {
+      const resetToken = createPasswordResetForUser(user);
+      clearTwoFactorChallenge(user);
+      await user.save();
+      debugToken = resetToken;
+
+      await recordAudit({
+        req,
+        userId: user._id,
+        action: "auth.password.reset.request",
+        targetType: "user",
+        targetId: user._id.toString(),
+      });
+
+      dispatchSecurityMessage({
+        event: "auth.password.reset.requested",
+        message: "Password reset token generated.",
+        details: {
+          email,
+          expiresAt: user.passwordReset?.expiresAt?.toISOString?.() || null,
+          debugToken: includeDebugSecrets() ? resetToken : undefined,
+        },
+      });
+    }
+
+    res.json({
+      ok: true,
+      message: "If the account exists, reset instructions were generated.",
+      ...(includeDebugSecrets() && debugToken
+        ? {
+            debugToken,
+          }
+        : {}),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const confirmPasswordReset = async (req, res, next) => {
+  try {
+    const token = String(req.body.token || "").trim();
+    const newPassword = String(req.body.newPassword || "");
+
+    if (!token || !newPassword) {
+      throw badRequest("token and newPassword are required.");
+    }
+
+    if (newPassword.length < 8) {
+      throw badRequest("Password must be at least 8 characters.");
+    }
+
+    const user = await User.findOne({
+      "passwordReset.tokenHash": hashToken(token),
+    });
+
+    if (!user) {
+      throw badRequest("Password reset token is invalid.");
+    }
+
+    const expiresAt = user.passwordReset?.expiresAt ? new Date(user.passwordReset.expiresAt).getTime() : 0;
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      throw badRequest("Password reset token has expired.");
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 12);
+    user.refreshSessions = [];
+    user.passwordReset = {
+      tokenHash: "",
+      expiresAt: null,
+      requestedAt: user.passwordReset?.requestedAt || null,
+      usedAt: new Date(),
+      verifiedAt: null,
+    };
+    clearTwoFactorChallenge(user);
+    await user.save();
+
+    await recordAudit({
+      req,
+      userId: user._id,
+      action: "auth.password.reset.confirmed",
+      targetType: "user",
+      targetId: user._id.toString(),
+    });
+
+    res.json({
+      ok: true,
+      message: "Password was reset. Please log in again.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const requestEmailVerification = async (req, res, next) => {
+  try {
+    const user = req.user;
+    if (user.emailVerified) {
+      res.json({
+        ok: true,
+        message: "Email is already verified.",
+      });
+      return;
+    }
+
+    const verificationToken = createEmailVerificationForUser(user);
+    await user.save();
+
+    await recordAudit({
+      req,
+      userId: user._id,
+      action: "auth.email.verification.request",
+      targetType: "user",
+      targetId: user._id.toString(),
+    });
+
+    dispatchSecurityMessage({
+      event: "auth.email.verification.requested",
+      message: "Email verification token regenerated.",
+      details: {
+        email: user.email,
+        expiresAt: user.emailVerification?.expiresAt?.toISOString?.() || null,
+        debugToken: includeDebugSecrets() ? verificationToken : undefined,
+      },
+    });
+
+    res.json({
+      ok: true,
+      message: "Verification token generated.",
+      ...(includeDebugSecrets()
+        ? {
+            debugToken: verificationToken,
+          }
+        : {}),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const verifyEmail = async (req, res, next) => {
+  try {
+    const token = String(req.body.token || req.query.token || "").trim();
+    if (!token) {
+      throw badRequest("Verification token is required.");
+    }
+
+    const user = await User.findOne({
+      "emailVerification.tokenHash": hashToken(token),
+    });
+
+    if (!user) {
+      throw badRequest("Verification token is invalid.");
+    }
+
+    const expiresAt = user.emailVerification?.expiresAt ? new Date(user.emailVerification.expiresAt).getTime() : 0;
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      throw badRequest("Verification token expired.");
+    }
+
+    user.emailVerified = true;
+    user.emailVerification = {
+      tokenHash: "",
+      expiresAt: null,
+      requestedAt: user.emailVerification?.requestedAt || null,
+      usedAt: new Date(),
+      verifiedAt: new Date(),
+    };
+    await user.save();
+
+    await recordAudit({
+      req,
+      userId: user._id,
+      action: "auth.email.verified",
+      targetType: "user",
+      targetId: user._id.toString(),
+    });
+
+    res.json({
+      ok: true,
+      message: "Email verified successfully.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const enableTwoFactor = async (req, res, next) => {
+  try {
+    const password = String(req.body.password || "");
+    if (!password) {
+      throw badRequest("Password confirmation is required.");
+    }
+
+    const isValid = await bcrypt.compare(password, req.user.passwordHash);
+    if (!isValid) {
+      throw unauthorized("Password confirmation failed.");
+    }
+
+    req.user.twoFactor = {
+      ...(req.user.twoFactor || {}),
+      enabled: true,
+      method: "email_code",
+      challengeId: "",
+      challengeHash: "",
+      challengeExpiresAt: null,
+      challengeAttempts: 0,
+    };
+    await req.user.save();
+
+    await recordAudit({
+      req,
+      userId: req.user._id,
+      action: "auth.2fa.enabled",
+      targetType: "user",
+      targetId: req.user._id.toString(),
+    });
+
+    res.json({
+      ok: true,
+      user: toPublicUser(req.user),
+      message: "Two-factor login enabled.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const disableTwoFactor = async (req, res, next) => {
+  try {
+    const password = String(req.body.password || "");
+    if (!password) {
+      throw badRequest("Password confirmation is required.");
+    }
+
+    const isValid = await bcrypt.compare(password, req.user.passwordHash);
+    if (!isValid) {
+      throw unauthorized("Password confirmation failed.");
+    }
+
+    req.user.twoFactor = {
+      ...(req.user.twoFactor || {}),
+      enabled: false,
+      method: "email_code",
+      challengeId: "",
+      challengeHash: "",
+      challengeExpiresAt: null,
+      challengeAttempts: 0,
+    };
+    await req.user.save();
+
+    await recordAudit({
+      req,
+      userId: req.user._id,
+      action: "auth.2fa.disabled",
+      targetType: "user",
+      targetId: req.user._id.toString(),
+    });
+
+    res.json({
+      ok: true,
+      user: toPublicUser(req.user),
+      message: "Two-factor login disabled.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const updateSettings = async (req, res, next) => {
   try {
     const merged = mergeSettings(req.user.settings || {}, req.body || {});
@@ -388,9 +881,7 @@ export const createProfile = async (req, res, next) => {
     const description = String(req.body.description || "").trim().slice(0, 200);
 
     if (name.length < 2) {
-      const error = new Error("Profile name must be at least 2 characters.");
-      error.statusCode = 400;
-      throw error;
+      throw badRequest("Profile name must be at least 2 characters.");
     }
 
     ensureUserProfiles(req.user);
@@ -432,9 +923,7 @@ export const setActiveProfile = async (req, res, next) => {
   try {
     const profileId = String(req.body.profileId || "").trim();
     if (!profileId) {
-      const error = new Error("profileId is required.");
-      error.statusCode = 400;
-      throw error;
+      throw badRequest("profileId is required.");
     }
 
     ensureUserProfiles(req.user);

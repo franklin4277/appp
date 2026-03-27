@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { fetchWeeklyReview } from "../api/tradesApi";
+import {
+  createWeeklyReviewShare,
+  fetchWeeklyReview,
+  listWeeklyReviewShares,
+  revokeWeeklyReviewShare,
+} from "../api/tradesApi";
 
 const toCsvBlob = (review) => {
   const rows = [
@@ -88,8 +93,11 @@ const openPrintView = (review) => {
 
 const WeeklyReviewReport = ({ token, profileId = "" }) => {
   const [busy, setBusy] = useState(false);
+  const [shareBusy, setShareBusy] = useState(false);
   const [error, setError] = useState("");
   const [report, setReport] = useState(null);
+  const [shareUrl, setShareUrl] = useState("");
+  const [shares, setShares] = useState([]);
 
   const loadReport = async () => {
     setBusy(true);
@@ -131,6 +139,68 @@ const WeeklyReviewReport = ({ token, profileId = "" }) => {
     openPrintView(review);
   };
 
+  const refreshShares = async () => {
+    setShareBusy(true);
+    setError("");
+    try {
+      const payload = await listWeeklyReviewShares(token);
+      setShares(payload.data || []);
+    } catch (shareError) {
+      setError(shareError.message);
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  const handleCreateShare = async () => {
+    setShareBusy(true);
+    setError("");
+    try {
+      const payload = await createWeeklyReviewShare(token, {
+        profileId,
+        expiresInDays: 14,
+      });
+      setShareUrl(payload.shareUrl || "");
+      await refreshShares();
+    } catch (shareError) {
+      setError(shareError.message);
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  const handleRevokeShare = async (shareId) => {
+    if (!shareId) {
+      return;
+    }
+    const shouldRevoke = window.confirm("Revoke this share link?");
+    if (!shouldRevoke) {
+      return;
+    }
+
+    setShareBusy(true);
+    setError("");
+    try {
+      await revokeWeeklyReviewShare(token, shareId);
+      await refreshShares();
+    } catch (shareError) {
+      setError(shareError.message);
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  const copyShareLink = async () => {
+    if (!shareUrl) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+    } catch {
+      // Ignore clipboard permission failures
+    }
+  };
+
   return (
     <section className="panel animate-riseIn">
       <div className="mb-3 flex items-center justify-between">
@@ -152,6 +222,22 @@ const WeeklyReviewReport = ({ token, profileId = "" }) => {
         <button type="button" className="chip text-textMain transition hover:border-accent" onClick={handlePrintPdf} disabled={busy}>
           Print to PDF
         </button>
+        <button
+          type="button"
+          className="chip text-textMain transition hover:border-accent"
+          onClick={handleCreateShare}
+          disabled={shareBusy}
+        >
+          {shareBusy ? "Sharing..." : "Create read-only link"}
+        </button>
+        <button
+          type="button"
+          className="chip text-textMain transition hover:border-accent"
+          onClick={refreshShares}
+          disabled={shareBusy}
+        >
+          {shareBusy ? "Loading..." : "View links"}
+        </button>
       </div>
 
       {report ? (
@@ -162,6 +248,43 @@ const WeeklyReviewReport = ({ token, profileId = "" }) => {
           <p className="mt-1">Best setup: {report.summary.bestSetup.label}</p>
           <p className="mt-1">Biggest mistake: {report.summary.biggestMistake.label}</p>
           <p className="mt-1">Emotion edge: {report.summary.emotionPattern.label}</p>
+        </div>
+      ) : null}
+
+      {shareUrl ? (
+        <div className="mt-3 rounded-md border border-border bg-panelMuted p-3 text-sm text-textMuted">
+          <p className="font-medium text-textMain">Latest share link</p>
+          <p className="mt-1 break-all">{shareUrl}</p>
+          <button
+            type="button"
+            className="chip mt-2 text-textMain transition hover:border-accent"
+            onClick={copyShareLink}
+          >
+            Copy link
+          </button>
+        </div>
+      ) : null}
+
+      {shares.length ? (
+        <div className="mt-3 rounded-md border border-border bg-panelMuted p-3 text-sm text-textMuted">
+          <p className="font-medium text-textMain">Active shared reports</p>
+          <div className="mt-2 space-y-2">
+            {shares.map((share) => (
+              <div key={share.id} className="rounded-md border border-border/70 p-2">
+                <p className="text-textMain">{share.title || "Weekly report"}</p>
+                <p className="text-xs">
+                  {share.periodStart} to {share.periodEnd} | expires {share.expiresAt?.slice(0, 10)}
+                </p>
+                <button
+                  type="button"
+                  className="chip mt-2 text-textMain transition hover:border-danger"
+                  onClick={() => handleRevokeShare(share.id)}
+                >
+                  Revoke
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       ) : null}
 

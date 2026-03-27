@@ -15,7 +15,7 @@ const SettingField = ({ label, value, onChange, placeholder }) => (
   </label>
 );
 
-const SettingsPanel = ({ user, token, onUserUpdate }) => {
+const SettingsPanel = ({ user, token, onUserUpdate, onSaved }) => {
   const initial = useMemo(
     () => ({
       pairs: toCsv(user?.settings?.options?.pairs || []),
@@ -77,6 +77,9 @@ const SettingsPanel = ({ user, token, onUserUpdate }) => {
       const response = await updateUserSettings(token, payload);
       onUserUpdate(response.user);
       setSaved(true);
+      if (typeof onSaved === "function") {
+        onSaved(response.user);
+      }
     } catch (saveError) {
       setError(saveError.message);
     } finally {

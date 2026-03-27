@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AUTH_STORAGE_KEY,
   fetchAnalytics,
@@ -75,6 +75,13 @@ const App = () => {
   const [analytics, setAnalytics] = useState(emptyAnalytics);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showSettingsPanel, setShowSettingsPanel] = useState(true);
+  const [settingsSavedAt, setSettingsSavedAt] = useState("");
+  const filtersRef = useRef(null);
+  const settingsRef = useRef(null);
+  const entryRef = useRef(null);
+  const analyticsRef = useRef(null);
+  const reviewRef = useRef(null);
 
   useEffect(() => {
     const loadSession = async () => {
@@ -148,6 +155,18 @@ const App = () => {
     setTrades([]);
     setAnalytics(emptyAnalytics);
     setError("");
+  };
+
+  const onSettingsSaved = () => {
+    setShowSettingsPanel(false);
+    setSettingsSavedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+  };
+
+  const scrollToSection = (ref) => {
+    ref?.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   };
 
   const strategySignal = useMemo(() => {
@@ -227,6 +246,28 @@ const App = () => {
             </div>
           </div>
 
+          <div className="quick-jump mb-4">
+            <p className="section-kicker">Quick Jump</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button type="button" className="chip quick-btn" onClick={() => scrollToSection(filtersRef)}>
+                Filters
+              </button>
+              <button type="button" className="chip quick-btn" onClick={() => scrollToSection(settingsRef)}>
+                Settings
+              </button>
+              <button type="button" className="chip quick-btn" onClick={() => scrollToSection(entryRef)}>
+                Trade Entry
+              </button>
+              <button type="button" className="chip quick-btn" onClick={() => scrollToSection(analyticsRef)}>
+                Analytics
+              </button>
+              <button type="button" className="chip quick-btn" onClick={() => scrollToSection(reviewRef)}>
+                Review
+              </button>
+            </div>
+          </div>
+
+          <div ref={filtersRef} />
           <div className="section-title">
             <h2>Filters & Session Activity</h2>
             <p>Preparation</p>
@@ -239,14 +280,39 @@ const App = () => {
             />
           </div>
 
+          <div ref={settingsRef} />
           <div className="section-title">
             <h2>Settings & Data Tools</h2>
             <p>Configuration</p>
           </div>
-          <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <SettingsPanel user={user} token={token} onUserUpdate={setUser} />
-            <DataTools token={token} filters={filters} onImported={loadData} />
-          </div>
+          {showSettingsPanel ? (
+            <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <SettingsPanel
+                user={user}
+                token={token}
+                onUserUpdate={setUser}
+                onSaved={onSettingsSaved}
+              />
+              <DataTools token={token} filters={filters} onImported={loadData} />
+            </div>
+          ) : (
+            <div className="mb-4 space-y-3">
+              <div className="soft-frame flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-textMuted">
+                  Settings hidden
+                  {settingsSavedAt ? ` after save at ${settingsSavedAt}.` : "."}
+                </p>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => setShowSettingsPanel(true)}
+                >
+                  Change settings
+                </button>
+              </div>
+              <DataTools token={token} filters={filters} onImported={loadData} />
+            </div>
+          )}
 
           {error ? (
             <p className="mb-4 rounded-md border border-danger/40 bg-danger/10 p-3 text-sm text-danger">{error}</p>
@@ -254,6 +320,7 @@ const App = () => {
 
           <div className="section-divider mb-4" />
 
+          <div ref={entryRef} />
           <div className="section-title">
             <h2>Journal Entry & Insights</h2>
             <p>Execution</p>
@@ -261,7 +328,7 @@ const App = () => {
           <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_0.9fr]">
             <TradeEntryForm onTradeSaved={onTradeSaved} token={token} settings={user.settings} />
 
-            <div className="space-y-4">
+            <div ref={analyticsRef} className="space-y-4">
               <StatCards overview={analytics.overview} cleanOnlyPerformance={analytics.cleanOnlyPerformance} />
               <BehaviorLab trades={trades} />
               <StreakTracker streaks={analytics.streaks} />
@@ -276,6 +343,7 @@ const App = () => {
             </div>
           </section>
 
+          <div ref={reviewRef} />
           <div className="section-title mt-4">
             <h2>Review & Performance Boards</h2>
             <p>Reflection</p>

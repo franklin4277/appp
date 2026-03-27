@@ -176,8 +176,8 @@ const App = () => {
   }
 
   return (
-    <main className="mx-auto w-full max-w-[1600px] p-2 sm:p-3 md:p-5">
-      <section className="journal-shell p-4 md:p-6">
+    <main className="app-shell mx-auto w-full max-w-[1600px] p-0 sm:p-3 md:p-5">
+      <section className="journal-shell app-journal p-0 sm:p-4 md:p-6">
         <header className="journal-hero mb-4 md:mb-6">
           <div className="hero-grid">
             <div className="hero-summary">

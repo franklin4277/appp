@@ -29,8 +29,8 @@ const AuthPanel = ({ onAuthenticated }) => {
   };
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center p-4">
-      <section className="journal-shell w-full max-w-4xl p-4 md:p-6">
+    <main className="app-shell mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center p-0 sm:p-4">
+      <section className="journal-shell app-journal w-full max-w-4xl p-0 sm:p-4 md:p-6">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-[1.1fr_0.9fr]">
           <aside className="panel animate-riseIn">
             <p className="section-kicker">Welcome Back</p>

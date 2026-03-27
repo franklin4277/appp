@@ -252,17 +252,42 @@ body::before {
       linear-gradient(180deg, var(--bg-soft), var(--bg-deep));
   }
 
+  .app-shell {
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .app-journal {
+    border-radius: 0;
+    border: 0;
+    min-height: 100vh;
+    padding: 0 !important;
+    box-shadow: none;
+    background: transparent;
+  }
+
+  .app-journal .journal-hero {
+    padding: 0.65rem 0.7rem 0.55rem;
+    margin-bottom: 0.55rem !important;
+  }
+
+  .app-journal .dashboard-frame {
+    border-radius: 0;
+    border: 0;
+    padding: 0.72rem;
+    box-shadow: none;
+    background: transparent;
+  }
+
   .hero-meta {
     font-size: 0.6rem;
     letter-spacing: 0.08em;
   }
 
-  .dashboard-frame {
-    padding: 0.78rem;
-  }
-
   .panel {
     @apply p-3;
+    border-radius: 14px;
+    backdrop-filter: blur(6px);
   }
 
   .hero-account {

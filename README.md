@@ -70,7 +70,7 @@ Optional env:
 - `ALERT_WEBHOOK_URL` (Slack/Discord/custom webhook)
 - `PASSWORD_RESET_EXPIRES_IN`, `EMAIL_VERIFY_EXPIRES_IN`, `TWO_FACTOR_EXPIRES_IN`
 - `PUBLIC_SHARE_BASE_URL`
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` (required for 2FA email delivery in production)
+- `SMTP_URL` (optional URI format) or `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` (required for 2FA email delivery in production)
 
 Migration (legacy data backfill for profiles + security fields):
 

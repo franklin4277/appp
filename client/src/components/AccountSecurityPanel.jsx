@@ -13,10 +13,12 @@ const AccountSecurityPanel = ({ user, token, onUserUpdate }) => {
   const [verifyToken, setVerifyToken] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [debugToken, setDebugToken] = useState("");
+  const [deliveryHint, setDeliveryHint] = useState("");
 
   const resetFeedback = () => {
     setError("");
     setMessage("");
+    setDeliveryHint("");
   };
 
   const handleRequestVerification = async () => {
@@ -26,7 +28,11 @@ const AccountSecurityPanel = ({ user, token, onUserUpdate }) => {
     try {
       const payload = await requestEmailVerification(token);
       setMessage(payload.message || "Verification token generated.");
-      setDebugToken(payload.debugToken || "");
+      setDebugToken(payload.debugToken || payload.fallbackToken || "");
+      setDeliveryHint(payload.delivery?.hint || "");
+      if (!payload.delivery?.sent && payload.delivery?.error) {
+        setError(payload.delivery.error);
+      }
     } catch (actionError) {
       setError(actionError.message);
     } finally {
@@ -112,6 +118,7 @@ const AccountSecurityPanel = ({ user, token, onUserUpdate }) => {
                 </button>
               </div>
               {debugToken ? <p className="text-xs text-accent">Dev token: {debugToken}</p> : null}
+              {deliveryHint ? <p className="text-xs text-textMuted">Delivery hint: {deliveryHint}</p> : null}
             </div>
           ) : null}
         </div>

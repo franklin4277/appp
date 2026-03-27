@@ -317,6 +317,8 @@ export const register = async (req, res, next) => {
         expiresAt: user.emailVerification?.expiresAt?.toISOString?.() || null,
         mailSent: verificationMail.sent,
         mailError: verificationMail.sent ? "" : verificationMail.error,
+        mailErrorCode: verificationMail.sent ? "" : verificationMail.errorCode,
+        mailHint: verificationMail.sent ? "" : verificationMail.errorHint,
         debugToken: includeDebugSecrets() ? verificationToken : undefined,
       },
     });
@@ -420,6 +422,8 @@ export const login = async (req, res, next) => {
           expiresAt: user.twoFactor.challengeExpiresAt?.toISOString?.() || null,
           mailSent: twoFactorMail.sent,
           mailError: twoFactorMail.sent ? "" : twoFactorMail.error,
+          mailErrorCode: twoFactorMail.sent ? "" : twoFactorMail.errorCode,
+          mailHint: twoFactorMail.sent ? "" : twoFactorMail.errorHint,
           debugCode: includeDebugSecrets() ? code : undefined,
         },
       });
@@ -695,6 +699,8 @@ export const requestPasswordReset = async (req, res, next) => {
           expiresAt: user.passwordReset?.expiresAt?.toISOString?.() || null,
           mailSent,
           mailError,
+          mailErrorCode: resetMail.errorCode || "",
+          mailHint: resetMail.errorHint || "",
           debugToken: includeDebugSecrets() ? resetToken : undefined,
         },
       });
@@ -707,6 +713,15 @@ export const requestPasswordReset = async (req, res, next) => {
           ? "Password reset instructions sent to email."
           : "Password reset token generated but email delivery failed."
         : "If the account exists, reset instructions were generated.",
+      ...(user
+        ? {
+            delivery: {
+              sent: mailSent,
+              configured: isMailerConfigured(),
+              error: mailSent ? "" : mailError,
+            },
+          }
+        : {}),
       ...(includeDebugSecrets() && debugToken
         ? {
             debugToken,
@@ -807,6 +822,8 @@ export const requestEmailVerification = async (req, res, next) => {
         expiresAt: user.emailVerification?.expiresAt?.toISOString?.() || null,
         mailSent: verificationMail.sent,
         mailError: verificationMail.sent ? "" : verificationMail.error,
+        mailErrorCode: verificationMail.sent ? "" : verificationMail.errorCode,
+        mailHint: verificationMail.sent ? "" : verificationMail.errorHint,
         debugToken: includeDebugSecrets() ? verificationToken : undefined,
       },
     });
@@ -816,6 +833,18 @@ export const requestEmailVerification = async (req, res, next) => {
       message: verificationMail.sent
         ? "Verification token sent to email."
         : "Verification token generated but email delivery failed.",
+      delivery: {
+        sent: verificationMail.sent,
+        configured: isMailerConfigured(),
+        error: verificationMail.sent ? "" : verificationMail.error,
+        errorCode: verificationMail.sent ? "" : verificationMail.errorCode,
+        hint: verificationMail.sent ? "" : verificationMail.errorHint,
+      },
+      ...(verificationMail.sent
+        ? {}
+        : {
+            fallbackToken: verificationToken,
+          }),
       ...(includeDebugSecrets()
         ? {
             debugToken: verificationToken,

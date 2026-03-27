@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AUTH_STORAGE_KEY,
   fetchAnalytics,
@@ -60,6 +60,13 @@ const emptyAnalytics = {
 };
 
 const readStoredToken = () => localStorage.getItem(AUTH_STORAGE_KEY) || "";
+const PAGES = [
+  { key: "dashboard", label: "Dashboard" },
+  { key: "journal", label: "Journal" },
+  { key: "analytics", label: "Analytics" },
+  { key: "review", label: "Review" },
+  { key: "settings", label: "Settings" },
+];
 
 const App = () => {
   const [authLoading, setAuthLoading] = useState(true);
@@ -77,11 +84,7 @@ const App = () => {
   const [error, setError] = useState("");
   const [showSettingsPanel, setShowSettingsPanel] = useState(true);
   const [settingsSavedAt, setSettingsSavedAt] = useState("");
-  const filtersRef = useRef(null);
-  const settingsRef = useRef(null);
-  const entryRef = useRef(null);
-  const analyticsRef = useRef(null);
-  const reviewRef = useRef(null);
+  const [activePage, setActivePage] = useState("journal");
 
   useEffect(() => {
     const loadSession = async () => {
@@ -160,13 +163,7 @@ const App = () => {
   const onSettingsSaved = () => {
     setShowSettingsPanel(false);
     setSettingsSavedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
-  };
-
-  const scrollToSection = (ref) => {
-    ref?.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+    setActivePage("journal");
   };
 
   const strategySignal = useMemo(() => {
@@ -246,73 +243,21 @@ const App = () => {
             </div>
           </div>
 
-          <div className="quick-jump mb-4">
-            <p className="section-kicker">Quick Jump</p>
+          <div className="page-nav mb-4">
+            <p className="section-kicker">Pages</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              <button type="button" className="chip quick-btn" onClick={() => scrollToSection(filtersRef)}>
-                Filters
-              </button>
-              <button type="button" className="chip quick-btn" onClick={() => scrollToSection(settingsRef)}>
-                Settings
-              </button>
-              <button type="button" className="chip quick-btn" onClick={() => scrollToSection(entryRef)}>
-                Trade Entry
-              </button>
-              <button type="button" className="chip quick-btn" onClick={() => scrollToSection(analyticsRef)}>
-                Analytics
-              </button>
-              <button type="button" className="chip quick-btn" onClick={() => scrollToSection(reviewRef)}>
-                Review
-              </button>
-            </div>
-          </div>
-
-          <div ref={filtersRef} />
-          <div className="section-title">
-            <h2>Filters & Session Activity</h2>
-            <p>Preparation</p>
-          </div>
-          <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-            <FiltersBar filters={filters} onChange={onFilterChange} options={user.settings?.options} />
-            <SessionPerformanceGraph
-              trades={trades}
-              sessionOptions={user.settings?.options?.sessions || []}
-            />
-          </div>
-
-          <div ref={settingsRef} />
-          <div className="section-title">
-            <h2>Settings & Data Tools</h2>
-            <p>Configuration</p>
-          </div>
-          {showSettingsPanel ? (
-            <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <SettingsPanel
-                user={user}
-                token={token}
-                onUserUpdate={setUser}
-                onSaved={onSettingsSaved}
-              />
-              <DataTools token={token} filters={filters} onImported={loadData} />
-            </div>
-          ) : (
-            <div className="mb-4 space-y-3">
-              <div className="soft-frame flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm text-textMuted">
-                  Settings hidden
-                  {settingsSavedAt ? ` after save at ${settingsSavedAt}.` : "."}
-                </p>
+              {PAGES.map((page) => (
                 <button
+                  key={page.key}
                   type="button"
-                  className="btn-primary"
-                  onClick={() => setShowSettingsPanel(true)}
+                  className={`chip page-btn ${activePage === page.key ? "page-btn-active" : ""}`}
+                  onClick={() => setActivePage(page.key)}
                 >
-                  Change settings
+                  {page.label}
                 </button>
-              </div>
-              <DataTools token={token} filters={filters} onImported={loadData} />
+              ))}
             </div>
-          )}
+          </div>
 
           {error ? (
             <p className="mb-4 rounded-md border border-danger/40 bg-danger/10 p-3 text-sm text-danger">{error}</p>
@@ -320,15 +265,39 @@ const App = () => {
 
           <div className="section-divider mb-4" />
 
-          <div ref={entryRef} />
-          <div className="section-title">
-            <h2>Journal Entry & Insights</h2>
-            <p>Execution</p>
-          </div>
-          <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-            <TradeEntryForm onTradeSaved={onTradeSaved} token={token} settings={user.settings} />
+          {activePage === "dashboard" ? (
+            <section className="space-y-4">
+              <div className="section-title">
+                <h2>Filters & Session Activity</h2>
+                <p>Preparation</p>
+              </div>
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+                <FiltersBar filters={filters} onChange={onFilterChange} options={user.settings?.options} />
+                <SessionPerformanceGraph
+                  trades={trades}
+                  sessionOptions={user.settings?.options?.sessions || []}
+                />
+              </div>
+              <StatCards overview={analytics.overview} cleanOnlyPerformance={analytics.cleanOnlyPerformance} />
+            </section>
+          ) : null}
 
-            <div ref={analyticsRef} className="space-y-4">
+          {activePage === "journal" ? (
+            <section className="space-y-4">
+              <div className="section-title">
+                <h2>Trade Entry</h2>
+                <p>Execution</p>
+              </div>
+              <TradeEntryForm onTradeSaved={onTradeSaved} token={token} settings={user.settings} />
+            </section>
+          ) : null}
+
+          {activePage === "analytics" ? (
+            <section className="space-y-4">
+              <div className="section-title">
+                <h2>Analytics</h2>
+                <p>Performance</p>
+              </div>
               <StatCards overview={analytics.overview} cleanOnlyPerformance={analytics.cleanOnlyPerformance} />
               <BehaviorLab trades={trades} />
               <StreakTracker streaks={analytics.streaks} />
@@ -340,19 +309,57 @@ const App = () => {
                 cleanOnlyPerformance={analytics.cleanOnlyPerformance}
                 conditionScores={analytics.conditionScores}
               />
-            </div>
-          </section>
+            </section>
+          ) : null}
 
-          <div ref={reviewRef} />
-          <div className="section-title mt-4">
-            <h2>Review & Performance Boards</h2>
-            <p>Reflection</p>
-          </div>
-          <section className="mt-4 grid grid-cols-1 gap-4">
-            <HeatmapMatrix heatmap={analytics.heatmap} />
-            <CoachingSummary coaching={analytics.coaching} />
-            <TradesTable trades={trades} />
-          </section>
+          {activePage === "review" ? (
+            <section className="space-y-4">
+              <div className="section-title">
+                <h2>Review & Boards</h2>
+                <p>Reflection</p>
+              </div>
+              <HeatmapMatrix heatmap={analytics.heatmap} />
+              <CoachingSummary coaching={analytics.coaching} />
+              <TradesTable trades={trades} />
+            </section>
+          ) : null}
+
+          {activePage === "settings" ? (
+            <section className="space-y-4">
+              <div className="section-title">
+                <h2>Settings & Data Tools</h2>
+                <p>Configuration</p>
+              </div>
+              {showSettingsPanel ? (
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                  <SettingsPanel
+                    user={user}
+                    token={token}
+                    onUserUpdate={setUser}
+                    onSaved={onSettingsSaved}
+                  />
+                  <DataTools token={token} filters={filters} onImported={loadData} />
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="soft-frame flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm text-textMuted">
+                      Settings hidden
+                      {settingsSavedAt ? ` after save at ${settingsSavedAt}.` : "."}
+                    </p>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => setShowSettingsPanel(true)}
+                    >
+                      Change settings
+                    </button>
+                  </div>
+                  <DataTools token={token} filters={filters} onImported={loadData} />
+                </div>
+              )}
+            </section>
+          ) : null}
         </section>
       </section>
     </main>

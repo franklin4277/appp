@@ -1,4 +1,12 @@
-const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+const normalizeApiBase = (value = "") => {
+  let normalized = String(value || "").trim().replace(/\/+$/, "");
+  if (/\/api$/i.test(normalized)) {
+    normalized = normalized.replace(/\/api$/i, "");
+  }
+  return normalized;
+};
+
+const API_BASE = normalizeApiBase(import.meta.env.VITE_API_URL || "");
 const API_TIMEOUT_MS = Math.max(5000, Number(import.meta.env.VITE_API_TIMEOUT_MS || 25000) || 25000);
 export const AUTH_STORAGE_KEY = "trading-journal-token";
 export const AUTH_REFRESH_STORAGE_KEY = "trading-journal-refresh-token";

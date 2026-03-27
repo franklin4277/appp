@@ -1,4 +1,5 @@
 const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+const API_TIMEOUT_MS = Math.max(5000, Number(import.meta.env.VITE_API_TIMEOUT_MS || 25000) || 25000);
 export const AUTH_STORAGE_KEY = "trading-journal-token";
 export const AUTH_REFRESH_STORAGE_KEY = "trading-journal-refresh-token";
 const OFFLINE_QUEUE_KEY = "trading-journal-offline-queue";
@@ -214,9 +215,27 @@ export const isNetworkError = (error) =>
   Boolean(error?.isNetworkError || error?.code === "NETWORK_UNREACHABLE");
 
 const fetchWithDiagnostics = async (url, options = {}) => {
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => {
+    controller.abort();
+  }, API_TIMEOUT_MS);
+
   try {
-    return await fetch(url, options);
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
   } catch (error) {
+    if (error?.name === "AbortError") {
+      const timeoutError = new Error(
+        `Request timed out after ${Math.round(API_TIMEOUT_MS / 1000)}s. Check backend status and SMTP settings.`
+      );
+      timeoutError.code = "REQUEST_TIMEOUT";
+      timeoutError.isNetworkError = true;
+      timeoutError.cause = error;
+      throw timeoutError;
+    }
+
     const networkError = new Error(
       "Cannot reach the server. Check backend URL, CORS CLIENT_URL, and that /api/health is online."
     );
@@ -224,6 +243,8 @@ const fetchWithDiagnostics = async (url, options = {}) => {
     networkError.isNetworkError = true;
     networkError.cause = error;
     throw networkError;
+  } finally {
+    globalThis.clearTimeout(timeoutId);
   }
 };
 

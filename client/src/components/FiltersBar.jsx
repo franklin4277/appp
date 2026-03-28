@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { PAIRS, SESSIONS, SETUP_TYPES } from "../utils/options";
 
 const FiltersBar = ({ filters, onChange, options = {} }) => {
@@ -109,4 +110,4 @@ const FiltersBar = ({ filters, onChange, options = {} }) => {
   );
 };
 
-export default FiltersBar;
+export default memo(FiltersBar);

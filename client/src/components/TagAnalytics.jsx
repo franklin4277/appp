@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 const TagAnalytics = ({ tagAnalytics, cleanOnlyPerformance, conditionScores = [] }) => {
   return (
     <section className="panel animate-riseIn">
@@ -73,4 +75,4 @@ const TagAnalytics = ({ tagAnalytics, cleanOnlyPerformance, conditionScores = []
   );
 };
 
-export default TagAnalytics;
+export default memo(TagAnalytics);

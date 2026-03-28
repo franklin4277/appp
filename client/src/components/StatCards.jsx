@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 const StatCards = ({ overview, cleanOnlyPerformance }) => {
   const cards = [
     { label: "Total Trades", value: overview.totalTrades, hint: "All filtered trades", meter: Math.min(100, Number(overview.totalTrades || 0) * 4) },
@@ -31,4 +33,4 @@ const StatCards = ({ overview, cleanOnlyPerformance }) => {
   );
 };
 
-export default StatCards;
+export default memo(StatCards);

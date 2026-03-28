@@ -1,3 +1,4 @@
+import { memo } from "react";
 import SectionEmptyState from "./SectionEmptyState";
 
 const SummaryCard = ({ title, block, caption }) => (
@@ -67,4 +68,4 @@ const CoachingSummary = ({ coaching }) => {
   );
 };
 
-export default CoachingSummary;
+export default memo(CoachingSummary);

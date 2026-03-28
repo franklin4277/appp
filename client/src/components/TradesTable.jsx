@@ -66,7 +66,7 @@ const TradesTable = ({ trades }) => {
     <section className="panel animate-riseIn">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold">Recent Trades</h3>
-        <span className="chip">{trades.length} total</span>
+        <span className="chip">{trades.length} loaded</span>
       </div>
 
       <div className="space-y-3 md:hidden">

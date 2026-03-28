@@ -375,9 +375,10 @@ export const createTrade = async (req, res, next) => {
 
 export const getTrades = async (req, res, next) => {
   try {
-    const { limit = "200", page = "1", includeDetails = "false" } = req.query;
+    const { limit = "200", page = "1", includeDetails = "false", includeTotal = "true" } = req.query;
     const filter = buildFilterFromRequest(req);
     const shouldIncludeDetails = toBoolean(includeDetails);
+    const shouldIncludeTotal = toBoolean(includeTotal);
 
     const safeLimit = Math.min(Math.max(toNumber(limit, 200), 1), 500);
     const safePage = Math.max(toNumber(page, 1), 1);
@@ -388,13 +389,16 @@ export const getTrades = async (req, res, next) => {
       tradesQuery.select(tradeListProjection);
     }
 
-    const [total, trades] = await Promise.all([
-      Trade.countDocuments(filter),
-      tradesQuery.lean(),
-    ]);
+    let total = 0;
+    let trades = [];
+    if (shouldIncludeTotal) {
+      [total, trades] = await Promise.all([Trade.countDocuments(filter), tradesQuery.lean()]);
+    } else {
+      trades = await tradesQuery.lean();
+    }
 
     res.json({
-      total,
+      total: shouldIncludeTotal ? total : null,
       page: safePage,
       pageSize: safeLimit,
       data: trades.map((trade) => transformTrade(trade, req)),

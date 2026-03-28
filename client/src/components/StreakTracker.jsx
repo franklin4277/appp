@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 const StreakTracker = ({ streaks = {} }) => {
   const items = [
     { label: "Current Win Streak", value: streaks.currentWinStreak || 0 },
@@ -23,5 +25,4 @@ const StreakTracker = ({ streaks = {} }) => {
   );
 };
 
-export default StreakTracker;
-
+export default memo(StreakTracker);

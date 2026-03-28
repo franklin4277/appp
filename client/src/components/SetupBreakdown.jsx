@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 const SetupBreakdown = ({ setupBreakdown }) => {
   const rows = [
     {
@@ -31,4 +33,4 @@ const SetupBreakdown = ({ setupBreakdown }) => {
   );
 };
 
-export default SetupBreakdown;
+export default memo(SetupBreakdown);

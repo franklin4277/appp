@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { exportTradesCsv, importTradesCsv } from "../api/tradesApi";
 
 const DataTools = ({ token, filters, onImported }) => {
@@ -92,4 +92,4 @@ const DataTools = ({ token, filters, onImported }) => {
   );
 };
 
-export default DataTools;
+export default memo(DataTools);

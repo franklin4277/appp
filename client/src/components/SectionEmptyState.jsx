@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 const SectionEmptyState = ({ title, message, hint = "" }) => (
   <section className="panel animate-riseIn">
     <p className="section-kicker">Waiting For Data</p>
@@ -7,4 +9,4 @@ const SectionEmptyState = ({ title, message, hint = "" }) => (
   </section>
 );
 
-export default SectionEmptyState;
+export default memo(SectionEmptyState);

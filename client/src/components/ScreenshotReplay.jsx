@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import SectionEmptyState from "./SectionEmptyState";
 
 const hasImage = (trade) =>
@@ -106,4 +106,4 @@ const ScreenshotReplay = ({ trades = [] }) => {
   );
 };
 
-export default ScreenshotReplay;
+export default memo(ScreenshotReplay);

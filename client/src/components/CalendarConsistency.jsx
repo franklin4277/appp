@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 
 const monthStart = (value) => new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), 1));
 const monthEnd = (value) => new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth() + 1, 0));
@@ -174,4 +174,4 @@ const CalendarConsistency = ({ trades = [] }) => {
   );
 };
 
-export default CalendarConsistency;
+export default memo(CalendarConsistency);

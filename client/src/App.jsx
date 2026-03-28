@@ -210,6 +210,7 @@ const App = () => {
   const loadRequestSeqRef = useRef(0);
   const debouncedFilters = useDebouncedValue(filters, 320);
   const includeDetailedTrades = activePage === "review";
+  const includeTotalTrades = activePage === "review";
 
   const refreshOfflineQueue = useCallback(() => {
     setOfflineQueue(getOfflineQueue());
@@ -367,9 +368,17 @@ const App = () => {
     setError("");
     setStatusMessage("");
     try {
-      const tradeLimit = isCompactMobile ? 220 : 500;
+      const tradeLimit = includeDetailedTrades ? (isCompactMobile ? 260 : 500) : isCompactMobile ? 180 : 320;
       const [tradesResponse, analyticsResponse] = await Promise.all([
-        fetchTrades({ ...debouncedFilters, limit: tradeLimit, includeDetails: includeDetailedTrades }, token),
+        fetchTrades(
+          {
+            ...debouncedFilters,
+            limit: tradeLimit,
+            includeDetails: includeDetailedTrades ? "true" : "false",
+            includeTotal: includeTotalTrades ? "true" : "false",
+          },
+          token
+        ),
         fetchAnalytics(debouncedFilters, token),
       ]);
 
@@ -423,7 +432,7 @@ const App = () => {
         setLoading(false);
       }
     }
-  }, [debouncedFilters, includeDetailedTrades, isCompactMobile, refreshToken, token, user]);
+  }, [debouncedFilters, includeDetailedTrades, includeTotalTrades, isCompactMobile, refreshToken, token, user]);
 
   useEffect(() => {
     loadData();

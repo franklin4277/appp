@@ -19,6 +19,7 @@ import {
   saveOfflineSnapshot,
   setActiveProfile,
   syncOfflineQueue,
+  unlockTrustedDevice,
 } from "./api/tradesApi";
 import AuthPanel from "./components/AuthPanel";
 import SharedWeeklyView from "./components/SharedWeeklyView";
@@ -155,11 +156,10 @@ const App = () => {
   }, []);
 
   const storedSession = useMemo(() => readStoredAuthSession(), []);
-  const storedCachedProfile = useMemo(() => readCachedAuthProfile(), []);
-  const [authLoading, setAuthLoading] = useState(() => Boolean(storedSession.token && !storedCachedProfile?.user));
+  const [authLoading, setAuthLoading] = useState(() => Boolean(storedSession.token));
   const [token, setToken] = useState(() => storedSession.token || "");
   const [refreshToken, setRefreshToken] = useState(() => storedSession.refreshToken || "");
-  const [user, setUser] = useState(() => (storedSession.token ? storedCachedProfile?.user || null : null));
+  const [user, setUser] = useState(null);
   const [filters, setFilters] = useState({
     profileId: "",
     pair: "",
@@ -259,7 +259,7 @@ const App = () => {
         return;
       }
 
-      const cachedProfile = readCachedAuthProfile();
+      let cachedProfile = await readCachedAuthProfile();
       const cachedUser = cachedProfile?.user || null;
       if (cachedUser) {
         setUser((prev) => prev || cachedUser);
@@ -270,10 +270,33 @@ const App = () => {
         setAuthLoading(false);
       }
 
+      if (!cachedUser && cachedProfile?.encrypted && cachedProfile.locked && !navigator.onLine) {
+        const enteredPin = window.prompt("Offline mode: enter your trusted-device PIN to unlock this session.");
+        if (enteredPin) {
+          try {
+            await unlockTrustedDevice(enteredPin);
+            cachedProfile = await readCachedAuthProfile();
+            if (cachedProfile?.user) {
+              setUser(cachedProfile.user);
+              setFilters((prev) => ({
+                ...prev,
+                profileId: cachedProfile.user?.activeProfileId || prev.profileId,
+              }));
+              setStatusMessage("Trusted device unlocked. Offline session restored.");
+              setError("");
+            }
+          } catch (unlockError) {
+            setError(unlockError.message || "Could not unlock trusted device session.");
+          }
+        }
+      }
+
       if (!navigator.onLine) {
-        if (cachedUser) {
+        if (cachedUser || cachedProfile?.user) {
           setStatusMessage("Offline mode: using this device's saved session.");
           setError("");
+        } else if (cachedProfile?.encrypted && cachedProfile.locked) {
+          setStatusMessage("Offline mode: unlock trusted device with PIN to continue.");
         }
         setAuthLoading(false);
         return;

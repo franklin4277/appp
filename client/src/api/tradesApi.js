@@ -12,13 +12,17 @@ export const AUTH_STORAGE_KEY = "trading-journal-token";
 export const AUTH_REFRESH_STORAGE_KEY = "trading-journal-refresh-token";
 const AUTH_PROFILE_CACHE_KEY = "trading-journal-user-cache";
 const LOCAL_DEVICE_ID_KEY = "trading-journal-local-device-id";
+const TRUSTED_DEVICE_META_KEY = "trading-journal-trusted-device-meta";
 const OFFLINE_QUEUE_KEY = "trading-journal-offline-queue";
 const OFFLINE_SNAPSHOT_KEY = "trading-journal-offline-snapshot";
 const OFFLINE_FILES_DB = "trading-journal-offline-files";
 const OFFLINE_FILES_STORE = "attachments";
+const STORAGE_SCHEMA_VERSION = 2;
+const TRUSTED_DEVICE_ITERATIONS = 140000;
 
 let offlineDbPromise = null;
 let refreshPromise = null;
+let trustedDeviceSessionPin = "";
 
 const readJsonStorage = (key, fallback) => {
   try {
@@ -79,22 +83,270 @@ export const ensureLocalDeviceId = () => {
   return next;
 };
 
-export const readCachedAuthProfile = () => readJsonStorage(AUTH_PROFILE_CACHE_KEY, null);
+export const readCachedAuthProfile = async () => {
+  const raw = readJsonStorage(AUTH_PROFILE_CACHE_KEY, null);
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
 
-export const persistCachedAuthProfile = (user) => {
+  // Legacy v1 cache shape: { user, savedAt, deviceId }
+  if (raw.user && typeof raw.user === "object" && !raw.encrypted) {
+    return {
+      version: 1,
+      user: raw.user,
+      savedAt: String(raw.savedAt || ""),
+      deviceId: String(raw.deviceId || ""),
+      encrypted: false,
+      locked: false,
+    };
+  }
+
+  if (!raw.encrypted) {
+    return null;
+  }
+
+  const meta = getTrustedMeta();
+  if (!meta || !trustedDeviceSessionPin) {
+    return {
+      version: Number(raw.version || STORAGE_SCHEMA_VERSION),
+      encrypted: true,
+      locked: true,
+      savedAt: String(raw.savedAt || ""),
+      deviceId: String(raw.deviceId || ""),
+    };
+  }
+
+  try {
+    const payload = await decryptWithPin(
+      {
+        iv: String(raw.iv || ""),
+        ciphertext: String(raw.ciphertext || ""),
+      },
+      trustedDeviceSessionPin,
+      meta
+    );
+
+    return {
+      version: Number(raw.version || STORAGE_SCHEMA_VERSION),
+      user: payload?.user || null,
+      savedAt: String(raw.savedAt || ""),
+      deviceId: String(raw.deviceId || ""),
+      encrypted: true,
+      locked: false,
+    };
+  } catch {
+    return {
+      version: Number(raw.version || STORAGE_SCHEMA_VERSION),
+      encrypted: true,
+      locked: true,
+      savedAt: String(raw.savedAt || ""),
+      deviceId: String(raw.deviceId || ""),
+    };
+  }
+};
+
+export const persistCachedAuthProfile = async (user) => {
   if (!user || typeof user !== "object") {
     return;
   }
 
+  const savedAt = new Date().toISOString();
+  const deviceId = ensureLocalDeviceId();
+  const trustedMeta = getTrustedMeta();
+
+  if (!trustedMeta) {
+    writeJsonStorage(AUTH_PROFILE_CACHE_KEY, {
+      version: STORAGE_SCHEMA_VERSION,
+      user,
+      savedAt,
+      deviceId,
+      encrypted: false,
+    });
+    return;
+  }
+
+  if (!trustedDeviceSessionPin) {
+    // Do not overwrite encrypted cache if trusted mode is enabled but locked.
+    return;
+  }
+
+  const encrypted = await encryptWithPin({ user }, trustedDeviceSessionPin, trustedMeta);
   writeJsonStorage(AUTH_PROFILE_CACHE_KEY, {
-    user,
-    savedAt: new Date().toISOString(),
-    deviceId: ensureLocalDeviceId(),
+    version: STORAGE_SCHEMA_VERSION,
+    encrypted: true,
+    savedAt,
+    deviceId,
+    iv: encrypted.iv,
+    ciphertext: encrypted.ciphertext,
   });
 };
 
 export const clearCachedAuthProfile = () => {
   localStorage.removeItem(AUTH_PROFILE_CACHE_KEY);
+};
+
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
+
+const toBase64 = (value) => {
+  const bytes = value instanceof Uint8Array ? value : new Uint8Array(value);
+  let binary = "";
+  bytes.forEach((item) => {
+    binary += String.fromCharCode(item);
+  });
+  return btoa(binary);
+};
+
+const fromBase64 = (value = "") => {
+  const binary = atob(String(value || ""));
+  const output = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    output[index] = binary.charCodeAt(index);
+  }
+  return output;
+};
+
+const getTrustedMeta = () => {
+  const raw = readJsonStorage(TRUSTED_DEVICE_META_KEY, null);
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+  if (!raw.salt || !raw.verifier) {
+    return null;
+  }
+  return {
+    version: Number(raw.version || 1),
+    iterations: Number(raw.iterations || TRUSTED_DEVICE_ITERATIONS),
+    salt: String(raw.salt),
+    verifier: String(raw.verifier),
+    createdAt: String(raw.createdAt || ""),
+  };
+};
+
+const derivePinKey = async (pin, meta) => {
+  const material = await crypto.subtle.importKey(
+    "raw",
+    textEncoder.encode(String(pin || "")),
+    "PBKDF2",
+    false,
+    ["deriveKey"]
+  );
+
+  return crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt: fromBase64(meta.salt),
+      iterations: meta.iterations,
+      hash: "SHA-256",
+    },
+    material,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+};
+
+const buildPinVerifier = async (key) => {
+  const raw = await crypto.subtle.exportKey("raw", key);
+  const digest = await crypto.subtle.digest("SHA-256", raw);
+  return toBase64(new Uint8Array(digest));
+};
+
+const encryptWithPin = async (payload, pin, meta) => {
+  const key = await derivePinKey(pin, meta);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const plaintext = textEncoder.encode(JSON.stringify(payload));
+  const ciphertext = await crypto.subtle.encrypt(
+    {
+      name: "AES-GCM",
+      iv,
+    },
+    key,
+    plaintext
+  );
+
+  return {
+    iv: toBase64(iv),
+    ciphertext: toBase64(new Uint8Array(ciphertext)),
+  };
+};
+
+const decryptWithPin = async ({ iv, ciphertext }, pin, meta) => {
+  const key = await derivePinKey(pin, meta);
+  const decrypted = await crypto.subtle.decrypt(
+    {
+      name: "AES-GCM",
+      iv: fromBase64(iv),
+    },
+    key,
+    fromBase64(ciphertext)
+  );
+
+  return JSON.parse(textDecoder.decode(new Uint8Array(decrypted)));
+};
+
+export const getTrustedDeviceState = () => {
+  const meta = getTrustedMeta();
+  return {
+    enabled: Boolean(meta),
+    unlocked: Boolean(!meta || trustedDeviceSessionPin),
+    createdAt: meta?.createdAt || "",
+  };
+};
+
+export const setTrustedDevicePin = async (pin) => {
+  const value = String(pin || "").trim();
+  if (value.length < 4) {
+    throw new Error("Trusted device PIN must be at least 4 characters.");
+  }
+
+  if (!globalThis.crypto?.subtle) {
+    throw new Error("This browser does not support secure trusted-device encryption.");
+  }
+
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const meta = {
+    version: 1,
+    iterations: TRUSTED_DEVICE_ITERATIONS,
+    salt: toBase64(salt),
+    verifier: "",
+    createdAt: new Date().toISOString(),
+  };
+  const key = await derivePinKey(value, meta);
+  meta.verifier = await buildPinVerifier(key);
+  writeJsonStorage(TRUSTED_DEVICE_META_KEY, meta);
+  trustedDeviceSessionPin = value;
+  return getTrustedDeviceState();
+};
+
+export const unlockTrustedDevice = async (pin) => {
+  const meta = getTrustedMeta();
+  if (!meta) {
+    throw new Error("Trusted device PIN is not configured.");
+  }
+
+  const value = String(pin || "").trim();
+  if (!value) {
+    throw new Error("Enter your trusted-device PIN.");
+  }
+
+  const key = await derivePinKey(value, meta);
+  const verifier = await buildPinVerifier(key);
+  if (verifier !== meta.verifier) {
+    throw new Error("Trusted-device PIN is incorrect.");
+  }
+
+  trustedDeviceSessionPin = value;
+  return getTrustedDeviceState();
+};
+
+export const lockTrustedDevice = () => {
+  trustedDeviceSessionPin = "";
+};
+
+export const clearTrustedDevicePin = () => {
+  trustedDeviceSessionPin = "";
+  localStorage.removeItem(TRUSTED_DEVICE_META_KEY);
 };
 
 const toNumber = (value, fallback = 0) => {
@@ -304,6 +556,20 @@ const withAuth = (token, headers = {}) => {
 };
 
 const resolveAccessToken = (token) => token || readStorage(AUTH_STORAGE_KEY);
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const shouldPreserveSessionAfterRefreshFailure = (error) => {
+  if (!error) {
+    return false;
+  }
+  if (isNetworkError(error)) {
+    return true;
+  }
+  if (error.code === "REQUEST_TIMEOUT") {
+    return true;
+  }
+  return false;
+};
 
 const refreshAccessToken = async () => {
   if (refreshPromise) {
@@ -316,22 +582,36 @@ const refreshAccessToken = async () => {
       return "";
     }
 
+    let lastError = null;
     try {
-      const response = await fetchWithDiagnostics(`${API_BASE}/api/auth/refresh`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ refreshToken }),
-      });
-      const payload = await parseResponse(response);
-      persistAuthSession({
-        token: payload.token,
-        refreshToken: payload.refreshToken || refreshToken,
-      });
-      return payload.token || "";
-    } catch {
-      clearAuthSession();
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        try {
+          const response = await fetchWithDiagnostics(`${API_BASE}/api/auth/refresh`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ refreshToken }),
+          });
+          const payload = await parseResponse(response);
+          persistAuthSession({
+            token: payload.token,
+            refreshToken: payload.refreshToken || refreshToken,
+          });
+          return payload.token || "";
+        } catch (error) {
+          lastError = error;
+          if (attempt < 2 && shouldPreserveSessionAfterRefreshFailure(error)) {
+            await wait(320 * attempt);
+            continue;
+          }
+          break;
+        }
+      }
+
+      if (!shouldPreserveSessionAfterRefreshFailure(lastError)) {
+        clearAuthSession();
+      }
       return "";
     } finally {
       refreshPromise = null;
@@ -713,11 +993,40 @@ export const saveOfflineSnapshot = ({ trades = [], analytics = null, filters = {
     filters,
     updatedAt: new Date().toISOString(),
   };
-  writeJsonStorage(OFFLINE_SNAPSHOT_KEY, snapshot);
+  writeJsonStorage(OFFLINE_SNAPSHOT_KEY, {
+    version: STORAGE_SCHEMA_VERSION,
+    data: snapshot,
+  });
   return snapshot;
 };
 
-export const readOfflineSnapshot = () => readJsonStorage(OFFLINE_SNAPSHOT_KEY, null);
+export const readOfflineSnapshot = () => {
+  const raw = readJsonStorage(OFFLINE_SNAPSHOT_KEY, null);
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+
+  // Legacy v1 shape stored snapshot directly.
+  if (Array.isArray(raw.trades) || raw.analytics || raw.filters) {
+    return {
+      trades: Array.isArray(raw.trades) ? raw.trades : [],
+      analytics: raw.analytics || null,
+      filters: raw.filters || {},
+      updatedAt: raw.updatedAt || "",
+    };
+  }
+
+  if (raw.version >= 2 && raw.data && typeof raw.data === "object") {
+    return {
+      trades: Array.isArray(raw.data.trades) ? raw.data.trades : [],
+      analytics: raw.data.analytics || null,
+      filters: raw.data.filters || {},
+      updatedAt: raw.data.updatedAt || "",
+    };
+  }
+
+  return null;
+};
 
 const normalizeQueuedDraft = (draft = {}) => {
   const pair = String(draft.pair || "").trim().toUpperCase();
@@ -796,16 +1105,39 @@ const buildOfflineDisplayTrade = (id, payload, queuedAt) => ({
   },
 });
 
-export const getOfflineQueue = () => {
-  const queue = readJsonStorage(OFFLINE_QUEUE_KEY, []);
-  if (!Array.isArray(queue)) {
-    return [];
+const normalizeQueueItem = (item = {}) => {
+  if (!item?.id || !item?.payload) {
+    return null;
   }
-  return queue.filter((item) => item?.id && item?.payload);
+  return {
+    id: String(item.id),
+    queuedAt: String(item.queuedAt || new Date().toISOString()),
+    attempts: Number(item.attempts || 0),
+    lastError: String(item.lastError || ""),
+    nextRetryAt: String(item.nextRetryAt || ""),
+    payload: item.payload,
+    displayTrade:
+      item.displayTrade ||
+      buildOfflineDisplayTrade(
+        String(item.id),
+        item.payload,
+        String(item.queuedAt || new Date().toISOString())
+      ),
+  };
+};
+
+export const getOfflineQueue = () => {
+  const raw = readJsonStorage(OFFLINE_QUEUE_KEY, []);
+  const source = Array.isArray(raw) ? raw : Array.isArray(raw?.items) ? raw.items : [];
+  return source.map((item) => normalizeQueueItem(item)).filter(Boolean);
 };
 
 const writeOfflineQueue = (items = []) => {
-  writeJsonStorage(OFFLINE_QUEUE_KEY, items);
+  writeJsonStorage(OFFLINE_QUEUE_KEY, {
+    version: STORAGE_SCHEMA_VERSION,
+    updatedAt: new Date().toISOString(),
+    items,
+  });
 };
 
 export const queueTradeOffline = async (draft = {}) => {

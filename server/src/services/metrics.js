@@ -1,6 +1,7 @@
 import { sendAlert } from "./alerts.js";
 
 const MAX_PATH_KEYS = 250;
+const MAX_RECENT_REQUESTS = 180;
 const ERROR_ALERT_WINDOW_MS = 5 * 60 * 1000;
 const DEFAULT_ERROR_ALERT_THRESHOLD = 12;
 const ALERT_COOLDOWN_MS = 2 * 60 * 1000;
@@ -16,6 +17,7 @@ const metricsState = {
     samples: 0,
     max: 0,
   },
+  recentRequests: [],
   recentErrors: [],
   lastErrorAlertAt: 0,
 };
@@ -53,6 +55,15 @@ const getErrorThreshold = () => {
 
 const pruneRecentErrors = (nowTs) => {
   metricsState.recentErrors = metricsState.recentErrors.filter((value) => nowTs - value <= ERROR_ALERT_WINDOW_MS);
+};
+
+const pushRecentRequest = (item) => {
+  metricsState.recentRequests.push(item);
+  if (metricsState.recentRequests.length > MAX_RECENT_REQUESTS) {
+    metricsState.recentRequests = metricsState.recentRequests.slice(
+      metricsState.recentRequests.length - MAX_RECENT_REQUESTS
+    );
+  }
 };
 
 const maybeAlertErrorBurst = (statusCode, method, path, reqId = "") => {
@@ -111,6 +122,14 @@ export const metricsMiddleware = (req, res, next) => {
     metricsState.latencyMs.max = Math.max(metricsState.latencyMs.max, latency);
 
     const requestId = String(res.getHeader("x-request-id") || req.headers["x-request-id"] || "");
+    pushRecentRequest({
+      at: new Date().toISOString(),
+      requestId,
+      method,
+      path,
+      statusCode,
+      latencyMs: latency,
+    });
     maybeAlertErrorBurst(statusCode, method, path, requestId);
   });
 
@@ -146,5 +165,6 @@ export const getMetricsSnapshot = () => {
     },
     recentServerErrors: metricsState.recentErrors.length,
     windowMinutes: Math.floor(ERROR_ALERT_WINDOW_MS / 60_000),
+    recentRequests: [...metricsState.recentRequests].reverse().slice(0, 40),
   };
 };

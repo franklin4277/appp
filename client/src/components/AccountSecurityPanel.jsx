@@ -1,10 +1,16 @@
 import { useState } from "react";
 import {
+  clearTrustedDevicePin,
   disableTwoFactorAuth,
   enableTwoFactorAuth,
   fetchEmailDeliveryStatus,
+  getTrustedDeviceState,
+  lockTrustedDevice,
+  persistCachedAuthProfile,
   requestEmailVerification,
   sendEmailDeliveryTest,
+  setTrustedDevicePin,
+  unlockTrustedDevice,
   verifyEmailToken,
 } from "../api/tradesApi";
 
@@ -18,6 +24,9 @@ const AccountSecurityPanel = ({ user, token, onUserUpdate }) => {
   const [deliveryHint, setDeliveryHint] = useState("");
   const [testEmail, setTestEmail] = useState("");
   const [smtpInfo, setSmtpInfo] = useState(null);
+  const [trustedPin, setTrustedPin] = useState("");
+  const [trustedPinConfirm, setTrustedPinConfirm] = useState("");
+  const [trustedState, setTrustedState] = useState(() => getTrustedDeviceState());
 
   const resetFeedback = () => {
     setError("");
@@ -125,6 +134,70 @@ const AccountSecurityPanel = ({ user, token, onUserUpdate }) => {
     }
   };
 
+  const refreshTrustedState = () => {
+    setTrustedState(getTrustedDeviceState());
+  };
+
+  const handleEnableTrustedDevice = async () => {
+    const pin = String(trustedPin || "").trim();
+    const confirm = String(trustedPinConfirm || "").trim();
+    if (pin.length < 4) {
+      setError("Trusted-device PIN must be at least 4 characters.");
+      return;
+    }
+    if (pin !== confirm) {
+      setError("PIN confirmation does not match.");
+      return;
+    }
+
+    setBusy(true);
+    resetFeedback();
+    try {
+      await setTrustedDevicePin(pin);
+      await persistCachedAuthProfile(user);
+      setTrustedPin("");
+      setTrustedPinConfirm("");
+      refreshTrustedState();
+      setMessage("Trusted device encryption enabled for offline session cache.");
+    } catch (actionError) {
+      setError(actionError.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleUnlockTrustedDevice = async () => {
+    setBusy(true);
+    resetFeedback();
+    try {
+      await unlockTrustedDevice(trustedPin);
+      await persistCachedAuthProfile(user);
+      setTrustedPin("");
+      setTrustedPinConfirm("");
+      refreshTrustedState();
+      setMessage("Trusted device unlocked.");
+    } catch (actionError) {
+      setError(actionError.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleLockTrustedDevice = () => {
+    lockTrustedDevice();
+    refreshTrustedState();
+    setMessage("Trusted device locked.");
+    setError("");
+  };
+
+  const handleDisableTrustedDevice = async () => {
+    clearTrustedDevicePin();
+    await persistCachedAuthProfile(user);
+    refreshTrustedState();
+    setMessage("Trusted device encryption disabled on this browser.");
+    setError("");
+  };
+
   return (
     <section className="panel animate-riseIn">
       <div className="mb-3 flex items-center justify-between">
@@ -217,6 +290,74 @@ const AccountSecurityPanel = ({ user, token, onUserUpdate }) => {
             <button type="button" className="chip text-textMain transition hover:border-accent" onClick={handleToggleTwoFactor} disabled={busy}>
               {busy ? "Saving..." : user?.twoFactorEnabled ? "Disable 2FA" : "Enable 2FA"}
             </button>
+          </div>
+        </div>
+
+        <div className="rounded-md border border-border bg-panelMuted p-3 text-sm text-textMuted">
+          <p className="text-textMain">Trusted device offline unlock</p>
+          <p className="mt-1">
+            Encrypts local offline session cache with a PIN on this browser only.
+          </p>
+          <p className="mt-1 text-xs">
+            Status: {trustedState.enabled ? (trustedState.unlocked ? "Enabled and unlocked" : "Enabled and locked") : "Disabled"}
+          </p>
+          <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+            <input
+              className="input !h-9 text-sm"
+              type="password"
+              value={trustedPin}
+              onChange={(event) => setTrustedPin(event.target.value)}
+              placeholder={trustedState.enabled ? "Enter PIN" : "Create PIN"}
+            />
+            <input
+              className="input !h-9 text-sm"
+              type="password"
+              value={trustedPinConfirm}
+              onChange={(event) => setTrustedPinConfirm(event.target.value)}
+              placeholder={trustedState.enabled ? "Confirm new PIN (optional)" : "Confirm PIN"}
+            />
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {!trustedState.enabled ? (
+              <button
+                type="button"
+                className="chip text-textMain transition hover:border-accent"
+                onClick={handleEnableTrustedDevice}
+                disabled={busy}
+              >
+                {busy ? "Saving..." : "Enable trusted device"}
+              </button>
+            ) : (
+              <>
+                {!trustedState.unlocked ? (
+                  <button
+                    type="button"
+                    className="chip text-textMain transition hover:border-accent"
+                    onClick={handleUnlockTrustedDevice}
+                    disabled={busy}
+                  >
+                    {busy ? "Unlocking..." : "Unlock"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="chip text-textMain transition hover:border-accent"
+                    onClick={handleLockTrustedDevice}
+                    disabled={busy}
+                  >
+                    Lock
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="chip text-textMain transition hover:border-danger"
+                  onClick={handleDisableTrustedDevice}
+                  disabled={busy}
+                >
+                  Disable trusted device
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

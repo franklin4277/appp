@@ -6,6 +6,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import authRouter from "./routes/auth.js";
 import tradesRouter from "./routes/trades.js";
+import { logError, logInfo } from "./services/logger.js";
 import { sendAlert } from "./services/alerts.js";
 import { getMetricsSnapshot, metricsMiddleware } from "./services/metrics.js";
 
@@ -91,6 +92,18 @@ app.use((req, res, next) => {
   const requestId = existing || Math.random().toString(36).slice(2, 12);
   res.setHeader("x-request-id", requestId);
   req.requestId = requestId;
+  const startedAt = Date.now();
+  res.on("finish", () => {
+    logInfo("http.request.completed", {
+      requestId,
+      method: req.method,
+      path: String(req.originalUrl || req.url || "").split("?")[0],
+      statusCode: res.statusCode,
+      latencyMs: Math.max(Date.now() - startedAt, 0),
+      ip: req.ip,
+      userAgent: req.headers["user-agent"] || "",
+    });
+  });
   next();
 });
 app.use(metricsMiddleware);
@@ -122,9 +135,17 @@ app.get("/api/metrics", (req, res) => {
 app.use("/api/auth", authRouter);
 app.use("/api/trades", tradesRouter);
 
-app.use((error, _req, res, _next) => {
-  console.error(error);
+app.use((error, req, res, _next) => {
   const statusCode = error.statusCode || 500;
+  const requestId = String(req.requestId || res.getHeader("x-request-id") || "");
+  logError("http.request.failed", {
+    requestId,
+    statusCode,
+    method: req.method,
+    path: String(req.originalUrl || req.url || "").split("?")[0],
+    message: error.message || "Unhandled server error.",
+    stack: process.env.NODE_ENV === "production" ? "" : error.stack || "",
+  });
   if (statusCode >= 500) {
     sendAlert({
       level: "error",
@@ -132,11 +153,13 @@ app.use((error, _req, res, _next) => {
       message: error.message || "Unhandled server error.",
       details: {
         statusCode,
+        requestId,
       },
     });
   }
   res.status(error.statusCode || 500).json({
     message: error.message || "Internal server error",
+    requestId,
   });
 });
 

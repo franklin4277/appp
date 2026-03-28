@@ -30,6 +30,7 @@ Minimal, fast, session-based Forex journal with per-user accounts and behavior c
   - Scheduled JSON auto backups
   - Screenshot upload with optional Cloudinary storage (local fallback)
   - Offline queue + retry + local snapshot fallback
+  - Trusted-device offline session cache (optional PIN lock)
   - Idempotent trade writes via client trade IDs
 - Collaboration:
   - Read-only shared weekly review links (expiring + revokable)

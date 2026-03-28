@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import SectionEmptyState from "./SectionEmptyState";
 
 const downsampleSeries = (series = [], maxPoints = 220) => {
@@ -57,4 +57,4 @@ const DrawdownChart = ({ points = [] }) => {
   );
 };
 
-export default DrawdownChart;
+export default memo(DrawdownChart);

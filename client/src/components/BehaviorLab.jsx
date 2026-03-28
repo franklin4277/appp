@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 
 const WINDOWS = [10, 20, 30, 50];
 const OUTCOME_FILTERS = ["All", "Acceptance", "Rejection"];
@@ -704,4 +704,4 @@ const BehaviorLab = ({ trades = [] }) => {
   );
 };
 
-export default BehaviorLab;
+export default memo(BehaviorLab);

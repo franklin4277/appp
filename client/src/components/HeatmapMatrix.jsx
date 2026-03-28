@@ -1,3 +1,4 @@
+import { memo, useMemo } from "react";
 import SectionEmptyState from "./SectionEmptyState";
 
 const getCellTone = (avgRR) => {
@@ -30,8 +31,16 @@ const HeatmapMatrix = ({ heatmap }) => {
     );
   }
 
+  const cellMap = useMemo(() => {
+    const map = new Map();
+    cells.forEach((cell) => {
+      map.set(`${cell.session}::${cell.setupType}`, cell);
+    });
+    return map;
+  }, [cells]);
+
   const findCell = (session, setupType) =>
-    cells.find((cell) => cell.session === session && cell.setupType === setupType) || {
+    cellMap.get(`${session}::${setupType}`) || {
       totalTrades: 0,
       winRate: 0,
       averageRR: 0,
@@ -80,4 +89,4 @@ const HeatmapMatrix = ({ heatmap }) => {
   );
 };
 
-export default HeatmapMatrix;
+export default memo(HeatmapMatrix);

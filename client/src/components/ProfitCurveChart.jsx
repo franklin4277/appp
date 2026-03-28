@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import SectionEmptyState from "./SectionEmptyState";
 
 const downsampleSeries = (series = [], maxPoints = 220) => {
@@ -75,4 +75,4 @@ const ProfitCurveChart = ({ points }) => {
   );
 };
 
-export default ProfitCurveChart;
+export default memo(ProfitCurveChart);

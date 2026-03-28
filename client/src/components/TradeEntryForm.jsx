@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createTrade, isNetworkError, queueTradeOffline } from "../api/tradesApi";
 import { POC_OUTCOMES, PAIRS, RESULTS, SESSIONS, SETUP_TYPES, TRADE_TYPES } from "../utils/options";
 import { calculateAchievedRR, calculateLotSize, calculatePlannedRR, round } from "../utils/tradeMath";
@@ -334,19 +334,29 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
     plannedRR,
   ]);
 
+  const historicalTimeline = useMemo(
+    () =>
+      trades
+        .map((trade) => ({
+          ...trade,
+          _ts: toTime(trade),
+          _dayKey: toDayKey(trade.tradeDate),
+        }))
+        .sort((a, b) => b._ts - a._ts),
+    [trades]
+  );
+
   const preTradeAlerts = useMemo(() => {
     const warnings = [];
     const tradeTs = new Date(form.tradeDate || new Date()).getTime();
     const safeTs = Number.isFinite(tradeTs) ? tradeTs : Date.now();
     const dayKey = toDayKey(safeTs);
 
-    const historical = [...trades].sort((a, b) => toTime(b) - toTime(a));
-
-    const sameSessionToday = historical.filter(
+    const sameSessionToday = historicalTimeline.filter(
       (trade) =>
         trade.session === form.session &&
-        toDayKey(trade.tradeDate) === dayKey &&
-        toTime(trade) <= safeTs
+        trade._dayKey === dayKey &&
+        trade._ts <= safeTs
     );
 
     if (sameSessionToday.length >= Number(activeRiskControls.maxTradesPerSession || 0)) {
@@ -355,17 +365,17 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
       );
     }
 
-    const lastLoss = historical.find((trade) => trade.result === "Loss" && toTime(trade) <= safeTs);
+    const lastLoss = historicalTimeline.find((trade) => trade.result === "Loss" && trade._ts <= safeTs);
     if (lastLoss) {
-      const minutesSinceLoss = Math.floor((safeTs - toTime(lastLoss)) / 60000);
+      const minutesSinceLoss = Math.floor((safeTs - lastLoss._ts) / 60000);
       const cooldown = Number(activeRiskControls.cooldownMinutesAfterLoss || 0);
       if (cooldown > 0 && minutesSinceLoss < cooldown) {
         warnings.push(`Cooldown active: wait ${cooldown - minutesSinceLoss} more minutes after last loss.`);
       }
     }
 
-    const todayNetRR = historical
-      .filter((trade) => toDayKey(trade.tradeDate) === dayKey && toTime(trade) <= safeTs)
+    const todayNetRR = historicalTimeline
+      .filter((trade) => trade._dayKey === dayKey && trade._ts <= safeTs)
       .reduce((sum, trade) => sum + (Number(trade.rrAchieved) || 0), 0);
     const stopDayRR = -Math.abs(Number(activeRiskControls.stopForDayLossRR || 0));
     if (stopDayRR < 0 && todayNetRR <= stopDayRR) {
@@ -383,8 +393,8 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
     activeRiskControls.stopForDayLossRR,
     form.session,
     form.tradeDate,
+    historicalTimeline,
     qualityAssessment.grade,
-    trades,
   ]);
 
   useEffect(() => {
@@ -1287,4 +1297,4 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
   );
 };
 
-export default TradeEntryForm;
+export default memo(TradeEntryForm);

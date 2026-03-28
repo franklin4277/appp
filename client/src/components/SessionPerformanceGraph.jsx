@@ -1,3 +1,5 @@
+import { memo, useMemo } from "react";
+
 const summarizeSessions = (trades = [], sessions = []) => {
   const bySession = sessions.reduce((acc, session) => {
     acc[session] = {
@@ -33,11 +35,15 @@ const summarizeSessions = (trades = [], sessions = []) => {
 };
 
 const SessionPerformanceGraph = ({ trades, sessionOptions = [] }) => {
-  const sessionsList =
-    sessionOptions.length > 0 ? sessionOptions : [...new Set(trades.map((trade) => trade.session).filter(Boolean))];
-  const fallbackSessions = sessionsList.length ? sessionsList : ["Asia", "London", "New York"];
+  const fallbackSessions = useMemo(() => {
+    const sessionsList =
+      sessionOptions.length > 0
+        ? sessionOptions
+        : [...new Set(trades.map((trade) => trade.session).filter(Boolean))];
+    return sessionsList.length ? sessionsList : ["Asia", "London", "New York"];
+  }, [sessionOptions, trades]);
 
-  const sessions = summarizeSessions(trades, fallbackSessions);
+  const sessions = useMemo(() => summarizeSessions(trades, fallbackSessions), [fallbackSessions, trades]);
   const maxTotal = Math.max(...fallbackSessions.map((session) => sessions[session]?.total || 0), 1);
   const chartHeight = 120;
   const baseY = 132;
@@ -89,4 +95,4 @@ const SessionPerformanceGraph = ({ trades, sessionOptions = [] }) => {
   );
 };
 
-export default SessionPerformanceGraph;
+export default memo(SessionPerformanceGraph);

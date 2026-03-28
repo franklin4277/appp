@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 
 const MOBILE_BATCH_SIZE = 60;
+const DESKTOP_BATCH_SIZE = 140;
 
 const resultStyles = {
   Win: "border border-accent/50 bg-accent/15 text-textMain",
@@ -25,22 +26,29 @@ const formatDate = (value) =>
 
 const TradesTable = ({ trades }) => {
   const [mobileVisibleCount, setMobileVisibleCount] = useState(MOBILE_BATCH_SIZE);
+  const [desktopVisibleCount, setDesktopVisibleCount] = useState(DESKTOP_BATCH_SIZE);
 
   useEffect(() => {
     setMobileVisibleCount(MOBILE_BATCH_SIZE);
+    setDesktopVisibleCount(DESKTOP_BATCH_SIZE);
   }, [trades.length]);
 
   const mobileTrades = useMemo(
     () => trades.slice(0, Math.max(MOBILE_BATCH_SIZE, mobileVisibleCount)),
     [mobileVisibleCount, trades]
   );
+  const desktopTrades = useMemo(
+    () => trades.slice(0, Math.max(DESKTOP_BATCH_SIZE, desktopVisibleCount)),
+    [desktopVisibleCount, trades]
+  );
   const hasMoreMobileTrades = trades.length > mobileTrades.length;
+  const hasMoreDesktopTrades = trades.length > desktopTrades.length;
 
   return (
     <section className="panel animate-riseIn">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold">Recent Trades</h3>
-        <span className="chip">{trades.length} shown</span>
+        <span className="chip">{trades.length} total</span>
       </div>
 
       <div className="space-y-3 md:hidden">
@@ -101,7 +109,7 @@ const TradesTable = ({ trades }) => {
           </thead>
           <tbody>
             {trades.length ? (
-              trades.map((trade) => (
+              desktopTrades.map((trade) => (
                 <tr key={trade._id} className="table-row border-b border-border/60">
                   <td className="py-2 pr-2 text-textMuted">{formatDate(trade.tradeDate)}</td>
                   <td className="py-2 pr-2">{trade.pair}</td>
@@ -135,8 +143,17 @@ const TradesTable = ({ trades }) => {
           </tbody>
         </table>
       </div>
+      {hasMoreDesktopTrades ? (
+        <button
+          type="button"
+          className="btn-primary mt-3 hidden w-full md:block"
+          onClick={() => setDesktopVisibleCount((prev) => prev + DESKTOP_BATCH_SIZE)}
+        >
+          Load more trades
+        </button>
+      ) : null}
     </section>
   );
 };
 
-export default TradesTable;
+export default memo(TradesTable);

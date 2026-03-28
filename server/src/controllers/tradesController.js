@@ -124,6 +124,22 @@ const applyProfileScopeFilter = ({ filter = {}, user, profileId }) => {
   return next;
 };
 
+const tradeListProjection = {
+  _id: 1,
+  profileId: 1,
+  clientTradeId: 1,
+  pair: 1,
+  tradeDate: 1,
+  session: 1,
+  tradeType: 1,
+  setupType: 1,
+  result: 1,
+  rrAchieved: 1,
+  tags: 1,
+  ruleBreakReason: 1,
+  "notes.emotionalState": 1,
+};
+
 const buildFilterFromRequest = (req) => {
   const { pair, session, setupType, cleanOnly = "false" } = req.query;
   const profileId = resolveProfileId(req);
@@ -359,16 +375,22 @@ export const createTrade = async (req, res, next) => {
 
 export const getTrades = async (req, res, next) => {
   try {
-    const { limit = "200", page = "1" } = req.query;
+    const { limit = "200", page = "1", includeDetails = "false" } = req.query;
     const filter = buildFilterFromRequest(req);
+    const shouldIncludeDetails = toBoolean(includeDetails);
 
     const safeLimit = Math.min(Math.max(toNumber(limit, 200), 1), 500);
     const safePage = Math.max(toNumber(page, 1), 1);
     const skip = (safePage - 1) * safeLimit;
 
+    const tradesQuery = Trade.find(filter).sort({ tradeDate: -1 }).skip(skip).limit(safeLimit);
+    if (!shouldIncludeDetails) {
+      tradesQuery.select(tradeListProjection);
+    }
+
     const [total, trades] = await Promise.all([
       Trade.countDocuments(filter),
-      Trade.find(filter).sort({ tradeDate: -1 }).skip(skip).limit(safeLimit).lean(),
+      tradesQuery.lean(),
     ]);
 
     res.json({

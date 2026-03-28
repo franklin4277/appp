@@ -145,6 +145,20 @@ const SectionLoader = ({ label = "Loading section..." }) => (
   </section>
 );
 
+const useDebouncedValue = (value, delayMs = 320) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedValue(value);
+    }, delayMs);
+
+    return () => window.clearTimeout(timer);
+  }, [delayMs, value]);
+
+  return debouncedValue;
+};
+
 const App = () => {
   const sharedToken = useMemo(() => {
     const path = String(window.location.pathname || "");
@@ -192,6 +206,9 @@ const App = () => {
   const [newProfileDescription, setNewProfileDescription] = useState("");
   const [creatingProfile, setCreatingProfile] = useState(false);
   const syncInFlightRef = useRef(false);
+  const loadRequestSeqRef = useRef(0);
+  const debouncedFilters = useDebouncedValue(filters, 320);
+  const includeDetailedTrades = activePage === "review";
 
   const refreshOfflineQueue = useCallback(() => {
     setOfflineQueue(getOfflineQueue());
@@ -343,15 +360,21 @@ const App = () => {
       return;
     }
 
+    const requestSeq = loadRequestSeqRef.current + 1;
+    loadRequestSeqRef.current = requestSeq;
     setLoading(true);
     setError("");
     setStatusMessage("");
     try {
       const tradeLimit = isCompactMobile ? 220 : 500;
       const [tradesResponse, analyticsResponse] = await Promise.all([
-        fetchTrades({ ...filters, limit: tradeLimit }, token),
-        fetchAnalytics(filters, token),
+        fetchTrades({ ...debouncedFilters, limit: tradeLimit, includeDetails: includeDetailedTrades }, token),
+        fetchAnalytics(debouncedFilters, token),
       ]);
+
+      if (requestSeq !== loadRequestSeqRef.current) {
+        return;
+      }
 
       const nextTrades = tradesResponse.data || [];
       const nextAnalytics = analyticsResponse || emptyAnalytics;
@@ -368,9 +391,13 @@ const App = () => {
       saveOfflineSnapshot({
         trades: nextTrades,
         analytics: nextAnalytics,
-        filters,
+        filters: debouncedFilters,
       });
     } catch (fetchError) {
+      if (requestSeq !== loadRequestSeqRef.current) {
+        return;
+      }
+
       if (isNetworkError(fetchError)) {
         const snapshot = readOfflineSnapshot();
         if (snapshot?.trades || snapshot?.analytics) {
@@ -391,9 +418,11 @@ const App = () => {
         setError(fetchError.message);
       }
     } finally {
-      setLoading(false);
+      if (requestSeq === loadRequestSeqRef.current) {
+        setLoading(false);
+      }
     }
-  }, [filters, isCompactMobile, refreshToken, token, user]);
+  }, [debouncedFilters, includeDetailedTrades, isCompactMobile, refreshToken, token, user]);
 
   useEffect(() => {
     loadData();
@@ -437,12 +466,12 @@ const App = () => {
     }
   }, [filters.profileId, user?.activeProfileId]);
 
-  const onFilterChange = (key, value) => {
+  const onFilterChange = useCallback((key, value) => {
     setFilters((prev) => ({
       ...prev,
       [key]: value,
     }));
-  };
+  }, []);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -461,7 +490,7 @@ const App = () => {
     return count;
   }, [filters.cleanOnly, filters.pair, filters.session, filters.setupType]);
 
-  const onTradeSaved = (event = {}) => {
+  const onTradeSaved = useCallback((event = {}) => {
     if (event.mode === "offline") {
       refreshOfflineQueue();
       setStatusMessage("Trade saved offline and queued for auto-sync.");
@@ -473,7 +502,7 @@ const App = () => {
     setError("");
     refreshOfflineQueue();
     loadData();
-  };
+  }, [loadData, refreshOfflineQueue]);
 
   const syncQueuedData = useCallback(async (manual = false) => {
     if (syncInFlightRef.current) {
@@ -696,11 +725,19 @@ const App = () => {
   );
 
   const mergedTrades = useMemo(() => [...queuedTrades, ...trades], [queuedTrades, trades]);
-  const localAnalytics = useMemo(() => buildLocalDashboardAnalytics(mergedTrades), [mergedTrades]);
-  const displayAnalytics = useMemo(
-    () => ((!isOnline || offlineQueue.length) ? localAnalytics : analytics || emptyAnalytics),
-    [analytics, isOnline, localAnalytics, offlineQueue.length]
-  );
+  const shouldUseLocalAnalytics = !isOnline || offlineQueue.length > 0;
+  const localAnalytics = useMemo(() => {
+    if (!shouldUseLocalAnalytics) {
+      return null;
+    }
+    return buildLocalDashboardAnalytics(mergedTrades);
+  }, [mergedTrades, shouldUseLocalAnalytics]);
+  const displayAnalytics = useMemo(() => {
+    if (shouldUseLocalAnalytics) {
+      return localAnalytics || emptyAnalytics;
+    }
+    return analytics || emptyAnalytics;
+  }, [analytics, localAnalytics, shouldUseLocalAnalytics]);
 
   const strategySignal = useMemo(() => {
     if (offlineQueue.length) {

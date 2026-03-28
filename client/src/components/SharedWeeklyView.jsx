@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchSharedWeeklyReview } from "../api/tradesApi";
+import BrandLogo from "./BrandLogo";
 
 const SharedWeeklyView = ({ shareToken }) => {
   const [loading, setLoading] = useState(true);
@@ -28,7 +29,7 @@ const SharedWeeklyView = ({ shareToken }) => {
       <section className="journal-shell app-journal w-full max-w-2xl p-0 sm:p-4 md:p-6">
         <section className="panel animate-riseIn">
           <div className="brand-block">
-            <img src="/pwa-192x192.png" alt="Trading Journal logo" className="brand-logo" />
+            <BrandLogo />
             <div>
               <p className="section-kicker">Shared Weekly Report</p>
               <h1 className="hero-title brand-title mt-1">The Trading Journal</h1>

@@ -6,6 +6,7 @@ import {
   requestPasswordReset,
   verifyTwoFactorLogin,
 } from "../api/tradesApi";
+import BrandLogo from "./BrandLogo";
 
 const AuthPanel = ({ onAuthenticated }) => {
   const [mode, setMode] = useState("login");
@@ -129,7 +130,7 @@ const AuthPanel = ({ onAuthenticated }) => {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-[1.1fr_0.9fr]">
           <aside className="panel animate-riseIn">
             <div className="brand-block">
-              <img src="/pwa-192x192.png" alt="Trading Journal logo" className="brand-logo" />
+              <BrandLogo />
               <div>
                 <p className="section-kicker">Welcome Back</p>
                 <h1 className="hero-title brand-title mt-1">The Trading Journal</h1>

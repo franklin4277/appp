@@ -220,6 +220,46 @@ const sendEmailVerificationTokenEmail = async ({ user, token }) => {
   });
 };
 
+const queueEmailVerificationDispatch = ({ user, token, reason = "verification.requested" }) => {
+  const email = user?.email || "";
+  const expiresAt = user?.emailVerification?.expiresAt?.toISOString?.() || null;
+
+  void sendEmailVerificationTokenEmail({ user, token })
+    .then((delivery) => {
+      dispatchSecurityMessage({
+        event: "auth.email.verification.requested",
+        message: "Email verification token generated.",
+        details: {
+          reason,
+          email,
+          expiresAt,
+          mailSent: delivery.sent,
+          mailError: delivery.sent ? "" : delivery.error,
+          mailErrorCode: delivery.sent ? "" : delivery.errorCode,
+          mailHint: delivery.sent ? "" : delivery.errorHint,
+          debugToken: includeDebugSecrets() ? token : undefined,
+        },
+      });
+    })
+    .catch((error) => {
+      dispatchSecurityMessage({
+        level: "error",
+        event: "auth.email.verification.dispatch.failed",
+        message: "Failed to dispatch email verification message.",
+        details: {
+          reason,
+          email,
+          expiresAt,
+          mailSent: false,
+          mailError: String(error?.message || "Unknown dispatch error"),
+          mailErrorCode: String(error?.code || "DISPATCH_FAILED"),
+          mailHint: "Check SMTP connection and credentials.",
+          debugToken: includeDebugSecrets() ? token : undefined,
+        },
+      });
+    });
+};
+
 const sendPasswordResetTokenEmail = async ({ user, token }) => {
   const resetUrlBase = String(process.env.PUBLIC_SHARE_BASE_URL || "").trim().replace(/\/$/, "");
   const resetUrl = resetUrlBase ? `${resetUrlBase}/reset-password?token=${encodeURIComponent(token)}` : "";
@@ -295,10 +335,6 @@ export const register = async (req, res, next) => {
 
     const verificationToken = createEmailVerificationForUser(user);
     await user.save();
-    const verificationMail = await sendEmailVerificationTokenEmail({
-      user,
-      token: verificationToken,
-    });
 
     await recordAudit({
       req,
@@ -307,20 +343,6 @@ export const register = async (req, res, next) => {
       targetType: "user",
       targetId: user._id.toString(),
       metadata: { email: user.email },
-    });
-
-    dispatchSecurityMessage({
-      event: "auth.email.verification.requested",
-      message: "Email verification token generated for newly registered account.",
-      details: {
-        email: user.email,
-        expiresAt: user.emailVerification?.expiresAt?.toISOString?.() || null,
-        mailSent: verificationMail.sent,
-        mailError: verificationMail.sent ? "" : verificationMail.error,
-        mailErrorCode: verificationMail.sent ? "" : verificationMail.errorCode,
-        mailHint: verificationMail.sent ? "" : verificationMail.errorHint,
-        debugToken: includeDebugSecrets() ? verificationToken : undefined,
-      },
     });
 
     await respondWithAuth({
@@ -333,8 +355,23 @@ export const register = async (req, res, next) => {
             debug: {
               emailVerificationToken: verificationToken,
             },
+            delivery: {
+              queued: true,
+              configured: isMailerConfigured(),
+            },
           }
-        : {},
+        : {
+            delivery: {
+              queued: true,
+              configured: isMailerConfigured(),
+            },
+          },
+    });
+
+    queueEmailVerificationDispatch({
+      user,
+      token: verificationToken,
+      reason: "register",
     });
   } catch (error) {
     next(error);
@@ -801,10 +838,6 @@ export const requestEmailVerification = async (req, res, next) => {
 
     const verificationToken = createEmailVerificationForUser(user);
     await user.save();
-    const verificationMail = await sendEmailVerificationTokenEmail({
-      user,
-      token: verificationToken,
-    });
 
     await recordAudit({
       req,
@@ -814,37 +847,28 @@ export const requestEmailVerification = async (req, res, next) => {
       targetId: user._id.toString(),
     });
 
-    dispatchSecurityMessage({
-      event: "auth.email.verification.requested",
-      message: "Email verification token regenerated.",
-      details: {
-        email: user.email,
-        expiresAt: user.emailVerification?.expiresAt?.toISOString?.() || null,
-        mailSent: verificationMail.sent,
-        mailError: verificationMail.sent ? "" : verificationMail.error,
-        mailErrorCode: verificationMail.sent ? "" : verificationMail.errorCode,
-        mailHint: verificationMail.sent ? "" : verificationMail.errorHint,
-        debugToken: includeDebugSecrets() ? verificationToken : undefined,
-      },
+    queueEmailVerificationDispatch({
+      user,
+      token: verificationToken,
+      reason: "manual-request",
     });
+
+    const mailerConfigured = isMailerConfigured();
 
     res.json({
       ok: true,
-      message: verificationMail.sent
-        ? "Verification token sent to email."
-        : "Verification token generated but email delivery failed.",
+      message: mailerConfigured
+        ? "Verification token generated. Email dispatch started."
+        : "Verification token generated. SMTP is not configured, so use token manually.",
       delivery: {
-        sent: verificationMail.sent,
-        configured: isMailerConfigured(),
-        error: verificationMail.sent ? "" : verificationMail.error,
-        errorCode: verificationMail.sent ? "" : verificationMail.errorCode,
-        hint: verificationMail.sent ? "" : verificationMail.errorHint,
+        sent: false,
+        queued: mailerConfigured,
+        configured: mailerConfigured,
+        error: mailerConfigured ? "" : "SMTP mailer is not configured.",
+        errorCode: mailerConfigured ? "" : "SMTP_NOT_CONFIGURED",
+        hint: mailerConfigured ? "Delivery runs in the background." : "Set SMTP_HOST/PORT (or SMTP_URL) and EMAIL_FROM.",
       },
-      ...(verificationMail.sent
-        ? {}
-        : {
-            fallbackToken: verificationToken,
-          }),
+      fallbackToken: verificationToken,
       ...(includeDebugSecrets()
         ? {
             debugToken: verificationToken,

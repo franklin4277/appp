@@ -7,7 +7,7 @@ const normalizeApiBase = (value = "") => {
 };
 
 const API_BASE = normalizeApiBase(import.meta.env.VITE_API_URL || "");
-const API_TIMEOUT_MS = Math.max(5000, Number(import.meta.env.VITE_API_TIMEOUT_MS || 25000) || 25000);
+const API_TIMEOUT_MS = Math.max(5000, Number(import.meta.env.VITE_API_TIMEOUT_MS || 60000) || 60000);
 export const AUTH_STORAGE_KEY = "trading-journal-token";
 export const AUTH_REFRESH_STORAGE_KEY = "trading-journal-refresh-token";
 const AUTH_PROFILE_CACHE_KEY = "trading-journal-user-cache";

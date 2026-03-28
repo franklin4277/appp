@@ -22,6 +22,7 @@ import {
   unlockTrustedDevice,
 } from "./api/tradesApi";
 import AuthPanel from "./components/AuthPanel";
+import BrandLogo from "./components/BrandLogo";
 import SharedWeeklyView from "./components/SharedWeeklyView";
 import { buildLocalDashboardAnalytics } from "./utils/offlineAnalytics";
 
@@ -836,7 +837,7 @@ const App = () => {
         <header className="journal-hero mb-4 md:mb-5">
           <div className="top-header">
             <div className="brand-block">
-              <img src="/pwa-192x192.png" alt="Trading Journal logo" className="brand-logo" />
+              <BrandLogo />
               <div>
                 <p className="section-kicker">The Trading Journal</p>
                 <h1 className="hero-title brand-title">Trading Journal</h1>

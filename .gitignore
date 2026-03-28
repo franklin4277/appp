@@ -7,3 +7,6 @@ dev-dist
 server/.env
 server/uploads/*
 !server/uploads/.gitkeep
+
+render.backend.env
+render.frontend.env

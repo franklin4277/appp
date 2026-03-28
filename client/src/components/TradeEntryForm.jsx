@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createTrade, isNetworkError, queueTradeOffline } from "../api/tradesApi";
 import { POC_OUTCOMES, PAIRS, RESULTS, SESSIONS, SETUP_TYPES, TRADE_TYPES } from "../utils/options";
+import { compressImageFile, formatBytes } from "../utils/imageCompression";
 import { calculateAchievedRR, calculateLotSize, calculatePlannedRR, round } from "../utils/tradeMath";
 
 const PRESET_STORAGE_KEY = "trading-journal-presets";
@@ -215,6 +216,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
   const [checklistWarnings, setChecklistWarnings] = useState([]);
   const [guardrailWarnings, setGuardrailWarnings] = useState([]);
   const [successWarning, setSuccessWarning] = useState("");
+  const [mediaOptimizationMessage, setMediaOptimizationMessage] = useState("");
   const [savedDraft, setSavedDraft] = useState(null);
   const [draftReady, setDraftReady] = useState(false);
   const formRef = useRef(null);
@@ -606,6 +608,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
     setChecklistWarnings([]);
     setGuardrailWarnings([]);
     setSuccessWarning("");
+    setMediaOptimizationMessage("");
     let normalizedValue = value;
     if (field === "pair") {
       normalizedValue = String(value || "")
@@ -616,6 +619,46 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
       ...prev,
       [field]: normalizedValue,
     }));
+  };
+
+  const handleScreenshotChange = async (field, file) => {
+    setError("");
+    setChecklistWarnings([]);
+    setGuardrailWarnings([]);
+    setSuccessWarning("");
+
+    if (!file) {
+      setMediaOptimizationMessage("");
+      setForm((prev) => ({
+        ...prev,
+        [field]: null,
+      }));
+      return;
+    }
+
+    const optimized = await compressImageFile(file);
+    setForm((prev) => ({
+      ...prev,
+      [field]: optimized.file || file,
+    }));
+
+    setMediaOptimizationMessage((prev) => {
+      if (!optimized.compressed) {
+        return prev;
+      }
+      const nextPart = `${field === "screenshotBefore" ? "Before" : "After"}: ${formatBytes(
+        optimized.originalBytes
+      )} -> ${formatBytes(optimized.outputBytes)}`;
+      if (!prev) {
+        return `Optimized screenshots | ${nextPart}`;
+      }
+      const [head] = String(prev).split("|");
+      return `${head.trim()} | ${nextPart}`;
+    });
+
+    if (optimized.compressed) {
+      return;
+    }
   };
 
   const resetTradeForm = useCallback(() => {
@@ -1228,17 +1271,26 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
             label="Screenshot (Before)"
             file={form.screenshotBefore}
             note={form.screenshotBeforeNote}
-            onFileChange={(file) => handleChange("screenshotBefore", file)}
+            onFileChange={(file) => {
+              void handleScreenshotChange("screenshotBefore", file);
+            }}
             onNoteChange={(value) => handleChange("screenshotBeforeNote", value)}
           />
           <ScreenshotField
             label="Screenshot (After)"
             file={form.screenshotAfter}
             note={form.screenshotAfterNote}
-            onFileChange={(file) => handleChange("screenshotAfter", file)}
+            onFileChange={(file) => {
+              void handleScreenshotChange("screenshotAfter", file);
+            }}
             onNoteChange={(value) => handleChange("screenshotAfterNote", value)}
           />
         </div>
+        {mediaOptimizationMessage ? (
+          <p className="col-span-full rounded-xl border border-border bg-panelMuted p-2 text-xs text-textMuted">
+            {mediaOptimizationMessage}
+          </p>
+        ) : null}
 
         {checklistWarnings.length ? (
           <div className="col-span-full rounded-xl border border-danger/40 bg-danger/10 p-3">

@@ -2,6 +2,13 @@ import { memo, useEffect, useMemo, useState } from "react";
 
 const MOBILE_BATCH_SIZE = 60;
 const DESKTOP_BATCH_SIZE = 140;
+const dateFormatter = new Intl.DateTimeFormat(undefined, {
+  year: "numeric",
+  month: "short",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+});
 
 const resultStyles = {
   Win: "border border-accent/50 bg-accent/15 text-textMain",
@@ -9,20 +16,13 @@ const resultStyles = {
   BE: "border border-border bg-panel text-textMuted",
 };
 
-const formatDate = (value) =>
-  (() => {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return "Unknown time";
-    }
-    return date.toLocaleString([], {
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  })();
+const formatDate = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown time";
+  }
+  return dateFormatter.format(date);
+};
 
 const TradesTable = ({ trades }) => {
   const [mobileVisibleCount, setMobileVisibleCount] = useState(MOBILE_BATCH_SIZE);
@@ -37,9 +37,27 @@ const TradesTable = ({ trades }) => {
     () => trades.slice(0, Math.max(MOBILE_BATCH_SIZE, mobileVisibleCount)),
     [mobileVisibleCount, trades]
   );
+
+  const mobileDisplayTrades = useMemo(
+    () =>
+      mobileTrades.map((trade) => ({
+        ...trade,
+        _displayDate: formatDate(trade.tradeDate),
+      })),
+    [mobileTrades]
+  );
+
   const desktopTrades = useMemo(
     () => trades.slice(0, Math.max(DESKTOP_BATCH_SIZE, desktopVisibleCount)),
     [desktopVisibleCount, trades]
+  );
+  const desktopDisplayTrades = useMemo(
+    () =>
+      desktopTrades.map((trade) => ({
+        ...trade,
+        _displayDate: formatDate(trade.tradeDate),
+      })),
+    [desktopTrades]
   );
   const hasMoreMobileTrades = trades.length > mobileTrades.length;
   const hasMoreDesktopTrades = trades.length > desktopTrades.length;
@@ -52,8 +70,8 @@ const TradesTable = ({ trades }) => {
       </div>
 
       <div className="space-y-3 md:hidden">
-        {mobileTrades.length ? (
-          mobileTrades.map((trade) => (
+        {mobileDisplayTrades.length ? (
+          mobileDisplayTrades.map((trade) => (
             <article key={trade._id} className="mobile-card">
               <div className="mb-1 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
@@ -64,7 +82,7 @@ const TradesTable = ({ trades }) => {
                   {trade.result}
                 </span>
               </div>
-              <p className="text-xs text-textMuted">{formatDate(trade.tradeDate)}</p>
+              <p className="text-xs text-textMuted">{trade._displayDate}</p>
               <div className="mt-2 flex flex-wrap gap-2 text-xs text-textMuted">
                 <span className="chip">{trade.session}</span>
                 <span className="chip">
@@ -109,9 +127,9 @@ const TradesTable = ({ trades }) => {
           </thead>
           <tbody>
             {trades.length ? (
-              desktopTrades.map((trade) => (
+              desktopDisplayTrades.map((trade) => (
                 <tr key={trade._id} className="table-row border-b border-border/60">
-                  <td className="py-2 pr-2 text-textMuted">{formatDate(trade.tradeDate)}</td>
+                  <td className="py-2 pr-2 text-textMuted">{trade._displayDate}</td>
                   <td className="py-2 pr-2">{trade.pair}</td>
                   <td className="py-2 pr-2">{trade.session}</td>
                   <td className="py-2 pr-2">

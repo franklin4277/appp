@@ -244,7 +244,9 @@ const App = () => {
     if (!user) {
       return;
     }
-    persistCachedAuthProfile(user);
+    void persistCachedAuthProfile(user).catch(() => {
+      // Ignore local cache write errors.
+    });
   }, [user]);
 
   useEffect(() => {
@@ -305,7 +307,9 @@ const App = () => {
       try {
         const me = await fetchMe(token);
         setUser(me.user);
-        persistCachedAuthProfile(me.user);
+        void persistCachedAuthProfile(me.user).catch(() => {
+          // Ignore local cache write errors.
+        });
         setFilters((prev) => ({
           ...prev,
           profileId: me.user?.activeProfileId || prev.profileId,
@@ -566,7 +570,9 @@ const App = () => {
     setRefreshToken(nextRefreshToken || refreshToken);
     setUser(nextUser);
     if (nextUser) {
-      persistCachedAuthProfile(nextUser);
+      void persistCachedAuthProfile(nextUser).catch(() => {
+        // Ignore local cache write errors.
+      });
     }
     setFilters((prev) => ({
       ...prev,

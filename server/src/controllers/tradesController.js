@@ -1,13 +1,17 @@
 import crypto from "crypto";
 import Trade from "../models/Trade.js";
 import WeeklyReviewShare from "../models/WeeklyReviewShare.js";
-import { buildDashboardAnalytics } from "../services/analytics.js";
 import { parseTradesCsv, buildTradesCsv } from "../services/csv.js";
 import { evaluateGuardrails } from "../services/guardrails.js";
 import { hashToken, resolveActiveProfileId, resolveDefaultProfileId } from "../services/auth.js";
 import { recordAudit } from "../services/audit.js";
 import { summarizeWeeklyReview, weekRange } from "../services/review.js";
 import { formatStoredFileUrl, storeScreenshot } from "../services/storage.js";
+import {
+  getOrBuildAnalyticsSnapshot,
+  normalizeAnalyticsFilter,
+  scheduleDefaultAnalyticsSnapshotRebuild,
+} from "../services/analyticsSnapshot.js";
 
 const toBoolean = (value) => {
   if (typeof value === "boolean") {
@@ -93,13 +97,19 @@ const resolveProfileId = (req, source = {}) => {
   return resolveActiveProfileId(req.user);
 };
 
-const transformTrade = (trade, req) => ({
-  ...trade.toObject(),
-  screenshots: {
-    before: formatStoredFileUrl(req, trade.screenshots?.before),
-    after: formatStoredFileUrl(req, trade.screenshots?.after),
-  },
-});
+const toPlainTrade = (trade) =>
+  trade && typeof trade.toObject === "function" ? trade.toObject() : trade;
+
+const transformTrade = (trade, req) => {
+  const plain = toPlainTrade(trade) || {};
+  return {
+    ...plain,
+    screenshots: {
+      before: formatStoredFileUrl(req, plain.screenshots?.before),
+      after: formatStoredFileUrl(req, plain.screenshots?.after),
+    },
+  };
+};
 
 const applyProfileScopeFilter = ({ filter = {}, user, profileId }) => {
   const next = { ...filter };
@@ -316,6 +326,11 @@ export const createTrade = async (req, res, next) => {
       },
     });
 
+    scheduleDefaultAnalyticsSnapshotRebuild({
+      user: req.user,
+      profileId: trade.profileId,
+    });
+
     res.status(201).json({
       ...transformTrade(trade, req),
       guardrails,
@@ -353,7 +368,7 @@ export const getTrades = async (req, res, next) => {
 
     const [total, trades] = await Promise.all([
       Trade.countDocuments(filter),
-      Trade.find(filter).sort({ tradeDate: -1 }).skip(skip).limit(safeLimit),
+      Trade.find(filter).sort({ tradeDate: -1 }).skip(skip).limit(safeLimit).lean(),
     ]);
 
     res.json({
@@ -369,9 +384,13 @@ export const getTrades = async (req, res, next) => {
 
 export const getAnalytics = async (req, res, next) => {
   try {
-    const filter = buildFilterFromRequest(req);
-    const trades = await Trade.find(filter).sort({ tradeDate: -1 });
-    const analytics = buildDashboardAnalytics(trades.map((trade) => trade.toObject()));
+    const profileId = resolveProfileId(req);
+    const filter = normalizeAnalyticsFilter(req.query || {});
+    const analytics = await getOrBuildAnalyticsSnapshot({
+      user: req.user,
+      profileId,
+      filterInput: filter,
+    });
     res.json(analytics);
   } catch (error) {
     next(error);
@@ -381,8 +400,8 @@ export const getAnalytics = async (req, res, next) => {
 export const exportTradesCsv = async (req, res, next) => {
   try {
     const filter = buildFilterFromRequest(req);
-    const trades = await Trade.find(filter).sort({ tradeDate: -1 });
-    const csv = buildTradesCsv(trades.map((trade) => trade.toObject()));
+    const trades = await Trade.find(filter).sort({ tradeDate: -1 }).lean();
+    const csv = buildTradesCsv(trades);
 
     await recordAudit({
       req,
@@ -428,8 +447,8 @@ const buildWeeklyReviewPayload = async ({ user, profileId }) => {
     profileId,
   });
 
-  const trades = await Trade.find(filter).sort({ tradeDate: -1 });
-  const summary = summarizeWeeklyReview(trades.map((trade) => trade.toObject()));
+  const trades = await Trade.find(filter).sort({ tradeDate: -1 }).lean();
+  const summary = summarizeWeeklyReview(trades);
 
   return {
     generatedAt: new Date().toISOString(),
@@ -687,6 +706,7 @@ export const importTradesCsv = async (req, res, next) => {
     let imported = 0;
     let skipped = 0;
     const errors = [];
+    const touchedProfiles = new Set();
 
     for (let index = 0; index < rows.length; index += 1) {
       const row = rows[index];
@@ -725,6 +745,8 @@ export const importTradesCsv = async (req, res, next) => {
           storageProvider: "imported",
         });
 
+        touchedProfiles.add(payload.profileId);
+
         imported += 1;
       } catch (error) {
         skipped += 1;
@@ -740,6 +762,13 @@ export const importTradesCsv = async (req, res, next) => {
       skipped,
       totalRows: rows.length,
       errors: errors.slice(0, 20),
+    });
+
+    touchedProfiles.forEach((profileId) => {
+      scheduleDefaultAnalyticsSnapshotRebuild({
+        user: req.user,
+        profileId,
+      });
     });
 
     await recordAudit({

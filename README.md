@@ -20,6 +20,7 @@ Minimal, fast, session-based Forex journal with per-user accounts and behavior c
   - Loss cooldown warning (revenge-trade guard)
   - Stop-for-day warning by net daily RR
 - Analytics:
+  - Write-through analytics snapshots for fast dashboard reads
   - Profit curve + drawdown curve
   - Session x Setup heatmap
   - Streak tracker

@@ -241,7 +241,7 @@ const derivePinKey = async (pin, meta) => {
     },
     material,
     { name: "AES-GCM", length: 256 },
-    false,
+    true,
     ["encrypt", "decrypt"]
   );
 };

@@ -10,6 +10,8 @@ const API_BASE = normalizeApiBase(import.meta.env.VITE_API_URL || "");
 const API_TIMEOUT_MS = Math.max(5000, Number(import.meta.env.VITE_API_TIMEOUT_MS || 25000) || 25000);
 export const AUTH_STORAGE_KEY = "trading-journal-token";
 export const AUTH_REFRESH_STORAGE_KEY = "trading-journal-refresh-token";
+const AUTH_PROFILE_CACHE_KEY = "trading-journal-user-cache";
+const LOCAL_DEVICE_ID_KEY = "trading-journal-local-device-id";
 const OFFLINE_QUEUE_KEY = "trading-journal-offline-queue";
 const OFFLINE_SNAPSHOT_KEY = "trading-journal-offline-snapshot";
 const OFFLINE_FILES_DB = "trading-journal-offline-files";
@@ -58,6 +60,41 @@ export const persistAuthSession = ({ token = "", refreshToken = "" } = {}) => {
 export const clearAuthSession = () => {
   localStorage.removeItem(AUTH_STORAGE_KEY);
   localStorage.removeItem(AUTH_REFRESH_STORAGE_KEY);
+};
+
+const randomToken = () => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
+export const ensureLocalDeviceId = () => {
+  const existing = readStorage(LOCAL_DEVICE_ID_KEY);
+  if (existing) {
+    return existing;
+  }
+  const next = `device-${randomToken()}`;
+  writeStorage(LOCAL_DEVICE_ID_KEY, next);
+  return next;
+};
+
+export const readCachedAuthProfile = () => readJsonStorage(AUTH_PROFILE_CACHE_KEY, null);
+
+export const persistCachedAuthProfile = (user) => {
+  if (!user || typeof user !== "object") {
+    return;
+  }
+
+  writeJsonStorage(AUTH_PROFILE_CACHE_KEY, {
+    user,
+    savedAt: new Date().toISOString(),
+    deviceId: ensureLocalDeviceId(),
+  });
+};
+
+export const clearCachedAuthProfile = () => {
+  localStorage.removeItem(AUTH_PROFILE_CACHE_KEY);
 };
 
 const toNumber = (value, fallback = 0) => {

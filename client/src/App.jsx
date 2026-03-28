@@ -1,15 +1,19 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  clearCachedAuthProfile,
   clearAuthSession,
   clearOfflineQueue,
   createProfile,
+  ensureLocalDeviceId,
   fetchAnalytics,
   fetchMe,
   fetchTrades,
   getOfflineQueue,
   isNetworkError,
   logoutSession,
+  persistCachedAuthProfile,
   persistAuthSession,
+  readCachedAuthProfile,
   readOfflineSnapshot,
   readStoredAuthSession,
   saveOfflineSnapshot,
@@ -151,10 +155,11 @@ const App = () => {
   }, []);
 
   const storedSession = useMemo(() => readStoredAuthSession(), []);
-  const [authLoading, setAuthLoading] = useState(true);
+  const storedCachedProfile = useMemo(() => readCachedAuthProfile(), []);
+  const [authLoading, setAuthLoading] = useState(() => Boolean(storedSession.token && !storedCachedProfile?.user));
   const [token, setToken] = useState(() => storedSession.token || "");
   const [refreshToken, setRefreshToken] = useState(() => storedSession.refreshToken || "");
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => (storedSession.token ? storedCachedProfile?.user || null : null));
   const [filters, setFilters] = useState({
     profileId: "",
     pair: "",
@@ -226,10 +231,21 @@ const App = () => {
   }, []);
 
   useEffect(() => {
+    ensureLocalDeviceId();
+  }, []);
+
+  useEffect(() => {
     if (token || refreshToken) {
       persistAuthSession({ token, refreshToken });
     }
   }, [refreshToken, token]);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+    persistCachedAuthProfile(user);
+  }, [user]);
 
   useEffect(() => {
     const loadSession = async () => {
@@ -243,15 +259,47 @@ const App = () => {
         return;
       }
 
+      const cachedProfile = readCachedAuthProfile();
+      const cachedUser = cachedProfile?.user || null;
+      if (cachedUser) {
+        setUser((prev) => prev || cachedUser);
+        setFilters((prev) => ({
+          ...prev,
+          profileId: cachedUser?.activeProfileId || prev.profileId,
+        }));
+        setAuthLoading(false);
+      }
+
+      if (!navigator.onLine) {
+        if (cachedUser) {
+          setStatusMessage("Offline mode: using this device's saved session.");
+          setError("");
+        }
+        setAuthLoading(false);
+        return;
+      }
+
       try {
         const me = await fetchMe(token);
         setUser(me.user);
+        persistCachedAuthProfile(me.user);
         setFilters((prev) => ({
           ...prev,
           profileId: me.user?.activeProfileId || prev.profileId,
         }));
-      } catch {
+        setError("");
+      } catch (sessionError) {
+        if (isNetworkError(sessionError)) {
+          if (cachedUser) {
+            setStatusMessage("Offline mode: using this device's saved session.");
+            setError("");
+          }
+          setAuthLoading(false);
+          return;
+        }
+
         clearAuthSession();
+        clearCachedAuthProfile();
         setToken("");
         setRefreshToken("");
         setUser(null);
@@ -494,6 +542,9 @@ const App = () => {
     setToken(nextToken);
     setRefreshToken(nextRefreshToken || refreshToken);
     setUser(nextUser);
+    if (nextUser) {
+      persistCachedAuthProfile(nextUser);
+    }
     setFilters((prev) => ({
       ...prev,
       profileId: nextUser?.activeProfileId || prev.profileId,
@@ -511,6 +562,7 @@ const App = () => {
     }
 
     clearAuthSession();
+    clearCachedAuthProfile();
     setToken("");
     setRefreshToken("");
     setUser(null);

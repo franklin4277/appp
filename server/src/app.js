@@ -25,7 +25,17 @@ const normalizeOrigin = (value = "") => String(value || "").trim().toLowerCase()
 const configuredOrigins = parseOrigins(process.env.CLIENT_URL);
 const allowedOrigins = configuredOrigins.map(normalizeOrigin);
 const allowAnyOrigin = allowedOrigins.length === 0 || allowedOrigins.includes("*");
-const strictCors = process.env.STRICT_CORS === "true";
+const strictCors =
+  process.env.STRICT_CORS === undefined
+    ? process.env.NODE_ENV === "production"
+    : process.env.STRICT_CORS === "true";
+
+if (strictCors && allowAnyOrigin) {
+  logInfo("security.cors.strict_requires_client_url", {
+    strictCors,
+    configuredClientUrl: String(process.env.CLIENT_URL || ""),
+  });
+}
 
 const metricsToken = String(process.env.METRICS_TOKEN || "").trim();
 
@@ -35,11 +45,11 @@ const isOriginAllowed = (origin) => {
   }
 
   if (allowAnyOrigin) {
-    return true;
+    // In strict mode, wildcard/no CLIENT_URL is not accepted for browser origins.
+    // This blocks cross-origin requests until a concrete CLIENT_URL is configured.
+    return !strictCors;
   }
 
-  // Default mode favors reliability across changing frontend deploy URLs.
-  // Set STRICT_CORS=true to enforce only configured CLIENT_URL origins.
   if (!strictCors) {
     return true;
   }

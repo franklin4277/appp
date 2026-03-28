@@ -64,9 +64,10 @@ const PASSWORD_RESET_TTL_MS = envDurationToMs(process.env.PASSWORD_RESET_EXPIRES
 const EMAIL_VERIFY_TTL_MS = envDurationToMs(process.env.EMAIL_VERIFY_EXPIRES_IN || "48h", 48 * 3_600_000);
 const TWO_FACTOR_TTL_MS = envDurationToMs(process.env.TWO_FACTOR_EXPIRES_IN || "10m", 10 * 60_000);
 
-const includeDebugSecrets = () => !isProd || process.env.ALLOW_DEBUG_AUTH_SECRETS === "true";
+const includeDebugSecrets = () => !isProd && process.env.ALLOW_DEBUG_AUTH_SECRETS !== "false";
 const appLabel = "The Trading Journal";
 const supportFooter = "If you did not request this, you can ignore this message.";
+const antiPhishingNotice = "Security notice: never share codes or tokens. Support will never ask for them.";
 const minutesLabel = (milliseconds) => Math.max(1, Math.round(milliseconds / 60_000));
 
 const slugify = (value = "") =>
@@ -194,11 +195,13 @@ const sendTwoFactorCodeEmail = async ({ user, code }) => {
     text:
       `${appLabel} two-factor code: ${code}\n\n` +
       `This code expires in ${ttlMinutes} minutes.\n\n` +
+      `${antiPhishingNotice}\n\n` +
       `${supportFooter}`,
     html:
       `<p>Your <strong>${appLabel}</strong> login verification code is:</p>` +
       `<h2 style="letter-spacing:2px;">${code}</h2>` +
       `<p>This code expires in ${ttlMinutes} minutes.</p>` +
+      `<p><strong>${antiPhishingNotice}</strong></p>` +
       `<p>${supportFooter}</p>`,
   });
 };
@@ -212,10 +215,12 @@ const sendEmailVerificationTokenEmail = async ({ user, token }) => {
     text:
       `${appLabel} email verification token:\n${token}\n\n` +
       (verifyUrl ? `Verification link: ${verifyUrl}\n\n` : "") +
+      `${antiPhishingNotice}\n\n` +
       `${supportFooter}`,
     html:
       `<p>Use this verification token:</p><p><strong>${token}</strong></p>` +
       (verifyUrl ? `<p>Verification link: <a href="${verifyUrl}">${verifyUrl}</a></p>` : "") +
+      `<p><strong>${antiPhishingNotice}</strong></p>` +
       `<p>${supportFooter}</p>`,
   });
 };
@@ -271,11 +276,13 @@ const sendPasswordResetTokenEmail = async ({ user, token }) => {
       `${appLabel} password reset token:\n${token}\n\n` +
       (resetUrl ? `Reset link: ${resetUrl}\n\n` : "") +
       `This token expires in ${ttlMinutes} minutes.\n\n` +
+      `${antiPhishingNotice}\n\n` +
       `${supportFooter}`,
     html:
       `<p>Use this password reset token:</p><p><strong>${token}</strong></p>` +
       (resetUrl ? `<p>Reset link: <a href="${resetUrl}">${resetUrl}</a></p>` : "") +
       `<p>This token expires in ${ttlMinutes} minutes.</p>` +
+      `<p><strong>${antiPhishingNotice}</strong></p>` +
       `<p>${supportFooter}</p>`,
   });
 };

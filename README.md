@@ -70,8 +70,10 @@ Optional env:
 - `API_RATE_LIMIT_MAX`
 - `METRICS_TOKEN` (protect `/api/metrics`)
 - `ALERT_WEBHOOK_URL` (Slack/Discord/custom webhook)
+- `STRICT_CORS` (`true` recommended in production; defaults to `true` in production builds)
 - `PASSWORD_RESET_EXPIRES_IN`, `EMAIL_VERIFY_EXPIRES_IN`, `TWO_FACTOR_EXPIRES_IN`
 - `PUBLIC_SHARE_BASE_URL`
+- `ALLOW_DEBUG_AUTH_SECRETS` (`false` recommended in production; debug secrets are disabled in production)
 - `SMTP_URL` (optional URI format) or `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` (required for 2FA email delivery in production)
 
 Migration (legacy data backfill for profiles + security fields):
@@ -135,3 +137,6 @@ All `/api/trades/*` endpoints require `Authorization: Bearer <token>`.
 - Keep all secrets in env vars only.
 - Rotate MongoDB credentials before production release.
 - Use a long random `JWT_SECRET` in production.
+- Set `CLIENT_URL` to exact frontend origin(s) and run with `STRICT_CORS=true`.
+- Keep `ALLOW_DEBUG_AUTH_SECRETS` unset or `false` in production.
+- Configure SPF, DKIM, and DMARC on your email domain to reduce phishing/spoofing risk.

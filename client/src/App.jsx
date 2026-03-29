@@ -581,12 +581,16 @@ const App = () => {
       return undefined;
     }
 
+    if (!offlineQueue.length) {
+      return undefined;
+    }
+
     const timer = window.setInterval(() => {
       syncQueuedData();
-    }, 20000);
+    }, 45000);
 
     return () => window.clearInterval(timer);
-  }, [isOnline, syncQueuedData, token, user]);
+  }, [isOnline, offlineQueue.length, syncQueuedData, token, user]);
 
   const handleClearQueuedTrades = async () => {
     const shouldClear = window.confirm("Clear queued offline trades? This cannot be undone.");
@@ -839,8 +843,14 @@ const App = () => {
     return <AuthPanel onAuthenticated={onAuthenticated} />;
   }
 
+  const showMobileJournalActions = activePage === "journal";
+
   return (
-    <main className="app-shell mx-auto w-full max-w-[1600px] p-0 pb-20 sm:p-3 sm:pb-20 md:p-5 md:pb-5">
+    <main
+      className={`app-shell mx-auto w-full max-w-[1600px] p-0 ${
+        showMobileJournalActions ? "pb-20 sm:pb-20" : "pb-6 sm:pb-6"
+      } sm:p-3 md:p-5 md:pb-5`}
+    >
       {loading || syncingQueue ? <div className="top-loader" aria-hidden="true" /> : null}
       <section className="journal-shell app-journal p-0 sm:p-4 md:p-6">
         <header className="journal-hero mb-4 md:mb-5">
@@ -1121,17 +1131,19 @@ const App = () => {
           ) : null}
         </section>
       </section>
-      <nav className="mobile-action-bar md:hidden">
-        <button type="button" className="mobile-action-btn" onClick={handleQuickNew}>
-          New
-        </button>
-        <button type="button" className="mobile-action-btn mobile-action-btn-primary" onClick={handleQuickSave}>
-          Save
-        </button>
-        <button type="button" className="mobile-action-btn" onClick={() => setActivePage("analytics")}>
-          Analytics
-        </button>
-      </nav>
+      {showMobileJournalActions ? (
+        <nav className="mobile-action-bar md:hidden">
+          <button type="button" className="mobile-action-btn" onClick={handleQuickNew}>
+            New
+          </button>
+          <button type="button" className="mobile-action-btn mobile-action-btn-primary" onClick={handleQuickSave}>
+            Save
+          </button>
+          <button type="button" className="mobile-action-btn" onClick={() => setActivePage("analytics")}>
+            Analytics
+          </button>
+        </nav>
+      ) : null}
       {profileModalOpen ? (
         <div
           className="modal-backdrop"

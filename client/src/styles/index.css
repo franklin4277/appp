@@ -493,10 +493,8 @@ body::before {
   }
 
   .page-nav {
-    position: sticky;
-    top: 0.38rem;
-    z-index: 12;
-    background: rgba(10, 18, 30, 0.96);
+    position: static;
+    background: rgba(10, 18, 30, 0.9);
   }
 
   .hero-meta {

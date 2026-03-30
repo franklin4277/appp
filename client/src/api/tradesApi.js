@@ -746,6 +746,32 @@ export const updateUserSettings = async (token, settingsPayload) => {
   return parseResponse(response);
 };
 
+export const generateMt5BridgeKey = async (token, payload = {}) => {
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/auth/integrations/mt5/key`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    },
+    token
+  );
+  return parseResponse(response);
+};
+
+export const disableMt5Bridge = async (token) => {
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/auth/integrations/mt5/disable`,
+    {
+      method: "POST",
+    },
+    token
+  );
+  return parseResponse(response);
+};
+
 export const requestEmailVerification = async (token) => {
   const response = await fetchWithAuthRetry(
     `${API_BASE}/api/auth/email-verification/request`,

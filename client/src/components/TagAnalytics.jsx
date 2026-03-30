@@ -1,6 +1,6 @@
 import { memo } from "react";
 
-const TagAnalytics = ({ tagAnalytics, cleanOnlyPerformance, conditionScores = [] }) => {
+const TagAnalytics = ({ tagAnalytics, cleanOnlyPerformance, conditionScores = [], fingerprintPerformance }) => {
   return (
     <section className="panel animate-riseIn">
       <h3 className="mb-3 text-sm font-semibold">Tag-Based Analytics</h3>
@@ -49,6 +49,27 @@ const TagAnalytics = ({ tagAnalytics, cleanOnlyPerformance, conditionScores = []
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="mt-3">
+        <p className="mb-2 text-xs uppercase tracking-wide text-textMuted">Best Strategy Fingerprints</p>
+        {fingerprintPerformance?.best?.length ? (
+          <div className="space-y-2">
+            {fingerprintPerformance.best.slice(0, 5).map((item) => (
+              <div
+                key={item.fingerprint}
+                className="flex items-center justify-between rounded-xl border border-border bg-panelMuted px-3 py-2 text-sm"
+              >
+                <span className="truncate pr-2">{item.fingerprint}</span>
+                <span className="text-textMuted">
+                  {item.totalTrades} | RR {item.averageRR} | {item.winRate}%
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-textMuted">Fingerprint ranking appears after a few closed trades.</p>
+        )}
       </div>
 
       <div className="mt-3">

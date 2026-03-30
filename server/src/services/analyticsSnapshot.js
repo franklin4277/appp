@@ -19,10 +19,11 @@ export const normalizeAnalyticsFilter = (input = {}) => ({
   session: ensureText(input.session).toLowerCase(),
   setupType: ensureText(input.setupType).toLowerCase(),
   cleanOnly: input.cleanOnly === true || String(input.cleanOnly || "").toLowerCase() === "true",
+  includeOpen: input.includeOpen === true || String(input.includeOpen || "").toLowerCase() === "true",
 });
 
 export const isDefaultAnalyticsFilter = (filter = {}) =>
-  !filter.pair && !filter.session && !filter.setupType && !filter.cleanOnly;
+  !filter.pair && !filter.session && !filter.setupType && !filter.cleanOnly && !filter.includeOpen;
 
 export const scopeKeyFromFilter = (filter = {}) => {
   if (isDefaultAnalyticsFilter(filter)) {
@@ -33,6 +34,7 @@ export const scopeKeyFromFilter = (filter = {}) => {
     `session:${filter.session || "*"}`,
     `setup:${filter.setupType || "*"}`,
     `clean:${filter.cleanOnly ? "1" : "0"}`,
+    `open:${filter.includeOpen ? "1" : "0"}`,
   ].join("|");
 };
 
@@ -119,6 +121,9 @@ const buildTradeFilter = ({ user, profileId, filter = {} }) => {
   if (filter.cleanOnly) {
     base["tags.cleanSetup"] = true;
   }
+  if (!filter.includeOpen) {
+    base["automation.status"] = { $ne: "open" };
+  }
 
   return base;
 };
@@ -130,6 +135,8 @@ const analyticsProjection = {
   rrAchieved: 1,
   setupType: 1,
   session: 1,
+  strategyFingerprint: 1,
+  qualityFlags: 1,
   tags: 1,
   ruleBreakReason: 1,
   notes: 1,
@@ -141,10 +148,31 @@ const buildAnalyticsPayload = async ({ user, profileId, filter }) => {
     profileId,
     filter,
   });
+  const openTradeFilter = buildTradeFilter({
+    user,
+    profileId,
+    filter: {
+      ...filter,
+      includeOpen: true,
+    },
+  });
   const trades = await Trade.find(tradeFilter, analyticsProjection).lean();
+  const openTrades = await Trade.countDocuments({
+    ...openTradeFilter,
+    "automation.status": "open",
+  });
+
+  const analytics = buildDashboardAnalytics(trades);
   return {
     totalTrades: trades.length,
-    analytics: buildDashboardAnalytics(trades),
+    analytics: {
+      ...analytics,
+      lifecycle: {
+        openTrades,
+        closedTrades: trades.length,
+        includeOpen: Boolean(filter.includeOpen),
+      },
+    },
   };
 };
 

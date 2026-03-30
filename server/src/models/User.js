@@ -149,6 +149,51 @@ const twoFactorSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const mt5IntegrationSchema = new mongoose.Schema(
+  {
+    enabled: {
+      type: Boolean,
+      default: false,
+    },
+    keyHash: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    keyHint: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 20,
+    },
+    label: {
+      type: String,
+      default: "MT5 Bridge",
+      trim: true,
+      maxlength: 80,
+    },
+    createdAt: {
+      type: Date,
+      default: null,
+    },
+    lastUsedAt: {
+      type: Date,
+      default: null,
+    },
+    lastEventAt: {
+      type: Date,
+      default: null,
+    },
+    lastEventType: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 32,
+    },
+  },
+  { _id: false }
+);
+
 const buildDefaultSettings = () => ({
   options: {
     pairs: cloneList(DEFAULT_STRATEGY_OPTIONS.pairs),
@@ -261,6 +306,12 @@ const userSchema = new mongoose.Schema(
       type: twoFactorSchema,
       default: () => ({}),
     },
+    integrations: {
+      mt5: {
+        type: mt5IntegrationSchema,
+        default: () => ({}),
+      },
+    },
     lastLoginAt: {
       type: Date,
       default: null,
@@ -307,6 +358,12 @@ userSchema.pre("save", function normalizeProfiles(next) {
   }
   if (!this.twoFactor || typeof this.twoFactor !== "object") {
     this.twoFactor = {};
+  }
+  if (!this.integrations || typeof this.integrations !== "object") {
+    this.integrations = {};
+  }
+  if (!this.integrations.mt5 || typeof this.integrations.mt5 !== "object") {
+    this.integrations.mt5 = {};
   }
 
   next();

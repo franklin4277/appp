@@ -121,6 +121,42 @@ const rankCondition = ({ key, label, trades, totalSize }) => {
 const uniqueValues = (trades, field) =>
   [...new Set(trades.map((trade) => String(trade[field] || "").trim()).filter(Boolean))];
 
+const buildFingerprintAnalytics = (trades = []) => {
+  const buckets = new Map();
+  trades.forEach((trade) => {
+    const key = String(trade.strategyFingerprint || "").trim();
+    if (!key) {
+      return;
+    }
+    if (!buckets.has(key)) {
+      buckets.set(key, []);
+    }
+    buckets.get(key).push(trade);
+  });
+
+  const rows = [...buckets.entries()]
+    .map(([fingerprint, scopedTrades]) => {
+      const summary = summarizeTrades(scopedTrades);
+      return {
+        fingerprint,
+        totalTrades: summary.totalTrades,
+        winRate: summary.winRate,
+        averageRR: summary.averageRR,
+      };
+    })
+    .filter((row) => row.totalTrades > 0)
+    .sort((a, b) => {
+      const scoreA = a.averageRR * 100 + a.winRate;
+      const scoreB = b.averageRR * 100 + b.winRate;
+      return scoreB - scoreA;
+    });
+
+  return {
+    best: rows.filter((row) => row.totalTrades >= 2).slice(0, 8),
+    all: rows.slice(0, 20),
+  };
+};
+
 const buildTagAnalytics = (trades) => {
   const buckets = [
     {
@@ -409,6 +445,7 @@ export const buildDashboardAnalytics = (trades) => {
   const streaks = buildStreaks(trades);
   const conditionScores = buildConditionScores(trades);
   const coaching = buildCoachingSummary(trades);
+  const fingerprintPerformance = buildFingerprintAnalytics(trades);
 
   return {
     overview,
@@ -421,6 +458,6 @@ export const buildDashboardAnalytics = (trades) => {
     streaks,
     conditionScores,
     coaching,
+    fingerprintPerformance,
   };
 };
-

@@ -30,6 +30,12 @@ Minimal, fast, session-based Forex journal with per-user accounts and behavior c
   - CSV export/import
   - Scheduled JSON auto backups
   - Screenshot upload with optional Cloudinary storage (local fallback)
+  - MT5 auto-journal bridge endpoint (entry/exit lifecycle + screenshot sync)
+  - Bridge replay protection (HMAC signature + timestamp + nonce)
+  - Async media queue (trade writes return fast while media stores in background)
+  - Bridge reconciliation worker (auto-fixes missed/late exit events from MT5 history feed)
+  - Strategy fingerprint indexing for condition analytics
+  - Recording retention worker (automatic clip URL cleanup by policy)
   - Offline queue + retry + local snapshot fallback
   - Trusted-device offline session cache (optional PIN lock)
   - Idempotent trade writes via client trade IDs
@@ -75,6 +81,10 @@ Optional env:
 - `PUBLIC_SHARE_BASE_URL`
 - `ALLOW_DEBUG_AUTH_SECRETS` (`false` recommended in production; debug secrets are disabled in production)
 - `SMTP_URL` (optional URI format) or `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` (required for 2FA email delivery in production)
+- `JSON_BODY_LIMIT` (default `12mb`, used for bridge base64 screenshot payloads)
+- `MT5_BRIDGE_REQUIRE_HMAC`, `MT5_BRIDGE_TIMESTAMP_TOLERANCE_SECONDS`, `MT5_BRIDGE_IP_ALLOWLIST`
+- `BRIDGE_EVENT_RETENTION_DAYS`, `BRIDGE_RECONCILE_INTERVAL_SECONDS`, `BRIDGE_STALE_OPEN_TRADE_MINUTES`
+- `BRIDGE_ENABLE_RECORDINGS`, `BRIDGE_MAX_RECORDING_SECONDS`, `RECORDING_RETENTION_DAYS`
 
 Migration (legacy data backfill for profiles + security fields):
 
@@ -115,10 +125,13 @@ npm test
 - `POST /api/auth/email-delivery/test`
 - `GET /api/auth/me`
 - `PATCH /api/auth/settings`
+- `POST /api/auth/integrations/mt5/key`
+- `POST /api/auth/integrations/mt5/disable`
 - `POST /api/auth/email-verification/request`
 - `POST /api/auth/2fa/enable`
 - `POST /api/auth/2fa/disable`
 - `POST /api/trades`
+- `POST /api/trades/bridge/mt5` (uses `x-integration-key`, not JWT)
 - `GET /api/trades`
 - `GET /api/trades/analytics`
 - `GET /api/trades/review/weekly`
@@ -131,6 +144,18 @@ npm test
 - `GET /api/metrics`
 
 All `/api/trades/*` endpoints require `Authorization: Bearer <token>`.
+
+Exception: `POST /api/trades/bridge/mt5` is designed for MT5 bridge automation and uses the bridge key generated in settings.
+
+Bridge headers (recommended in production):
+- `x-bridge-ts`
+- `x-bridge-nonce`
+- `x-bridge-signature` (`sha256=<hex-hmac>`)
+
+## MT5 Auto Bridge
+
+- Bridge script: [`scripts/mt5-bridge/mt5_auto_journal_bridge.py`](scripts/mt5-bridge/mt5_auto_journal_bridge.py)
+- Setup guide: [`scripts/mt5-bridge/README.md`](scripts/mt5-bridge/README.md)
 
 ## Security Notes
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { updateUserSettings } from "../api/tradesApi";
+import { disableMt5Bridge, generateMt5BridgeKey, updateUserSettings } from "../api/tradesApi";
 
 const toCsv = (value = []) => value.join(", ");
 const fromCsv = (value = "") =>
@@ -7,6 +7,24 @@ const fromCsv = (value = "") =>
     .split(/[\n,]/g)
     .map((item) => item.trim())
     .filter(Boolean);
+
+const normalizeBaseUrl = (value = "") => String(value || "").trim().replace(/\/+$/, "").replace(/\/api$/i, "");
+
+const formatDateTime = (value = "") => {
+  if (!value) {
+    return "";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return date.toLocaleString([], {
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 
 const SettingField = ({ label, value, onChange, placeholder }) => (
   <label>
@@ -38,10 +56,25 @@ const SettingsPanel = ({ user, token, onUserUpdate, onSaved }) => {
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [bridgeBusy, setBridgeBusy] = useState(false);
+  const [bridgeError, setBridgeError] = useState("");
+  const [bridgeMessage, setBridgeMessage] = useState("");
+  const [bridgeKey, setBridgeKey] = useState("");
+  const [bridgeLabel, setBridgeLabel] = useState(() => user?.integrations?.mt5?.label || "MT5 Bridge");
+  const mt5Integration = user?.integrations?.mt5 || {};
+  const backendBase = useMemo(
+    () => normalizeBaseUrl(import.meta.env.VITE_API_URL || window.location.origin),
+    []
+  );
+  const bridgeEndpoint = `${backendBase}/api/trades/bridge/mt5`;
 
   useEffect(() => {
     setState(initial);
   }, [initial]);
+
+  useEffect(() => {
+    setBridgeLabel(user?.integrations?.mt5?.label || "MT5 Bridge");
+  }, [user?.integrations?.mt5?.label]);
 
   const onChange = (field, value) => {
     setSaved(false);
@@ -86,6 +119,68 @@ const SettingsPanel = ({ user, token, onUserUpdate, onSaved }) => {
       setError(saveError.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const copyText = async (value, successMessage) => {
+    if (!value) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(value);
+      setBridgeMessage(successMessage);
+      setBridgeError("");
+    } catch {
+      setBridgeError("Clipboard copy failed. Please copy manually.");
+    }
+  };
+
+  const handleGenerateBridgeKey = async () => {
+    setBridgeBusy(true);
+    setBridgeError("");
+    setBridgeMessage("");
+    setBridgeKey("");
+
+    try {
+      const response = await generateMt5BridgeKey(token, {
+        label: bridgeLabel,
+      });
+      if (response?.user) {
+        onUserUpdate(response.user);
+      }
+      setBridgeKey(response.apiKey || "");
+      setBridgeMessage(
+        response.apiKey
+          ? "Bridge key generated. Save it in your MT5 bridge now."
+          : "Bridge key rotation finished."
+      );
+    } catch (bridgeRequestError) {
+      setBridgeError(bridgeRequestError.message || "Could not generate MT5 bridge key.");
+    } finally {
+      setBridgeBusy(false);
+    }
+  };
+
+  const handleDisableBridge = async () => {
+    const shouldDisable = window.confirm("Disable MT5 auto-journal sync and revoke its key?");
+    if (!shouldDisable) {
+      return;
+    }
+    setBridgeBusy(true);
+    setBridgeError("");
+    setBridgeMessage("");
+    setBridgeKey("");
+
+    try {
+      const response = await disableMt5Bridge(token);
+      if (response?.user) {
+        onUserUpdate(response.user);
+      }
+      setBridgeMessage("MT5 bridge disabled.");
+    } catch (bridgeDisableError) {
+      setBridgeError(bridgeDisableError.message || "Could not disable MT5 bridge.");
+    } finally {
+      setBridgeBusy(false);
     }
   };
 
@@ -191,7 +286,90 @@ const SettingsPanel = ({ user, token, onUserUpdate, onSaved }) => {
         </label>
       </div>
 
+      <div className="mt-3 space-y-3 rounded-md border border-border bg-panelMuted p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-textMuted">MT5 Auto Journal Bridge</p>
+            <p className="mt-1 text-sm text-textMuted">
+              Auto-import trades, entry/exit screenshots, and strategy fields from your MT5 bridge script.
+            </p>
+          </div>
+          <span className="chip">{mt5Integration.enabled ? "Enabled" : "Disabled"}</span>
+        </div>
+
+        <label>
+          <span className="label">Bridge Label</span>
+          <input
+            className="input"
+            value={bridgeLabel}
+            onChange={(event) => setBridgeLabel(event.target.value)}
+            placeholder="MT5 Desktop Bridge"
+          />
+        </label>
+
+        <label>
+          <span className="label">Bridge Endpoint</span>
+          <div className="flex gap-2">
+            <input className="input" value={bridgeEndpoint} readOnly />
+            <button
+              type="button"
+              className="chip text-textMain transition hover:border-accent"
+              onClick={() => copyText(bridgeEndpoint, "Bridge endpoint copied.")}
+            >
+              Copy
+            </button>
+          </div>
+        </label>
+
+        {bridgeKey ? (
+          <label>
+            <span className="label">Generated API Key (shown once)</span>
+            <div className="flex gap-2">
+              <input className="input" value={bridgeKey} readOnly />
+              <button
+                type="button"
+                className="chip text-textMain transition hover:border-accent"
+                onClick={() => copyText(bridgeKey, "Bridge API key copied.")}
+              >
+                Copy key
+              </button>
+            </div>
+          </label>
+        ) : null}
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={handleGenerateBridgeKey}
+            disabled={bridgeBusy}
+          >
+            {bridgeBusy ? "Generating..." : mt5Integration.enabled ? "Rotate bridge key" : "Enable bridge"}
+          </button>
+          <button
+            type="button"
+            className="chip text-textMain transition hover:border-danger"
+            onClick={handleDisableBridge}
+            disabled={bridgeBusy || !mt5Integration.enabled}
+          >
+            Disable bridge
+          </button>
+        </div>
+
+        <div className="text-xs text-textMuted">
+          <p>Key hint: {mt5Integration.keyHint || "not generated"}</p>
+          <p>Last used: {formatDateTime(mt5Integration.lastUsedAt) || "never"}</p>
+          <p>Last event: {mt5Integration.lastEventType || "none"} {formatDateTime(mt5Integration.lastEventAt)}</p>
+        </div>
+      </div>
+
       {error ? <p className="mt-3 rounded-md border border-danger/40 bg-danger/10 p-2 text-sm text-danger">{error}</p> : null}
+      {bridgeMessage ? (
+        <p className="mt-3 rounded-md border border-border bg-panelMuted p-2 text-sm text-textMain">{bridgeMessage}</p>
+      ) : null}
+      {bridgeError ? (
+        <p className="mt-3 rounded-md border border-danger/40 bg-danger/10 p-2 text-sm text-danger">{bridgeError}</p>
+      ) : null}
 
       <button type="button" className="btn-primary mt-3" onClick={handleSave} disabled={loading}>
         {loading ? "Saving..." : "Save settings"}

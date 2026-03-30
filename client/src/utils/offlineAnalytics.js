@@ -111,6 +111,38 @@ const rankCondition = ({ key, label, trades, totalSize }) => {
 const uniqueValues = (trades, field) =>
   [...new Set(trades.map((trade) => String(trade[field] || "").trim()).filter(Boolean))];
 
+const buildFingerprintAnalytics = (trades = []) => {
+  const buckets = new Map();
+  trades.forEach((trade) => {
+    const key = String(trade.strategyFingerprint || "").trim();
+    if (!key) {
+      return;
+    }
+    if (!buckets.has(key)) {
+      buckets.set(key, []);
+    }
+    buckets.get(key).push(trade);
+  });
+
+  const all = [...buckets.entries()]
+    .map(([fingerprint, scopedTrades]) => {
+      const summary = summarizeTrades(scopedTrades);
+      return {
+        fingerprint,
+        totalTrades: summary.totalTrades,
+        winRate: summary.winRate,
+        averageRR: summary.averageRR,
+      };
+    })
+    .filter((row) => row.totalTrades > 0)
+    .sort((a, b) => b.averageRR * 100 + b.winRate - (a.averageRR * 100 + a.winRate));
+
+  return {
+    best: all.filter((item) => item.totalTrades >= 2).slice(0, 8),
+    all: all.slice(0, 20),
+  };
+};
+
 const buildTagAnalytics = (trades = []) => {
   const buckets = [
     {
@@ -398,17 +430,21 @@ const buildCoachingSummary = (trades = []) => {
 };
 
 export const buildLocalDashboardAnalytics = (trades = []) => {
-  const overview = summarizeTrades(trades);
-  const setupBreakdown = buildSetupBreakdown(trades);
-  const profitCurve = buildProfitCurve(trades);
+  const closedTrades = trades.filter((trade) => String(trade?.automation?.status || "").toLowerCase() !== "open");
+  const openTrades = trades.length - closedTrades.length;
+
+  const overview = summarizeTrades(closedTrades);
+  const setupBreakdown = buildSetupBreakdown(closedTrades);
+  const profitCurve = buildProfitCurve(closedTrades);
   const drawdownCurve = buildDrawdownCurve(profitCurve);
-  const tagAnalytics = buildTagAnalytics(trades);
-  const cleanOnlyTrades = trades.filter((trade) => trade.tags?.cleanSetup);
+  const tagAnalytics = buildTagAnalytics(closedTrades);
+  const cleanOnlyTrades = closedTrades.filter((trade) => trade.tags?.cleanSetup);
   const cleanOnlyPerformance = summarizeTrades(cleanOnlyTrades);
-  const heatmap = buildHeatmap(trades);
-  const streaks = buildStreaks(trades);
-  const conditionScores = buildConditionScores(trades);
-  const coaching = buildCoachingSummary(trades);
+  const heatmap = buildHeatmap(closedTrades);
+  const streaks = buildStreaks(closedTrades);
+  const conditionScores = buildConditionScores(closedTrades);
+  const coaching = buildCoachingSummary(closedTrades);
+  const fingerprintPerformance = buildFingerprintAnalytics(closedTrades);
 
   return {
     overview,
@@ -421,5 +457,11 @@ export const buildLocalDashboardAnalytics = (trades = []) => {
     streaks,
     conditionScores,
     coaching,
+    fingerprintPerformance,
+    lifecycle: {
+      openTrades,
+      closedTrades: closedTrades.length,
+      includeOpen: false,
+    },
   };
 };

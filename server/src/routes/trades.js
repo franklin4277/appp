@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  createTradeFromBridge,
   createTrade,
   createSharedWeeklyReview,
   exportTradesCsv,
@@ -17,6 +18,7 @@ import { uploadCsvFile, uploadTradeScreenshots } from "../services/upload.js";
 const router = Router();
 
 router.get("/review/shared/:token", getSharedWeeklyReview);
+router.post("/bridge/mt5", createTradeFromBridge);
 
 router.use(requireAuth);
 

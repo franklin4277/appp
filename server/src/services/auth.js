@@ -225,6 +225,7 @@ export const findRefreshSession = (user, sessionId) =>
 
 export const toPublicUser = (user) => {
   ensureUserProfiles(user);
+  const mt5 = user?.integrations?.mt5 || {};
   return {
     id: user._id?.toString?.() || user.id,
     name: user.name,
@@ -234,6 +235,17 @@ export const toPublicUser = (user) => {
     settings: user.settings,
     profiles: user.profiles || [],
     activeProfileId: user.activeProfileId || DEFAULT_PROFILE_ID,
+    integrations: {
+      mt5: {
+        enabled: Boolean(mt5.enabled),
+        keyHint: String(mt5.keyHint || ""),
+        label: String(mt5.label || "MT5 Bridge"),
+        createdAt: mt5.createdAt || null,
+        lastUsedAt: mt5.lastUsedAt || null,
+        lastEventAt: mt5.lastEventAt || null,
+        lastEventType: String(mt5.lastEventType || ""),
+      },
+    },
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };

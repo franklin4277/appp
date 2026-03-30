@@ -101,6 +101,29 @@ const badRequest = (message) => {
   return error;
 };
 
+const sanitizeIntegrationLabel = (value = "") => {
+  const label = String(value || "").trim().slice(0, 80);
+  if (label.length >= 2) {
+    return label;
+  }
+  return "MT5 Bridge";
+};
+
+const readMt5Integration = (user) => user?.integrations?.mt5 || {};
+
+const toMt5IntegrationSummary = (user) => {
+  const mt5 = readMt5Integration(user);
+  return {
+    enabled: Boolean(mt5.enabled),
+    keyHint: String(mt5.keyHint || ""),
+    label: String(mt5.label || "MT5 Bridge"),
+    createdAt: mt5.createdAt || null,
+    lastUsedAt: mt5.lastUsedAt || null,
+    lastEventAt: mt5.lastEventAt || null,
+    lastEventType: String(mt5.lastEventType || ""),
+  };
+};
+
 const mergeSettings = (current = {}, next = {}) => {
   const optionsPayload = next.options || {};
   const riskPayload = next.riskControls || {};
@@ -1098,6 +1121,83 @@ export const updateSettings = async (req, res, next) => {
     });
 
     res.json({
+      user: toPublicUser(req.user),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const generateMt5IntegrationKey = async (req, res, next) => {
+  try {
+    const label = sanitizeIntegrationLabel(req.body?.label);
+    const previous = readMt5Integration(req.user);
+    const apiKey = `tj_mt5_${createOneTimeToken(24)}`;
+    const now = new Date();
+
+    req.user.integrations = {
+      ...(req.user.integrations || {}),
+      mt5: {
+        ...previous,
+        enabled: true,
+        label,
+        keyHash: hashToken(apiKey),
+        keyHint: apiKey.slice(-8),
+        createdAt: now,
+      },
+    };
+
+    await req.user.save();
+
+    await recordAudit({
+      req,
+      userId: req.user._id,
+      action: "integration.mt5.key.rotated",
+      targetType: "integration",
+      targetId: "mt5",
+      metadata: {
+        label,
+      },
+    });
+
+    res.status(201).json({
+      ok: true,
+      apiKey,
+      integration: toMt5IntegrationSummary(req.user),
+      user: toPublicUser(req.user),
+      warning: "Store this API key securely. It is shown once.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const disableMt5Integration = async (req, res, next) => {
+  try {
+    const previous = readMt5Integration(req.user);
+    req.user.integrations = {
+      ...(req.user.integrations || {}),
+      mt5: {
+        ...previous,
+        enabled: false,
+        keyHash: "",
+        keyHint: "",
+      },
+    };
+
+    await req.user.save();
+
+    await recordAudit({
+      req,
+      userId: req.user._id,
+      action: "integration.mt5.disabled",
+      targetType: "integration",
+      targetId: "mt5",
+    });
+
+    res.json({
+      ok: true,
+      integration: toMt5IntegrationSummary(req.user),
       user: toPublicUser(req.user),
     });
   } catch (error) {

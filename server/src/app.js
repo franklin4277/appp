@@ -38,6 +38,7 @@ if (strictCors && allowAnyOrigin) {
 }
 
 const metricsToken = String(process.env.METRICS_TOKEN || "").trim();
+const jsonBodyLimit = String(process.env.JSON_BODY_LIMIT || "12mb").trim() || "12mb";
 
 const isOriginAllowed = (origin) => {
   if (!origin) {
@@ -95,7 +96,14 @@ app.use(
     legacyHeaders: false,
   })
 );
-app.use(express.json({ limit: "2mb" }));
+app.use(
+  express.json({
+    limit: jsonBodyLimit,
+    verify: (req, _res, buffer) => {
+      req.rawBody = buffer?.toString("utf8") || "";
+    },
+  })
+);
 app.use(express.urlencoded({ extended: true }));
 app.use((req, res, next) => {
   const existing = String(req.headers["x-request-id"] || "").trim();

@@ -77,6 +77,15 @@ const emptyAnalytics = {
   },
   streaks: {},
   conditionScores: [],
+  fingerprintPerformance: {
+    best: [],
+    all: [],
+  },
+  lifecycle: {
+    openTrades: 0,
+    closedTrades: 0,
+    includeOpen: false,
+  },
   coaching: {
     daily: { strengths: [], mistakes: [] },
     weekly: { strengths: [], mistakes: [] },
@@ -1065,6 +1074,7 @@ const App = () => {
                       tagAnalytics={displayAnalytics.tagAnalytics}
                       cleanOnlyPerformance={displayAnalytics.cleanOnlyPerformance}
                       conditionScores={displayAnalytics.conditionScores}
+                      fingerprintPerformance={displayAnalytics.fingerprintPerformance}
                     />
                   </>
                 ) : null}

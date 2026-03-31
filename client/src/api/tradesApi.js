@@ -731,56 +731,6 @@ export const fetchMe = async (token) => {
   return parseResponse(response);
 };
 
-export const fetchBillingOverview = async (token) => {
-  const response = await fetchWithAuthRetry(`${API_BASE}/api/billing/overview`, {}, token);
-  return parseResponse(response);
-};
-
-export const createCheckoutSession = async (token, payload = {}) => {
-  const response = await fetchWithAuthRetry(
-    `${API_BASE}/api/billing/checkout-session`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    },
-    token
-  );
-  return parseResponse(response);
-};
-
-export const createPortalSession = async (token, payload = {}) => {
-  const response = await fetchWithAuthRetry(
-    `${API_BASE}/api/billing/portal-session`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    },
-    token
-  );
-  return parseResponse(response);
-};
-
-export const setMockSubscriptionPlan = async (token, payload = {}) => {
-  const response = await fetchWithAuthRetry(
-    `${API_BASE}/api/billing/subscription/mock`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    },
-    token
-  );
-  return parseResponse(response);
-};
-
 export const updateUserSettings = async (token, settingsPayload) => {
   const response = await fetchWithAuthRetry(
     `${API_BASE}/api/auth/settings`,
@@ -1111,10 +1061,15 @@ const normalizeQueuedDraft = (draft = {}) => {
     clientTradeId: String(draft.clientTradeId || "").trim(),
     pair,
     tradeDate: toIsoDate(draft.tradeDate),
+    exitTime: draft.exitTime ? toIsoDate(draft.exitTime) : "",
     session: String(draft.session || "").trim(),
     tradeType: String(draft.tradeType || "").trim(),
     setupType: String(draft.setupType || "").trim(),
     entryPrice: String(toNumber(draft.entryPrice)),
+    exitPrice:
+      draft.exitPrice === undefined || draft.exitPrice === null || draft.exitPrice === ""
+        ? ""
+        : String(toNumber(draft.exitPrice)),
     stopLoss: String(toNumber(draft.stopLoss)),
     takeProfit: String(toNumber(draft.takeProfit)),
     riskPercent: String(toNumber(draft.riskPercent)),
@@ -1143,10 +1098,12 @@ const buildOfflineDisplayTrade = (id, payload, queuedAt) => ({
   clientTradeId: payload.clientTradeId,
   pair: payload.pair,
   tradeDate: payload.tradeDate,
+  exitTime: payload.exitTime || "",
   session: payload.session,
   tradeType: payload.tradeType,
   setupType: payload.setupType,
   entryPrice: toNumber(payload.entryPrice),
+  exitPrice: payload.exitPrice === "" ? null : toNumber(payload.exitPrice, null),
   stopLoss: toNumber(payload.stopLoss),
   takeProfit: toNumber(payload.takeProfit),
   riskPercent: toNumber(payload.riskPercent),
@@ -1163,6 +1120,10 @@ const buildOfflineDisplayTrade = (id, payload, queuedAt) => ({
     priceAction: payload.priceAction,
     executionReview: payload.executionReview,
     emotionalState: payload.emotionalState,
+  },
+  automation: {
+    exitPrice: payload.exitPrice === "" ? null : toNumber(payload.exitPrice, null),
+    exitTime: payload.exitTime || null,
   },
   ruleBreakReason: payload.ruleBreakReason,
   screenshots: {
@@ -1271,10 +1232,12 @@ const buildQueuedFormData = (payload = {}) => {
     "clientTradeId",
     "pair",
     "tradeDate",
+    "exitTime",
     "session",
     "tradeType",
     "setupType",
     "entryPrice",
+    "exitPrice",
     "stopLoss",
     "takeProfit",
     "riskPercent",

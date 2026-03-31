@@ -87,6 +87,49 @@ const calculateAchievedRR = (result, plannedRR) => {
   return 0;
 };
 
+const round = (value, precision = 2) => {
+  const factor = 10 ** precision;
+  return Math.round((Number(value) + Number.EPSILON) * factor) / factor;
+};
+
+const deriveResultFromExit = ({ tradeType, entryPrice, exitPrice }) => {
+  if (!Number.isFinite(entryPrice) || !Number.isFinite(exitPrice)) {
+    return "";
+  }
+  const normalizedType = ensureLowerText(tradeType);
+  if (normalizedType.startsWith("buy")) {
+    if (exitPrice > entryPrice) {
+      return "Win";
+    }
+    if (exitPrice < entryPrice) {
+      return "Loss";
+    }
+    return "BE";
+  }
+  if (normalizedType.startsWith("sell")) {
+    if (exitPrice < entryPrice) {
+      return "Win";
+    }
+    if (exitPrice > entryPrice) {
+      return "Loss";
+    }
+    return "BE";
+  }
+  return "";
+};
+
+const calculateAchievedRRFromExit = ({ entryPrice, stopLoss, exitPrice, tradeType }) => {
+  if (!Number.isFinite(entryPrice) || !Number.isFinite(stopLoss) || !Number.isFinite(exitPrice)) {
+    return Number.NaN;
+  }
+  const risk = Math.abs(entryPrice - stopLoss);
+  if (!risk) {
+    return Number.NaN;
+  }
+  const direction = ensureLowerText(tradeType).startsWith("sell") ? -1 : 1;
+  return round(((exitPrice - entryPrice) * direction) / risk, 2);
+};
+
 const parseDate = (value) => {
   const date = value ? new Date(value) : new Date();
   if (Number.isNaN(date.getTime())) {
@@ -660,12 +703,32 @@ const buildFilterFromRequest = (req) => {
 };
 
 const resolveTradePayload = ({ req, source, files = {} }) => {
+  const tradeType = ensureText(source.tradeType);
   const entryPrice = toNumber(source.entryPrice);
+  const exitPrice =
+    source.exitPrice === undefined || source.exitPrice === null || source.exitPrice === ""
+      ? null
+      : toNumber(source.exitPrice, Number.NaN);
+  const exitTime = parseOptionalDate(source.exitTime);
   const stopLoss = toNumber(source.stopLoss);
   const takeProfit = toNumber(source.takeProfit);
   const plannedRR = calculatePlannedRR(entryPrice, stopLoss, takeProfit);
-  const result = ensureText(source.result || "BE");
-  const computedAchievedRR = calculateAchievedRR(result, plannedRR);
+  const manualResult = ensureText(source.result || "BE");
+  const derivedResult = deriveResultFromExit({
+    tradeType,
+    entryPrice,
+    exitPrice,
+  });
+  const result = derivedResult || manualResult;
+  const computedAchievedRRFromExit = calculateAchievedRRFromExit({
+    entryPrice,
+    stopLoss,
+    exitPrice,
+    tradeType,
+  });
+  const computedAchievedRR = Number.isFinite(computedAchievedRRFromExit)
+    ? computedAchievedRRFromExit
+    : calculateAchievedRR(result, plannedRR);
   const rrAchieved =
     source.rrAchieved !== undefined && source.rrAchieved !== ""
       ? toNumber(source.rrAchieved, computedAchievedRR)
@@ -677,9 +740,11 @@ const resolveTradePayload = ({ req, source, files = {} }) => {
     pair: ensurePair(source.pair),
     tradeDate: parseDate(source.tradeDate),
     session: ensureText(source.session),
-    tradeType: ensureText(source.tradeType),
+    tradeType,
     setupType: ensureText(source.setupType),
     entryPrice,
+    exitPrice,
+    exitTime,
     stopLoss,
     takeProfit,
     riskPercent: toNumber(source.riskPercent),
@@ -707,6 +772,13 @@ const resolveTradePayload = ({ req, source, files = {} }) => {
       before: ensureText(source.screenshotBeforeNote).slice(0, 400),
       after: ensureText(source.screenshotAfterNote).slice(0, 400),
     },
+    automation: {
+      source: "manual",
+      status: "closed",
+      eventType: "manual",
+      exitPrice,
+      exitTime,
+    },
   };
 };
 
@@ -726,6 +798,12 @@ const validatePayload = (payload) => {
       throw error;
     }
   });
+
+  if (payload.exitPrice !== null && payload.exitPrice !== undefined && !Number.isFinite(payload.exitPrice)) {
+    const error = new Error("Invalid number for exitPrice.");
+    error.statusCode = 400;
+    throw error;
+  }
 };
 
 const deriveTradeComputedState = ({ payload, lifecycleEvent = "manual" }) => {
@@ -872,6 +950,8 @@ export const createTrade = async (req, res, next) => {
         status: "closed",
         eventType: "manual",
         externalTradeId: "",
+        exitPrice: payload.exitPrice,
+        exitTime: payload.exitTime,
         lastSyncAt: new Date(),
       },
     });

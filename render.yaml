@@ -11,6 +11,8 @@ services:
         value: production
       - key: STRICT_CORS
         value: "true"
+      - key: TRUST_PROXY
+        value: "1"
       - key: MONGODB_URI
         sync: false
       - key: JWT_SECRET
@@ -19,8 +21,8 @@ services:
         sync: false
       - key: CLIENT_URL
         sync: false
-      - key: STRIPE_SECRET_KEY
-        sync: false
+      - key: EXPOSE_LOCAL_UPLOADS
+        value: "false"
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT

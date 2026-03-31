@@ -13,18 +13,23 @@ import { applyTheme, resolveInitialTheme } from "../utils/theme";
 const marketingFeatures = [
   {
     icon: "journal",
-    title: "Rule-Based Journaling",
-    text: "Capture every trade with clean tags, setup quality, and execution notes in under 60 seconds.",
+    title: "Trade Logging",
+    text: "Log complete trades in under 60 seconds with screenshots, RR, and context notes.",
   },
   {
     icon: "behavior",
-    title: "Behavior Analytics",
-    text: "Surface overtrading patterns, emotional drift, and high-confidence setup conditions automatically.",
+    title: "Smart Analytics",
+    text: "Get clean dashboards for expectancy, drawdown, equity curve, and setup quality.",
+  },
+  {
+    icon: "behavior",
+    title: "Behavior Tracking",
+    text: "Track FOMO, revenge, and discipline drift so you can fix costly habits faster.",
   },
   {
     icon: "session",
-    title: "Session Performance",
-    text: "Track Asia, London, and New York session edge with focused dashboards and risk guardrails.",
+    title: "Session Performance (Asia/London/NY)",
+    text: "Identify your strongest session and focus where your edge is statistically proven.",
   },
 ];
 
@@ -36,15 +41,26 @@ const workflowSteps = [
 
 const testimonials = [
   {
-    quote: "I cut revenge trades by half within three weeks. The guardrails are practical and fast.",
+    quote: "Built for serious traders. It finally feels like a real trading operating system.",
+    author: "Nicolas T.",
+    role: "Full-time FX Trader",
+  },
+  {
+    quote: "I can now see exactly when my edge appears and when my behavior slips.",
     author: "Samuel K.",
     role: "Intraday FX Trader",
   },
   {
-    quote: "This feels like a real SaaS product, not a spreadsheet. My reviews are finally structured.",
+    quote: "Journaling went from a chore to a process I actually want to keep doing daily.",
     author: "Nadia M.",
     role: "Prop Firm Candidate",
   },
+];
+
+const heroStats = [
+  { label: "Avg win rate", value: "68%" },
+  { label: "Avg R:R", value: "2.4x" },
+  { label: "Trades logged", value: "10k+" },
 ];
 
 const FeatureIcon = ({ type = "journal" }) => {
@@ -82,6 +98,7 @@ const FeatureIcon = ({ type = "journal" }) => {
 };
 
 const AuthPanel = ({ onAuthenticated }) => {
+  const showDebugSecrets = Boolean(import.meta.env.DEV || import.meta.env.VITE_SHOW_DEBUG_AUTH_SECRETS === "true");
   const [mode, setMode] = useState("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -128,12 +145,12 @@ const AuthPanel = ({ onAuthenticated }) => {
           email,
           challengeId: payload.challengeId,
         });
-        setDebugSecret(payload.debugCode || "");
+        setDebugSecret(showDebugSecrets ? payload.debugCode || "" : "");
         setMessage("Enter the 2FA code to complete login.");
         return;
       }
 
-      if (payload.debug?.emailVerificationToken) {
+      if (showDebugSecrets && payload.debug?.emailVerificationToken) {
         setDebugSecret(payload.debug.emailVerificationToken);
       }
 
@@ -182,7 +199,7 @@ const AuthPanel = ({ onAuthenticated }) => {
     try {
       const payload = await requestPasswordReset({ email });
       setMessage(payload.message || "Reset instructions generated.");
-      setDebugSecret(payload.debugToken || "");
+      setDebugSecret(showDebugSecrets ? payload.debugToken || "" : "");
       setMode("reset");
     } catch (submitError) {
       setError(submitError.message);
@@ -219,7 +236,7 @@ const AuthPanel = ({ onAuthenticated }) => {
           <div className="brand-block">
             <BrandLogo />
             <div>
-              <p className="section-kicker">Trading Journal SaaS</p>
+              <p className="section-kicker">Trading Journal Platform</p>
               <h1 className="brand-title">The Trading Journal</h1>
             </div>
           </div>
@@ -240,19 +257,30 @@ const AuthPanel = ({ onAuthenticated }) => {
         <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
           <section className="space-y-4">
             <div className="panel animate-riseIn landing-hero">
-              <p className="section-kicker">Professional Forex Journaling Platform</p>
-              <h2 className="hero-title mt-2">Turn Every Trade Into Data, Discipline, and Growth.</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="section-kicker">Built for serious traders</p>
+                <span className="free-badge">Free forever</span>
+              </div>
+              <h2 className="hero-title mt-2">Turn Your Trading Data Into Consistent Profit</h2>
               <p className="mt-3 max-w-2xl text-sm text-textMuted">
-                Build a consistent edge with a clean trading workflow, rule guardrails, and actionable behavior analytics.
-                Designed for serious traders and teams.
+                Track, analyze, and improve your trading with powerful insights, not spreadsheets.
+                No subscriptions and no locked analytics.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button type="button" className="btn-primary" onClick={() => setMode("register")}>
-                  Start Free Trial
+                  Start Free
                 </button>
                 <button type="button" className="chip text-textMain" onClick={() => setMode("login")}>
                   Sign In
                 </button>
+              </div>
+              <div className="landing-stats mt-5">
+                {heroStats.map((item) => (
+                  <div key={item.label} className="landing-stat">
+                    <p className="landing-stat-value">{item.value}</p>
+                    <p className="landing-stat-label">{item.label}</p>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -261,7 +289,7 @@ const AuthPanel = ({ onAuthenticated }) => {
                 <h3>Features</h3>
                 <p>Built for real execution</p>
               </div>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
                 {marketingFeatures.map((feature) => (
                   <article key={feature.title} className="soft-frame">
                     <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-accent/45 bg-accent/15 text-accent">
@@ -294,7 +322,7 @@ const AuthPanel = ({ onAuthenticated }) => {
                 <h3>Testimonials</h3>
                 <p>Trusted by active traders</p>
               </div>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 {testimonials.map((item) => (
                   <blockquote key={item.author} className="soft-frame">
                     <p className="text-sm text-textMain">"{item.quote}"</p>
@@ -461,7 +489,7 @@ const AuthPanel = ({ onAuthenticated }) => {
             {error ? (
               <p className="mt-3 rounded-md border border-danger/40 bg-danger/10 p-2 text-sm text-danger">{error}</p>
             ) : null}
-            {debugSecret ? (
+            {showDebugSecrets && debugSecret ? (
               <p className="mt-3 rounded-md border border-accent/40 bg-accent/10 p-2 text-xs text-accent">
                 Dev token/code: {debugSecret}
               </p>

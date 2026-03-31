@@ -1,4 +1,4 @@
-# Trading Journal SaaS Architecture
+# Trading Journal Architecture
 
 ## Monorepo Layout
 
@@ -36,7 +36,6 @@ appp/
 
 - Express MVC organization
 - Auth + security middleware
-- Billing scaffolding routes (`/api/billing/*`)
 - MongoDB models for users/trades/snapshots/audit
 - Guardrails + analytics services split from controllers
 
@@ -60,14 +59,9 @@ Required env:
 - `JWT_REFRESH_SECRET`
 - `CLIENT_URL` (frontend URL)
 - `STRICT_CORS=true`
+- `TRUST_PROXY=1` (recommended on Render)
 - `BRIDGE_RATE_LIMIT_PER_MINUTE=240` (recommended for MT5 ingest protection)
-
-Optional billing env:
-
-- `BILLING_PROVIDER=stripe`
-- `STRIPE_SECRET_KEY=...`
-- `STRIPE_CHECKOUT_BASE_URL=https://checkout.stripe.com/pay`
-- `STRIPE_PORTAL_BASE_URL=https://billing.stripe.com/p/login`
+- `EXPOSE_LOCAL_UPLOADS=false` (recommended in production if using cloud image storage)
 
 ### Frontend service
 

@@ -1,11 +1,28 @@
 const BrandLogo = ({ className = "brand-logo" }) => (
   <div className={className} aria-hidden="true">
     <svg viewBox="0 0 48 48" className="h-full w-full" role="presentation">
-      <rect x="2" y="2" width="44" height="44" rx="11" fill="#0f1a2d" />
-      <rect x="9" y="10" width="8" height="28" rx="2.5" fill="#7d96bd" />
-      <rect x="20" y="16" width="8" height="22" rx="2.5" fill="#9bb0d2" />
-      <rect x="31" y="7" width="8" height="31" rx="2.5" fill="#5e769b" />
-      <path d="M8 31L17 23L25 27L33 15L40 20" stroke="#dfe9fb" strokeWidth="2.2" fill="none" />
+      <defs>
+        <linearGradient id="logo-bg" x1="6" y1="4" x2="42" y2="44" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#2563EB" />
+          <stop offset="1" stopColor="#7C3AED" />
+        </linearGradient>
+        <linearGradient id="logo-bars" x1="10" y1="10" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#DBEAFE" />
+          <stop offset="1" stopColor="#E9D5FF" />
+        </linearGradient>
+      </defs>
+      <rect x="2.5" y="2.5" width="43" height="43" rx="11" fill="#0F172A" stroke="url(#logo-bg)" />
+      <rect x="10" y="24" width="6.5" height="12" rx="2.2" fill="url(#logo-bars)" opacity="0.85" />
+      <rect x="20.5" y="17" width="6.5" height="19" rx="2.2" fill="url(#logo-bars)" opacity="0.9" />
+      <rect x="31" y="10" width="6.5" height="26" rx="2.2" fill="url(#logo-bars)" />
+      <path
+        d="M9 30L16.5 24L24.5 27L33 16L39.5 20"
+        stroke="#F8FAFC"
+        strokeWidth="2.1"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
     </svg>
   </div>
 );

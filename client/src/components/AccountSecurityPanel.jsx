@@ -15,6 +15,7 @@ import {
 } from "../api/tradesApi";
 
 const AccountSecurityPanel = ({ user, token, onUserUpdate }) => {
+  const showDebugSecrets = Boolean(import.meta.env.DEV || import.meta.env.VITE_SHOW_DEBUG_AUTH_SECRETS === "true");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -41,7 +42,7 @@ const AccountSecurityPanel = ({ user, token, onUserUpdate }) => {
     try {
       const payload = await requestEmailVerification(token);
       setMessage(payload.message || "Verification token generated.");
-      setDebugToken(payload.debugToken || payload.fallbackToken || "");
+      setDebugToken(showDebugSecrets ? payload.debugToken || payload.fallbackToken || "" : "");
       setDeliveryHint(payload.delivery?.hint || "");
       if (!payload.delivery?.sent && payload.delivery?.error) {
         setError(payload.delivery.error);
@@ -270,7 +271,7 @@ const AccountSecurityPanel = ({ user, token, onUserUpdate }) => {
                   Verify
                 </button>
               </div>
-              {debugToken ? <p className="text-xs text-accent">Dev token: {debugToken}</p> : null}
+              {showDebugSecrets && debugToken ? <p className="text-xs text-accent">Dev token: {debugToken}</p> : null}
               {deliveryHint ? <p className="text-xs text-textMuted">Delivery hint: {deliveryHint}</p> : null}
             </div>
           ) : null}

@@ -25,20 +25,31 @@ import AuthPanel from "./components/AuthPanel";
 import BrandLogo from "./components/BrandLogo";
 import SharedWeeklyView from "./components/SharedWeeklyView";
 import { buildLocalDashboardAnalytics } from "./utils/offlineAnalytics";
+import { buildEdgeInsights } from "./utils/insights";
+import {
+  ADVANCED_ANALYTICS_STORAGE_KEY,
+  PAGES,
+  PAGE_SHORTCUTS,
+  PAGE_STORAGE_KEY,
+} from "./utils/appNavigation";
+import { formatSyncTime, matchesTradeFilters } from "./utils/tradeFilters";
 import ThemeToggle from "./components/ThemeToggle";
 import ToastStack from "./components/ToastStack";
+import { dayKey, dayNameToIndex, readRetentionPreferences, weekKey } from "./utils/retention";
 import { applyTheme, resolveInitialTheme } from "./utils/theme";
 
 const AccountSecurityPanel = lazy(() => import("./components/AccountSecurityPanel"));
 const BehaviorLab = lazy(() => import("./components/BehaviorLab"));
-const BillingPanel = lazy(() => import("./components/BillingPanel"));
 const CalendarConsistency = lazy(() => import("./components/CalendarConsistency"));
 const CoachingSummary = lazy(() => import("./components/CoachingSummary"));
 const DataTools = lazy(() => import("./components/DataTools"));
 const DrawdownChart = lazy(() => import("./components/DrawdownChart"));
+const EdgeInsightsPanel = lazy(() => import("./components/EdgeInsightsPanel"));
 const FiltersBar = lazy(() => import("./components/FiltersBar"));
 const HeatmapMatrix = lazy(() => import("./components/HeatmapMatrix"));
+const MonthlyPerformancePanel = lazy(() => import("./components/MonthlyPerformancePanel"));
 const ProfitCurveChart = lazy(() => import("./components/ProfitCurveChart"));
+const RetentionPanel = lazy(() => import("./components/RetentionPanel"));
 const ScreenshotReplay = lazy(() => import("./components/ScreenshotReplay"));
 const SessionPerformanceGraph = lazy(() => import("./components/SessionPerformanceGraph"));
 const SettingsPanel = lazy(() => import("./components/SettingsPanel"));
@@ -85,6 +96,14 @@ const emptyAnalytics = {
     best: [],
     all: [],
   },
+  edgeHighlights: {
+    expectancy: 0,
+    bestSetup: null,
+    bestSession: null,
+    bestCondition: null,
+    worstHabit: null,
+    notifications: [],
+  },
   lifecycle: {
     openTrades: 0,
     closedTrades: 0,
@@ -95,63 +114,6 @@ const emptyAnalytics = {
     weekly: { strengths: [], mistakes: [] },
   },
 };
-
-const PAGES = [
-  { key: "dashboard", label: "Dashboard" },
-  { key: "journal", label: "Journal" },
-  { key: "analytics", label: "Analytics" },
-  { key: "review", label: "Review" },
-  { key: "settings", label: "Settings" },
-];
-
-const PAGE_SHORTCUTS = ["1", "2", "3", "4", "5"];
-
-const matchesTypedFilter = (value, filterValue) => {
-  if (!filterValue) {
-    return true;
-  }
-  return String(value || "")
-    .toLowerCase()
-    .includes(String(filterValue).toLowerCase());
-};
-
-const matchesTradeFilters = (trade, filters) => {
-  if (filters.profileId && String(trade.profileId || "") !== String(filters.profileId)) {
-    return false;
-  }
-  if (!matchesTypedFilter(trade.pair, filters.pair)) {
-    return false;
-  }
-  if (!matchesTypedFilter(trade.session, filters.session)) {
-    return false;
-  }
-  if (!matchesTypedFilter(trade.setupType, filters.setupType)) {
-    return false;
-  }
-  if (filters.cleanOnly && !trade.tags?.cleanSetup) {
-    return false;
-  }
-  return true;
-};
-
-const formatSyncTime = (value) => {
-  if (!value) {
-    return "";
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-  return date.toLocaleString([], {
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
-
-const PAGE_STORAGE_KEY = "trading-journal-active-page";
-const ADVANCED_ANALYTICS_STORAGE_KEY = "trading-journal-advanced-analytics";
 
 const SectionLoader = ({ label = "Loading section..." }) => (
   <section className="panel animate-riseIn">
@@ -221,9 +183,11 @@ const App = () => {
   const [creatingProfile, setCreatingProfile] = useState(false);
   const [theme, setTheme] = useState(() => resolveInitialTheme());
   const [toasts, setToasts] = useState([]);
+  const [retentionPrefs, setRetentionPrefs] = useState(() => readRetentionPreferences());
   const syncInFlightRef = useRef(false);
   const loadRequestSeqRef = useRef(0);
   const toastCounterRef = useRef(0);
+  const reminderTickRef = useRef(null);
   const debouncedFilters = useDebouncedValue(filters, 180);
   const includeDetailedTrades = activePage === "review";
   const includeTotalTrades = activePage === "review";
@@ -468,9 +432,11 @@ const App = () => {
       import("./components/ProfitCurveChart");
       import("./components/DrawdownChart");
       import("./components/BehaviorLab");
+      import("./components/EdgeInsightsPanel");
+      import("./components/MonthlyPerformancePanel");
+      import("./components/RetentionPanel");
       import("./components/TagAnalytics");
       import("./components/SettingsPanel");
-      import("./components/BillingPanel");
       import("./components/TradesTable");
     };
 
@@ -522,6 +488,114 @@ const App = () => {
     },
     [dismissToast]
   );
+
+  const maybeSendDesktopNotification = useCallback(
+    (title, body) => {
+      if (!retentionPrefs.desktopNotificationsEnabled) {
+        return;
+      }
+      if (!("Notification" in window) || Notification.permission !== "granted") {
+        return;
+      }
+      try {
+        new Notification(title, {
+          body,
+          icon: "/pwa-192x192.png",
+        });
+      } catch {
+        // Ignore notification dispatch errors.
+      }
+    },
+    [retentionPrefs.desktopNotificationsEnabled]
+  );
+
+  useEffect(() => {
+    if (!token || !user) {
+      return undefined;
+    }
+
+    const checkReminders = () => {
+      const now = new Date();
+      const [dailyHour, dailyMinute] = String(retentionPrefs.dailyReminderTime || "20:00")
+        .split(":")
+        .map((item) => Number(item) || 0);
+      const [weeklyHour, weeklyMinute] = String(retentionPrefs.weeklyReportTime || "21:00")
+        .split(":")
+        .map((item) => Number(item) || 0);
+
+      const currentDayKey = dayKey(now);
+      const currentWeekKey = weekKey(now);
+
+      if (
+        retentionPrefs.dailyReminderEnabled &&
+        now.getHours() === dailyHour &&
+        now.getMinutes() === dailyMinute
+      ) {
+        const key = `retention-daily-fired:${currentDayKey}`;
+        if (!localStorage.getItem(key)) {
+          localStorage.setItem(key, "1");
+          const body = "Log your trades today to keep your edge data fresh.";
+          pushToast("info", body);
+          maybeSendDesktopNotification("Daily Trading Reminder", body);
+        }
+      }
+
+      if (
+        retentionPrefs.weeklyReportEnabled &&
+        now.getDay() === dayNameToIndex(retentionPrefs.weeklyReportDay) &&
+        now.getHours() === weeklyHour &&
+        now.getMinutes() === weeklyMinute
+      ) {
+        const key = `retention-weekly-fired:${currentWeekKey}`;
+        if (!localStorage.getItem(key)) {
+          localStorage.setItem(key, "1");
+          const body = "Open Weekly Review to inspect edge, behavior, and setup quality.";
+          pushToast("info", body);
+          maybeSendDesktopNotification("Weekly Performance Report", body);
+        }
+      }
+
+      if (retentionPrefs.insightAlertsEnabled) {
+        const edge = buildEdgeInsights({
+          trades,
+          analytics,
+          riskControls: user?.settings?.riskControls || {},
+        });
+        const overtradingAlert = edge.notifications.find((item) => item.id === "overtrading");
+        if (overtradingAlert) {
+          const insightKey = `retention-insight-overtrading:${currentDayKey}`;
+          if (!localStorage.getItem(insightKey)) {
+            localStorage.setItem(insightKey, "1");
+            pushToast("error", overtradingAlert.message);
+            maybeSendDesktopNotification("Behavior Alert", overtradingAlert.message);
+          }
+        }
+      }
+    };
+
+    checkReminders();
+    reminderTickRef.current = window.setInterval(checkReminders, 60 * 1000);
+
+    return () => {
+      if (reminderTickRef.current) {
+        window.clearInterval(reminderTickRef.current);
+        reminderTickRef.current = null;
+      }
+    };
+  }, [
+    analytics,
+    maybeSendDesktopNotification,
+    retentionPrefs.dailyReminderEnabled,
+    retentionPrefs.dailyReminderTime,
+    retentionPrefs.insightAlertsEnabled,
+    retentionPrefs.weeklyReportDay,
+    retentionPrefs.weeklyReportEnabled,
+    retentionPrefs.weeklyReportTime,
+    token,
+    trades,
+    user,
+    pushToast,
+  ]);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -698,6 +772,11 @@ const App = () => {
     setShowSettingsPanel(false);
     setSettingsSavedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
     setActivePage("journal");
+  };
+
+  const onRetentionSaved = (next) => {
+    setRetentionPrefs(next || readRetentionPreferences());
+    setStatusMessage("Retention reminders updated.");
   };
 
   const handleProfileSwitch = async (profileId) => {
@@ -911,8 +990,11 @@ const App = () => {
               <BrandLogo />
               <div>
                 <p className="section-kicker">The Trading Journal</p>
-                <h1 className="hero-title brand-title">Trading Journal</h1>
-                <p className="hero-sub">Session-based forex tracking</p>
+                <div className="flex items-center gap-2">
+                  <h1 className="hero-title brand-title">Trading Journal</h1>
+                  <span className="free-badge">Free</span>
+                </div>
+                <p className="hero-sub">Session-based forex tracking for every trader</p>
               </div>
             </div>
 
@@ -943,7 +1025,7 @@ const App = () => {
                 <span className="chip">
                   {loading || syncingQueue ? "Syncing..." : isOnline ? "Online" : "Offline"}
                 </span>
-                <span className="chip hidden sm:inline-flex">Alt+1..5 pages</span>
+                <span className="chip hidden sm:inline-flex">Alt+1..5</span>
                 <ThemeToggle
                   theme={theme}
                   onToggle={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
@@ -968,7 +1050,7 @@ const App = () => {
         <section className="dashboard-frame">
           <div className="page-nav mb-4">
             <div className="flex items-center justify-between gap-2">
-              <p className="section-kicker">Pages</p>
+              <p className="section-kicker">Workspace</p>
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="chip">{activeFilterCount} active filters</span>
                 <button
@@ -1108,6 +1190,14 @@ const App = () => {
                 <StatCards
                   overview={displayAnalytics.overview}
                   cleanOnlyPerformance={displayAnalytics.cleanOnlyPerformance}
+                  trades={mergedTrades}
+                  analytics={displayAnalytics}
+                  riskControls={user.settings?.riskControls}
+                />
+                <EdgeInsightsPanel
+                  trades={mergedTrades}
+                  analytics={displayAnalytics}
+                  riskControls={user.settings?.riskControls}
                 />
               </section>
             </Suspense>
@@ -1153,6 +1243,14 @@ const App = () => {
                 <StatCards
                   overview={displayAnalytics.overview}
                   cleanOnlyPerformance={displayAnalytics.cleanOnlyPerformance}
+                  trades={mergedTrades}
+                  analytics={displayAnalytics}
+                  riskControls={user.settings?.riskControls}
+                />
+                <EdgeInsightsPanel
+                  trades={mergedTrades}
+                  analytics={displayAnalytics}
+                  riskControls={user.settings?.riskControls}
                 />
                 <BehaviorLab trades={mergedTrades} />
                 <ProfitCurveChart points={displayAnalytics.profitCurve} />
@@ -1183,6 +1281,7 @@ const App = () => {
                 <CalendarConsistency trades={mergedTrades} />
                 <HeatmapMatrix heatmap={displayAnalytics.heatmap} />
                 <CoachingSummary coaching={displayAnalytics.coaching} />
+                <MonthlyPerformancePanel trades={mergedTrades} />
                 <ScreenshotReplay trades={mergedTrades} />
                 <WeeklyReviewReport token={token} profileId={filters.profileId} />
                 <TradesTable trades={mergedTrades} />
@@ -1205,7 +1304,7 @@ const App = () => {
                       onUserUpdate={setUser}
                       onSaved={onSettingsSaved}
                     />
-                    <BillingPanel token={token} user={user} onUserUpdate={setUser} />
+                    <RetentionPanel onPreferencesSaved={onRetentionSaved} />
                     <DataTools token={token} filters={filters} onImported={loadData} />
                     <AccountSecurityPanel user={user} token={token} onUserUpdate={setUser} />
                   </div>
@@ -1225,7 +1324,7 @@ const App = () => {
                       </button>
                     </div>
                     <AccountSecurityPanel user={user} token={token} onUserUpdate={setUser} />
-                    <BillingPanel token={token} user={user} onUserUpdate={setUser} />
+                    <RetentionPanel onPreferencesSaved={onRetentionSaved} />
                     <DataTools token={token} filters={filters} onImported={loadData} />
                   </div>
                 )}

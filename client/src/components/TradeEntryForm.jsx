@@ -48,10 +48,12 @@ const buildInitialState = (options) => ({
   profileId: "",
   pair: options.pairs[0] || "EURUSD",
   tradeDate: localNow(),
+  exitTime: "",
   session: options.sessions[0] || "London",
   tradeType: options.tradeTypes[0] || "Buy",
   setupType: options.setupTypes[0] || "Asia Break -> Continuation",
   entryPrice: "",
+  exitPrice: "",
   stopLoss: "",
   takeProfit: "",
   riskPercent: "1",
@@ -74,6 +76,7 @@ const buildInitialState = (options) => ({
 const hasMeaningfulDraft = (draft = {}) => {
   const textFields = [
     "entryPrice",
+    "exitPrice",
     "stopLoss",
     "takeProfit",
     "priceAction",
@@ -204,6 +207,92 @@ const scoreToGrade = (score) => {
   return "D";
 };
 
+const deriveResultFromExit = ({ tradeType, entryPrice, exitPrice }) => {
+  const entry = Number(entryPrice);
+  const exit = Number(exitPrice);
+  if (!Number.isFinite(entry) || !Number.isFinite(exit)) {
+    return "";
+  }
+
+  if (String(tradeType || "").toLowerCase().startsWith("buy")) {
+    if (exit > entry) {
+      return "Win";
+    }
+    if (exit < entry) {
+      return "Loss";
+    }
+    return "BE";
+  }
+
+  if (String(tradeType || "").toLowerCase().startsWith("sell")) {
+    if (exit < entry) {
+      return "Win";
+    }
+    if (exit > entry) {
+      return "Loss";
+    }
+    return "BE";
+  }
+
+  return "";
+};
+
+const calculateAchievedRRFromExit = ({ entryPrice, stopLoss, exitPrice, tradeType }) => {
+  const entry = Number(entryPrice);
+  const stop = Number(stopLoss);
+  const exit = Number(exitPrice);
+  if (!Number.isFinite(entry) || !Number.isFinite(stop) || !Number.isFinite(exit)) {
+    return Number.NaN;
+  }
+  const risk = Math.abs(entry - stop);
+  if (!risk) {
+    return Number.NaN;
+  }
+
+  const direction = String(tradeType || "").toLowerCase().startsWith("sell") ? -1 : 1;
+  const rr = ((exit - entry) * direction) / risk;
+  return round(rr, 2);
+};
+
+const QUICK_ENTRY_TEMPLATES = [
+  {
+    id: "london-cont",
+    label: "London Continuation",
+    values: {
+      session: "London",
+      setupType: "Asia Break -> Continuation",
+      pocOutcome: "Acceptance",
+      asiaHighLowUsed: "true",
+      pocInteraction: "true",
+      cleanSetup: true,
+    },
+  },
+  {
+    id: "london-rej",
+    label: "London Rejection",
+    values: {
+      session: "London",
+      setupType: "Asia Break -> Reversal",
+      pocOutcome: "Rejection",
+      asiaHighLowUsed: "true",
+      pocInteraction: "true",
+      cleanSetup: true,
+    },
+  },
+  {
+    id: "ny-momentum",
+    label: "NY Momentum",
+    values: {
+      session: "New York",
+      setupType: "Asia Break -> Continuation",
+      pocOutcome: "Acceptance",
+      asiaHighLowUsed: "true",
+      pocInteraction: "true",
+      cleanSetup: false,
+    },
+  },
+];
+
 const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProfileId = "" }) => {
   const optionLists = useMemo(() => buildOptionLists(settings), [settings]);
   const [form, setForm] = useState(() => buildInitialState(optionLists));
@@ -243,7 +332,30 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
     [form.entryPrice, form.stopLoss, form.takeProfit]
   );
 
-  const achievedRR = useMemo(() => calculateAchievedRR(plannedRR, form.result), [plannedRR, form.result]);
+  const derivedResult = useMemo(
+    () =>
+      deriveResultFromExit({
+        tradeType: form.tradeType,
+        entryPrice: form.entryPrice,
+        exitPrice: form.exitPrice,
+      }),
+    [form.entryPrice, form.exitPrice, form.tradeType]
+  );
+
+  const effectiveResult = derivedResult || form.result;
+
+  const achievedRR = useMemo(() => {
+    const fromExit = calculateAchievedRRFromExit({
+      entryPrice: form.entryPrice,
+      stopLoss: form.stopLoss,
+      exitPrice: form.exitPrice,
+      tradeType: form.tradeType,
+    });
+    if (Number.isFinite(fromExit)) {
+      return fromExit;
+    }
+    return calculateAchievedRR(plannedRR, effectiveResult);
+  }, [effectiveResult, form.entryPrice, form.exitPrice, form.stopLoss, form.tradeType, plannedRR]);
 
   const computedLotSize = useMemo(
     () =>
@@ -655,6 +767,19 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
     }));
   };
 
+  const handleQuickTemplate = (template) => {
+    if (!template?.values) {
+      return;
+    }
+    setForm((prev) => ({
+      ...prev,
+      ...template.values,
+      tradeDate: localNow(),
+      result: template.values.result || prev.result,
+      ruleBreakReason: "",
+    }));
+  };
+
   const handleChange = (field, value) => {
     setError("");
     setChecklistWarnings([]);
@@ -719,7 +844,9 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
       clientTradeId: generateClientTradeId(),
       profileId: activeProfileId || prev.profileId,
       tradeDate: localNow(),
+      exitTime: "",
       entryPrice: "",
+      exitPrice: "",
       stopLoss: "",
       takeProfit: "",
       result: optionLists.results[0] || "Win",
@@ -748,15 +875,17 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
       clientTradeId: form.clientTradeId || generateClientTradeId(),
       pair: form.pair,
       tradeDate: form.tradeDate ? new Date(form.tradeDate).toISOString() : new Date().toISOString(),
+      exitTime: form.exitTime ? new Date(form.exitTime).toISOString() : "",
       session: form.session,
       tradeType: form.tradeType,
       setupType: form.setupType,
       entryPrice: form.entryPrice,
+      exitPrice: form.exitPrice,
       stopLoss: form.stopLoss,
       takeProfit: form.takeProfit,
       riskPercent: form.riskPercent,
       lotSize: lotSizeToSave > 0 ? String(round(lotSizeToSave, 2)) : "",
-      result: form.result,
+      result: effectiveResult,
       rrAchieved: String(achievedRR),
       asiaHighLowUsed: form.asiaHighLowUsed,
       pocInteraction: form.pocInteraction,
@@ -919,6 +1048,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-base font-semibold">Trade Entry</h2>
           <div className="flex flex-wrap items-center gap-2">
+            <span className="chip">Log in under 60s</span>
             <span className="chip">Ctrl+Enter to save</span>
             <span className="chip">
               Quality {qualityAssessment.grade} ({qualityAssessment.score})
@@ -1031,6 +1161,18 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
             Repeat last
           </button>
         </div>
+        <div className="flex flex-wrap gap-2 text-xs">
+          {QUICK_ENTRY_TEMPLATES.map((template) => (
+            <button
+              key={template.id}
+              type="button"
+              className="chip text-textMain transition hover:border-accent"
+              onClick={() => handleQuickTemplate(template)}
+            >
+              {template.label}
+            </button>
+          ))}
+        </div>
         {presets.length ? (
           <div className="flex flex-wrap gap-2 text-xs">
             {presets.map((preset) => (
@@ -1085,6 +1227,15 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
               Now
             </button>
           </div>
+        </Field>
+
+        <Field label="Exit Time (Optional)">
+          <input
+            className="input"
+            type="datetime-local"
+            value={form.exitTime}
+            onChange={(event) => handleChange("exitTime", event.target.value)}
+          />
         </Field>
 
         <Field label="Session">
@@ -1152,6 +1303,11 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
                 <option key={result} value={result} />
               ))}
             </datalist>
+            {derivedResult ? (
+              <p className="mt-1 text-[11px] text-textMuted">
+                Auto-detected from exit price: {derivedResult}
+              </p>
+            ) : null}
           </div>
         </Field>
 
@@ -1163,6 +1319,16 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
             step="0.00001"
             value={form.entryPrice}
             onChange={(event) => handleChange("entryPrice", event.target.value)}
+          />
+        </Field>
+
+        <Field label="Exit Price (Optional)">
+          <input
+            className="input"
+            type="number"
+            step="0.00001"
+            value={form.exitPrice}
+            onChange={(event) => handleChange("exitPrice", event.target.value)}
           />
         </Field>
 

@@ -5,7 +5,6 @@ import rateLimit from "express-rate-limit";
 import path from "path";
 import { fileURLToPath } from "url";
 import authRouter from "./routes/auth.js";
-import billingRouter from "./routes/billing.js";
 import tradesRouter from "./routes/trades.js";
 import { logError, logInfo } from "./services/logger.js";
 import { sendAlert } from "./services/alerts.js";
@@ -14,6 +13,25 @@ import { getMetricsSnapshot, metricsMiddleware } from "./services/metrics.js";
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const trustProxyRaw = String(
+  process.env.TRUST_PROXY !== undefined
+    ? process.env.TRUST_PROXY
+    : process.env.NODE_ENV === "production"
+      ? "1"
+      : ""
+)
+  .trim()
+  .toLowerCase();
+
+if (trustProxyRaw) {
+  if (["false", "0", "off", "no"].includes(trustProxyRaw)) {
+    app.set("trust proxy", false);
+  } else if (["true", "1", "on", "yes"].includes(trustProxyRaw)) {
+    app.set("trust proxy", 1);
+  } else {
+    app.set("trust proxy", trustProxyRaw);
+  }
+}
 
 const parseOrigins = (value) =>
   String(value || "")
@@ -127,7 +145,16 @@ app.use((req, res, next) => {
 });
 app.use(metricsMiddleware);
 
-app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
+const exposeLocalUploads =
+  process.env.EXPOSE_LOCAL_UPLOADS === "true" || process.env.NODE_ENV !== "production";
+
+if (exposeLocalUploads) {
+  app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
+} else {
+  logInfo("storage.local_uploads.hidden", {
+    reason: "EXPOSE_LOCAL_UPLOADS=false in production",
+  });
+}
 
 app.get("/api/health", (_req, res) => {
   res.json({
@@ -152,7 +179,6 @@ app.get("/api/metrics", (req, res) => {
 });
 
 app.use("/api/auth", authRouter);
-app.use("/api/billing", billingRouter);
 app.use("/api/trades", tradesRouter);
 
 app.use((error, req, res, _next) => {

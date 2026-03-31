@@ -128,6 +128,12 @@ export const validateTradeCreatePayload = (req, _res, next) => {
   const result = toText(req.body?.result || "BE");
 
   const entry = Number(req.body?.entryPrice);
+  const exitPriceRaw = req.body?.exitPrice;
+  const exitPrice =
+    exitPriceRaw === undefined || exitPriceRaw === null || exitPriceRaw === ""
+      ? null
+      : Number(exitPriceRaw);
+  const exitTimeRaw = toText(req.body?.exitTime);
   const stop = Number(req.body?.stopLoss);
   const take = Number(req.body?.takeProfit);
   const riskPercent =
@@ -167,6 +173,17 @@ export const validateTradeCreatePayload = (req, _res, next) => {
     next(createValidationError("takeProfit is required and must be greater than 0."));
     return;
   }
+  if (exitPrice !== null && (!Number.isFinite(exitPrice) || exitPrice <= 0)) {
+    next(createValidationError("exitPrice must be greater than 0 when provided."));
+    return;
+  }
+  if (exitTimeRaw) {
+    const parsedExitTime = new Date(exitTimeRaw).getTime();
+    if (!Number.isFinite(parsedExitTime)) {
+      next(createValidationError("exitTime must be a valid ISO date-time."));
+      return;
+    }
+  }
 
   if (riskPercent !== null && (!Number.isFinite(riskPercent) || riskPercent < 0 || riskPercent > 100)) {
     next(createValidationError("riskPercent must be a number between 0 and 100."));
@@ -181,6 +198,8 @@ export const validateTradeCreatePayload = (req, _res, next) => {
     result,
     tradeType: tradeTypeRaw === "buy" ? "Buy" : "Sell",
     entryPrice: entry,
+    ...(exitPrice !== null ? { exitPrice } : {}),
+    ...(exitTimeRaw ? { exitTime: exitTimeRaw } : {}),
     stopLoss: stop,
     takeProfit: take,
     ...(riskPercent !== null ? { riskPercent } : {}),
@@ -228,4 +247,3 @@ export const validateBillingMockPayload = (req, _res, next) => {
   req.body = { ...req.body, planId, status };
   next();
 };
-

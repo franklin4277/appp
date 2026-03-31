@@ -229,6 +229,37 @@ const sendTwoFactorCodeEmail = async ({ user, code }) => {
   });
 };
 
+const queueTwoFactorCodeDispatch = ({ user, code }) => {
+  void sendTwoFactorCodeEmail({ user, code })
+    .then((delivery) => {
+      dispatchSecurityMessage({
+        event: "auth.2fa.challenge.delivery",
+        message: delivery.sent ? "2FA code delivered by email." : "2FA code delivery failed.",
+        details: {
+          email: user?.email || "",
+          mailSent: delivery.sent,
+          mailError: delivery.sent ? "" : delivery.error,
+          mailErrorCode: delivery.sent ? "" : delivery.errorCode,
+          mailHint: delivery.sent ? "" : delivery.errorHint,
+        },
+      });
+    })
+    .catch((error) => {
+      dispatchSecurityMessage({
+        level: "error",
+        event: "auth.2fa.challenge.delivery.failed",
+        message: "2FA email dispatch crashed.",
+        details: {
+          email: user?.email || "",
+          mailSent: false,
+          mailError: String(error?.message || "Unknown dispatch error"),
+          mailErrorCode: String(error?.code || "DISPATCH_FAILED"),
+          mailHint: "Check SMTP connection and credentials.",
+        },
+      });
+    });
+};
+
 const sendEmailVerificationTokenEmail = async ({ user, token }) => {
   const verifyUrlBase = String(process.env.PUBLIC_SHARE_BASE_URL || "").trim().replace(/\/$/, "");
   const verifyUrl = verifyUrlBase ? `${verifyUrlBase}/verify-email?token=${encodeURIComponent(token)}` : "";
@@ -446,6 +477,15 @@ export const login = async (req, res, next) => {
     user.lastLoginAt = new Date();
 
     if (user.twoFactor?.enabled) {
+      const mailerConfigured = isMailerConfigured();
+      if (!mailerConfigured && !includeDebugSecrets()) {
+        const unavailable = new Error(
+          "2FA email delivery is unavailable. Configure SMTP settings or disable 2FA temporarily."
+        );
+        unavailable.statusCode = 503;
+        throw unavailable;
+      }
+
       const challengeId = createOneTimeToken(12);
       const code = createOneTimeCode(6);
 
@@ -459,17 +499,6 @@ export const login = async (req, res, next) => {
         challengeAttempts: 0,
         lastChallengeAt: new Date(),
       };
-      const twoFactorMail = await sendTwoFactorCodeEmail({ user, code });
-
-      if (!twoFactorMail.sent && !includeDebugSecrets()) {
-        clearTwoFactorChallenge(user);
-        await user.save();
-        const unavailable = new Error(
-          "2FA email delivery is unavailable. Configure SMTP settings or disable 2FA temporarily."
-        );
-        unavailable.statusCode = 503;
-        throw unavailable;
-      }
 
       await user.save();
 
@@ -487,10 +516,10 @@ export const login = async (req, res, next) => {
         details: {
           email: user.email,
           expiresAt: user.twoFactor.challengeExpiresAt?.toISOString?.() || null,
-          mailSent: twoFactorMail.sent,
-          mailError: twoFactorMail.sent ? "" : twoFactorMail.error,
-          mailErrorCode: twoFactorMail.sent ? "" : twoFactorMail.errorCode,
-          mailHint: twoFactorMail.sent ? "" : twoFactorMail.errorHint,
+          mailSent: mailerConfigured,
+          mailError: "",
+          mailErrorCode: "",
+          mailHint: "",
           debugCode: includeDebugSecrets() ? code : undefined,
         },
       });
@@ -498,12 +527,16 @@ export const login = async (req, res, next) => {
       res.status(202).json({
         requiresTwoFactor: true,
         challengeId,
-        message: twoFactorMail.sent
-          ? "Two-factor verification code sent to your email."
+        message: mailerConfigured
+          ? "Two-factor verification code is being sent to your email."
           : "Two-factor verification code generated (debug mode).",
-        delivery: twoFactorMail.sent ? "email" : "debug",
+        delivery: mailerConfigured ? "queued" : "debug",
         ...(includeDebugSecrets() ? { debugCode: code } : {}),
       });
+
+      if (mailerConfigured) {
+        queueTwoFactorCodeDispatch({ user, code });
+      }
       return;
     }
 

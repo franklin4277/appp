@@ -44,11 +44,10 @@ Minimal, fast, session-based Forex journal with per-user accounts and behavior c
 - Monitoring:
   - `/api/metrics` endpoint (token-protected optional)
   - Alert webhook hooks for auth abuse + server error bursts
-- SaaS/Monetization:
+- Free Platform:
   - Marketing landing sections (hero, features, workflow, testimonials, footer)
-  - Billing/plan scaffolding (`/api/billing/*`) with Stripe-ready placeholders
-  - User subscription state model (`starter`, `pro`, `team`)
-  - Theme toggle (dark/light), toast notifications, and SaaS-styled UI shell
+  - No subscription required for core journaling and analytics experience
+  - Theme toggle (dark/light), toast notifications, and modern app shell
 
 ## Project Structure
 
@@ -89,11 +88,11 @@ Optional env:
 - `METRICS_TOKEN` (protect `/api/metrics`)
 - `ALERT_WEBHOOK_URL` (Slack/Discord/custom webhook)
 - `STRICT_CORS` (`true` recommended in production; defaults to `true` in production builds)
+- `TRUST_PROXY` (`1` recommended in production deployments behind Render proxy)
 - `PASSWORD_RESET_EXPIRES_IN`, `EMAIL_VERIFY_EXPIRES_IN`, `TWO_FACTOR_EXPIRES_IN`
 - `PUBLIC_SHARE_BASE_URL`
-- `BILLING_PROVIDER` (`stripe` by default)
-- `STRIPE_SECRET_KEY`, `STRIPE_CHECKOUT_BASE_URL`, `STRIPE_PORTAL_BASE_URL`
 - `ALLOW_DEBUG_AUTH_SECRETS` (`false` recommended in production; debug secrets are disabled in production)
+- `EXPOSE_LOCAL_UPLOADS` (`false` recommended in production when using cloud storage)
 - `SMTP_URL` (optional URI format) or `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` (required for 2FA email delivery in production)
 - `JSON_BODY_LIMIT` (default `12mb`, used for bridge base64 screenshot payloads)
 - `MT5_BRIDGE_REQUIRE_HMAC`, `MT5_BRIDGE_TIMESTAMP_TOLERANCE_SECONDS`, `MT5_BRIDGE_IP_ALLOWLIST`
@@ -127,6 +126,10 @@ cd server
 npm test
 ```
 
+CI checks (GitHub Actions):
+- Server: `npm run check` (runs tests)
+- Client: `npm run check` (runs production build)
+
 ## API Summary
 
 - `POST /api/auth/register`
@@ -144,10 +147,6 @@ npm test
 - `POST /api/auth/email-verification/request`
 - `POST /api/auth/2fa/enable`
 - `POST /api/auth/2fa/disable`
-- `GET /api/billing/overview`
-- `POST /api/billing/checkout-session`
-- `POST /api/billing/portal-session`
-- `POST /api/billing/subscription/mock` (demo/dev)
 - `POST /api/trades`
 - `POST /api/trades/bridge/mt5` (uses `x-integration-key`, not JWT)
 - `GET /api/trades`
@@ -183,4 +182,4 @@ Bridge headers (recommended in production):
 - Set `CLIENT_URL` to exact frontend origin(s) and run with `STRICT_CORS=true`.
 - Keep `ALLOW_DEBUG_AUTH_SECRETS` unset or `false` in production.
 - Configure SPF, DKIM, and DMARC on your email domain to reduce phishing/spoofing risk.
-- Keep Stripe secrets server-side only; never expose secret keys in frontend env variables.
+- Keep local uploads private in production (`EXPOSE_LOCAL_UPLOADS=false`) and prefer Cloudinary URLs for screenshots.

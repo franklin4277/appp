@@ -4,8 +4,10 @@ import App from "./App.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import "./styles/index.css";
 import { registerSW } from "virtual:pwa-register";
+import { applyTheme, resolveInitialTheme } from "./utils/theme";
 
 const shouldEnablePwa = import.meta.env.VITE_ENABLE_PWA !== "false";
+applyTheme(resolveInitialTheme());
 
 if ("serviceWorker" in navigator) {
   if (shouldEnablePwa) {

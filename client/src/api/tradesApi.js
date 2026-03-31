@@ -731,6 +731,56 @@ export const fetchMe = async (token) => {
   return parseResponse(response);
 };
 
+export const fetchBillingOverview = async (token) => {
+  const response = await fetchWithAuthRetry(`${API_BASE}/api/billing/overview`, {}, token);
+  return parseResponse(response);
+};
+
+export const createCheckoutSession = async (token, payload = {}) => {
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/billing/checkout-session`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    },
+    token
+  );
+  return parseResponse(response);
+};
+
+export const createPortalSession = async (token, payload = {}) => {
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/billing/portal-session`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    },
+    token
+  );
+  return parseResponse(response);
+};
+
+export const setMockSubscriptionPlan = async (token, payload = {}) => {
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/billing/subscription/mock`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    },
+    token
+  );
+  return parseResponse(response);
+};
+
 export const updateUserSettings = async (token, settingsPayload) => {
   const response = await fetchWithAuthRetry(
     `${API_BASE}/api/auth/settings`,

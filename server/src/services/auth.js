@@ -235,6 +235,7 @@ export const toPublicUser = (user) => {
     settings: user.settings,
     profiles: user.profiles || [],
     activeProfileId: user.activeProfileId || DEFAULT_PROFILE_ID,
+    subscription: user.subscription || null,
     integrations: {
       mt5: {
         enabled: Boolean(mt5.enabled),

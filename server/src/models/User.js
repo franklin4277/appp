@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { DEFAULT_RISK_CONTROLS, DEFAULT_STRATEGY_OPTIONS } from "../constants/defaults.js";
+import { DEFAULT_SUBSCRIPTION } from "../constants/plans.js";
 
 const stringListField = {
   type: [String],
@@ -194,6 +195,54 @@ const mt5IntegrationSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const subscriptionSchema = new mongoose.Schema(
+  {
+    planId: {
+      type: String,
+      default: DEFAULT_SUBSCRIPTION.planId,
+      trim: true,
+      maxlength: 40,
+    },
+    status: {
+      type: String,
+      default: DEFAULT_SUBSCRIPTION.status,
+      trim: true,
+      maxlength: 40,
+    },
+    provider: {
+      type: String,
+      default: DEFAULT_SUBSCRIPTION.provider,
+      trim: true,
+      maxlength: 40,
+    },
+    customerId: {
+      type: String,
+      default: DEFAULT_SUBSCRIPTION.customerId,
+      trim: true,
+      maxlength: 120,
+    },
+    subscriptionId: {
+      type: String,
+      default: DEFAULT_SUBSCRIPTION.subscriptionId,
+      trim: true,
+      maxlength: 120,
+    },
+    currentPeriodEnd: {
+      type: Date,
+      default: DEFAULT_SUBSCRIPTION.currentPeriodEnd,
+    },
+    cancelAtPeriodEnd: {
+      type: Boolean,
+      default: DEFAULT_SUBSCRIPTION.cancelAtPeriodEnd,
+    },
+    updatedAt: {
+      type: Date,
+      default: DEFAULT_SUBSCRIPTION.updatedAt,
+    },
+  },
+  { _id: false }
+);
+
 const buildDefaultSettings = () => ({
   options: {
     pairs: cloneList(DEFAULT_STRATEGY_OPTIONS.pairs),
@@ -312,6 +361,10 @@ const userSchema = new mongoose.Schema(
         default: () => ({}),
       },
     },
+    subscription: {
+      type: subscriptionSchema,
+      default: () => ({ ...DEFAULT_SUBSCRIPTION }),
+    },
     lastLoginAt: {
       type: Date,
       default: null,
@@ -365,6 +418,12 @@ userSchema.pre("save", function normalizeProfiles(next) {
   if (!this.integrations.mt5 || typeof this.integrations.mt5 !== "object") {
     this.integrations.mt5 = {};
   }
+  if (!this.subscription || typeof this.subscription !== "object") {
+    this.subscription = { ...DEFAULT_SUBSCRIPTION };
+  }
+  this.subscription.planId = this.subscription.planId || DEFAULT_SUBSCRIPTION.planId;
+  this.subscription.status = this.subscription.status || DEFAULT_SUBSCRIPTION.status;
+  this.subscription.provider = this.subscription.provider || DEFAULT_SUBSCRIPTION.provider;
 
   next();
 });

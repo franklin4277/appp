@@ -2,6 +2,7 @@ import { memo, useEffect, useMemo, useState } from "react";
 
 const MOBILE_BATCH_SIZE = 60;
 const DESKTOP_BATCH_SIZE = 140;
+const VIEW_MODE_STORAGE_KEY = "trading-journal-listings-mode";
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   year: "numeric",
   month: "short",
@@ -24,14 +25,60 @@ const formatDate = (value) => {
   return dateFormatter.format(date);
 };
 
+const formatSetupLabel = (value = "") => {
+  const setup = String(value || "").trim();
+  if (setup === "Asia Break -> Continuation") {
+    return "Continuation";
+  }
+  if (setup === "Asia Break -> Reversal") {
+    return "Reversal";
+  }
+  return setup || "Unspecified";
+};
+
+const TradeCard = ({ trade }) => (
+  <article className="soft-frame">
+    <div className="flex items-start justify-between gap-2">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold">{trade.pair || "Pair N/A"}</p>
+        <p className="text-xs text-textMuted">{trade._displayDate}</p>
+      </div>
+      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${resultStyles[trade.result] || resultStyles.BE}`}>
+        {trade.result || "BE"}
+      </span>
+    </div>
+
+    <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+      <span className="chip justify-center">{trade.session || "Session N/A"}</span>
+      <span className="chip justify-center">{formatSetupLabel(trade.setupType)}</span>
+      <span className="chip justify-center">RR {trade.rrAchieved}</span>
+      <span className="chip justify-center">{trade.tags?.pocOutcome || "No POC"}</span>
+      {trade.tags?.cleanSetup ? <span className="chip justify-center">A+ setup</span> : null}
+      {trade.isOfflinePending ? <span className="chip justify-center">Queued</span> : null}
+    </div>
+
+    {trade.ruleBreakReason ? (
+      <p className="mt-2 text-xs text-textMuted">Rule break: {trade.ruleBreakReason}</p>
+    ) : null}
+  </article>
+);
+
 const TradesTable = ({ trades }) => {
   const [mobileVisibleCount, setMobileVisibleCount] = useState(MOBILE_BATCH_SIZE);
   const [desktopVisibleCount, setDesktopVisibleCount] = useState(DESKTOP_BATCH_SIZE);
+  const [viewMode, setViewMode] = useState(() => {
+    const stored = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    return stored === "table" ? "table" : "grid";
+  });
 
   useEffect(() => {
     setMobileVisibleCount(MOBILE_BATCH_SIZE);
     setDesktopVisibleCount(DESKTOP_BATCH_SIZE);
   }, [trades.length]);
+
+  useEffect(() => {
+    localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode);
+  }, [viewMode]);
 
   const mobileTrades = useMemo(
     () => trades.slice(0, Math.max(MOBILE_BATCH_SIZE, mobileVisibleCount)),
@@ -66,36 +113,31 @@ const TradesTable = ({ trades }) => {
     <section className="panel animate-riseIn">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold">Recent Trades</h3>
-        <span className="chip">{trades.length} loaded</span>
+        <div className="flex items-center gap-2">
+          <span className="chip">{trades.length} loaded</span>
+          <div className="hidden items-center gap-1 md:flex">
+            <button
+              type="button"
+              className={`chip ${viewMode === "grid" ? "!border-accent !text-textMain" : "text-textMuted"}`}
+              onClick={() => setViewMode("grid")}
+            >
+              Grid
+            </button>
+            <button
+              type="button"
+              className={`chip ${viewMode === "table" ? "!border-accent !text-textMain" : "text-textMuted"}`}
+              onClick={() => setViewMode("table")}
+            >
+              Table
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="space-y-3 md:hidden">
         {mobileDisplayTrades.length ? (
           mobileDisplayTrades.map((trade) => (
-            <article key={trade._id} className="mobile-card">
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold">{trade.pair}</p>
-                  {trade.isOfflinePending ? <span className="chip">Queued</span> : null}
-                </div>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${resultStyles[trade.result]}`}>
-                  {trade.result}
-                </span>
-              </div>
-              <p className="text-xs text-textMuted">{trade._displayDate}</p>
-              <div className="mt-2 flex flex-wrap gap-2 text-xs text-textMuted">
-                <span className="chip">{trade.session}</span>
-                <span className="chip">
-                  {trade.setupType === "Asia Break -> Continuation" ? "Continuation" : "Reversal"}
-                </span>
-                <span className="chip">RR {trade.rrAchieved}</span>
-                <span className="chip">{trade.tags?.pocOutcome || "No POC"}</span>
-                {trade.ruleBreakReason ? <span className="chip">Rule break</span> : null}
-              </div>
-              {trade.ruleBreakReason ? (
-                <p className="mt-2 text-xs text-textMuted">Reason: {trade.ruleBreakReason}</p>
-              ) : null}
-            </article>
+            <TradeCard key={trade._id} trade={trade} />
           ))
         ) : (
           <div className="mobile-card text-sm text-textMuted">No trades yet for current filters.</div>
@@ -111,65 +153,92 @@ const TradesTable = ({ trades }) => {
         ) : null}
       </div>
 
-      <div className="table-shell hidden overflow-auto md:block">
-        <table className="w-full min-w-[760px] border-collapse text-sm">
-          <thead className="table-head sticky top-0 z-[1]">
-            <tr className="border-b border-border text-left text-textMuted">
-              <th className="pb-2 pr-2 font-medium">Time</th>
-              <th className="pb-2 pr-2 font-medium">Pair</th>
-              <th className="pb-2 pr-2 font-medium">Session</th>
-              <th className="pb-2 pr-2 font-medium">Setup</th>
-              <th className="pb-2 pr-2 font-medium">Result</th>
-              <th className="pb-2 pr-2 font-medium">RR</th>
-              <th className="pb-2 pr-2 font-medium">Tags</th>
-              <th className="pb-2 pr-2 font-medium">Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {trades.length ? (
-              desktopDisplayTrades.map((trade) => (
-                <tr key={trade._id} className="table-row border-b border-border/60">
-                  <td className="py-2 pr-2 text-textMuted">{trade._displayDate}</td>
-                  <td className="py-2 pr-2">{trade.pair}</td>
-                  <td className="py-2 pr-2">{trade.session}</td>
-                  <td className="py-2 pr-2">
-                    {trade.setupType === "Asia Break -> Continuation" ? "Cont." : "Rev."}
-                  </td>
-                  <td className="py-2 pr-2">
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${resultStyles[trade.result]}`}>
-                      {trade.result}
-                    </span>
-                  </td>
-                  <td className="py-2 pr-2">{trade.rrAchieved}</td>
-                  <td className="py-2 pr-2 text-xs text-textMuted">
-                    {trade.isOfflinePending ? "Queued | " : ""}
-                    {trade.tags?.cleanSetup ? "A+ " : ""}
-                    {trade.tags?.pocOutcome || "No POC"}
-                  </td>
-                  <td className="py-2 pr-2 text-xs text-textMuted">
-                    {trade.ruleBreakReason ? `Rule break: ${trade.ruleBreakReason}` : "-"}
-                  </td>
+      {viewMode === "grid" ? (
+        <div className="hidden md:block">
+          {desktopDisplayTrades.length ? (
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
+              {desktopDisplayTrades.map((trade) => (
+                <TradeCard key={trade._id} trade={trade} />
+              ))}
+            </div>
+          ) : (
+            <div className="mobile-card text-sm text-textMuted">No trades yet for current filters.</div>
+          )}
+          {hasMoreDesktopTrades ? (
+            <button
+              type="button"
+              className="btn-primary mt-3 w-full"
+              onClick={() => setDesktopVisibleCount((prev) => prev + DESKTOP_BATCH_SIZE)}
+            >
+              Load more trades
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <>
+          <div className="table-shell hidden overflow-auto md:block">
+            <table className="w-full min-w-[760px] border-collapse text-sm">
+              <thead className="table-head sticky top-0 z-[1]">
+                <tr className="border-b border-border text-left text-textMuted">
+                  <th className="pb-2 pr-2 font-medium">Time</th>
+                  <th className="pb-2 pr-2 font-medium">Pair</th>
+                  <th className="pb-2 pr-2 font-medium">Session</th>
+                  <th className="pb-2 pr-2 font-medium">Setup</th>
+                  <th className="pb-2 pr-2 font-medium">Result</th>
+                  <th className="pb-2 pr-2 font-medium">RR</th>
+                  <th className="pb-2 pr-2 font-medium">Tags</th>
+                  <th className="pb-2 pr-2 font-medium">Notes</th>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td className="py-4 text-textMuted" colSpan={8}>
-                  No trades yet for current filters.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      {hasMoreDesktopTrades ? (
-        <button
-          type="button"
-          className="btn-primary mt-3 hidden w-full md:block"
-          onClick={() => setDesktopVisibleCount((prev) => prev + DESKTOP_BATCH_SIZE)}
-        >
-          Load more trades
-        </button>
-      ) : null}
+              </thead>
+              <tbody>
+                {trades.length ? (
+                  desktopDisplayTrades.map((trade) => (
+                    <tr key={trade._id} className="table-row border-b border-border/60">
+                      <td className="py-2 pr-2 text-textMuted">{trade._displayDate}</td>
+                      <td className="py-2 pr-2">{trade.pair}</td>
+                      <td className="py-2 pr-2">{trade.session}</td>
+                      <td className="py-2 pr-2">{formatSetupLabel(trade.setupType)}</td>
+                      <td className="py-2 pr-2">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            resultStyles[trade.result] || resultStyles.BE
+                          }`}
+                        >
+                          {trade.result}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-2">{trade.rrAchieved}</td>
+                      <td className="py-2 pr-2 text-xs text-textMuted">
+                        {trade.isOfflinePending ? "Queued | " : ""}
+                        {trade.tags?.cleanSetup ? "A+ | " : ""}
+                        {trade.tags?.pocOutcome || "No POC"}
+                      </td>
+                      <td className="py-2 pr-2 text-xs text-textMuted">
+                        {trade.ruleBreakReason ? `Rule break: ${trade.ruleBreakReason}` : "-"}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td className="py-4 text-textMuted" colSpan={8}>
+                      No trades yet for current filters.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {hasMoreDesktopTrades ? (
+            <button
+              type="button"
+              className="btn-primary mt-3 hidden w-full md:block"
+              onClick={() => setDesktopVisibleCount((prev) => prev + DESKTOP_BATCH_SIZE)}
+            >
+              Load more trades
+            </button>
+          ) : null}
+        </>
+      )}
     </section>
   );
 };

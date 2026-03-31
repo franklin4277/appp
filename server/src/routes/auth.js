@@ -22,6 +22,13 @@ import {
   updateSettings,
 } from "../controllers/authController.js";
 import { requireAuth } from "../middleware/auth.js";
+import {
+  sanitizeInput,
+  validateLoginPayload,
+  validatePasswordResetConfirmPayload,
+  validatePasswordResetRequestPayload,
+  validateRegisterPayload,
+} from "../middleware/validate.js";
 import { sendAlert } from "../services/alerts.js";
 
 const router = Router();
@@ -61,13 +68,25 @@ const recoveryLimiter = rateLimit({
   message: { message: "Too many recovery attempts. Please try again later." },
 });
 
-router.post("/register", registerLimiter, register);
-router.post("/login", authLimiter, login);
+router.post("/register", registerLimiter, sanitizeInput, validateRegisterPayload, register);
+router.post("/login", authLimiter, sanitizeInput, validateLoginPayload, login);
 router.post("/2fa/verify-login", authLimiter, verifyTwoFactorLogin);
 router.post("/refresh", authLimiter, refreshSession);
 router.post("/logout", authLimiter, logout);
-router.post("/password-reset/request", recoveryLimiter, requestPasswordReset);
-router.post("/password-reset/confirm", recoveryLimiter, confirmPasswordReset);
+router.post(
+  "/password-reset/request",
+  recoveryLimiter,
+  sanitizeInput,
+  validatePasswordResetRequestPayload,
+  requestPasswordReset
+);
+router.post(
+  "/password-reset/confirm",
+  recoveryLimiter,
+  sanitizeInput,
+  validatePasswordResetConfirmPayload,
+  confirmPasswordReset
+);
 router.post("/email-verification/verify", recoveryLimiter, verifyEmail);
 router.get("/me", requireAuth, getMe);
 router.patch("/settings", requireAuth, updateSettings);

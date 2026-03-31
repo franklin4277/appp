@@ -25,9 +25,13 @@ import AuthPanel from "./components/AuthPanel";
 import BrandLogo from "./components/BrandLogo";
 import SharedWeeklyView from "./components/SharedWeeklyView";
 import { buildLocalDashboardAnalytics } from "./utils/offlineAnalytics";
+import ThemeToggle from "./components/ThemeToggle";
+import ToastStack from "./components/ToastStack";
+import { applyTheme, resolveInitialTheme } from "./utils/theme";
 
 const AccountSecurityPanel = lazy(() => import("./components/AccountSecurityPanel"));
 const BehaviorLab = lazy(() => import("./components/BehaviorLab"));
+const BillingPanel = lazy(() => import("./components/BillingPanel"));
 const CalendarConsistency = lazy(() => import("./components/CalendarConsistency"));
 const CoachingSummary = lazy(() => import("./components/CoachingSummary"));
 const DataTools = lazy(() => import("./components/DataTools"));
@@ -215,9 +219,12 @@ const App = () => {
   const [newProfileName, setNewProfileName] = useState("");
   const [newProfileDescription, setNewProfileDescription] = useState("");
   const [creatingProfile, setCreatingProfile] = useState(false);
+  const [theme, setTheme] = useState(() => resolveInitialTheme());
+  const [toasts, setToasts] = useState([]);
   const syncInFlightRef = useRef(false);
   const loadRequestSeqRef = useRef(0);
-  const debouncedFilters = useDebouncedValue(filters, 320);
+  const toastCounterRef = useRef(0);
+  const debouncedFilters = useDebouncedValue(filters, 180);
   const includeDetailedTrades = activePage === "review";
   const includeTotalTrades = activePage === "review";
 
@@ -228,6 +235,10 @@ const App = () => {
   useEffect(() => {
     refreshOfflineQueue();
   }, [refreshOfflineQueue]);
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
 
   useEffect(() => {
     if (!window.matchMedia) {
@@ -459,6 +470,7 @@ const App = () => {
       import("./components/BehaviorLab");
       import("./components/TagAnalytics");
       import("./components/SettingsPanel");
+      import("./components/BillingPanel");
       import("./components/TradesTable");
     };
 
@@ -491,6 +503,25 @@ const App = () => {
       [key]: value,
     }));
   }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, []);
+
+  const pushToast = useCallback(
+    (type, message) => {
+      const text = String(message || "").trim();
+      if (!text) {
+        return;
+      }
+
+      toastCounterRef.current += 1;
+      const id = `toast-${Date.now()}-${toastCounterRef.current}`;
+      setToasts((prev) => [...prev.slice(-3), { id, type, message: text }]);
+      window.setTimeout(() => dismissToast(id), 4200);
+    },
+    [dismissToast]
+  );
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -813,6 +844,18 @@ const App = () => {
   }, [showAdvancedAnalytics]);
 
   useEffect(() => {
+    if (error) {
+      pushToast("error", error);
+    }
+  }, [error, pushToast]);
+
+  useEffect(() => {
+    if (statusMessage) {
+      pushToast("info", statusMessage);
+    }
+  }, [pushToast, statusMessage]);
+
+  useEffect(() => {
     const onKeyDown = (event) => {
       if (profileModalOpen && event.key === "Escape") {
         setProfileModalOpen(false);
@@ -901,6 +944,11 @@ const App = () => {
                   {loading || syncingQueue ? "Syncing..." : isOnline ? "Online" : "Offline"}
                 </span>
                 <span className="chip hidden sm:inline-flex">Alt+1..5 pages</span>
+                <ThemeToggle
+                  theme={theme}
+                  onToggle={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+                  className="!py-1"
+                />
                 {offlineQueue.length ? (
                   <span className="chip">{offlineQueue.length} queued</span>
                 ) : null}
@@ -923,6 +971,16 @@ const App = () => {
               <p className="section-kicker">Pages</p>
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="chip">{activeFilterCount} active filters</span>
+                <button
+                  type="button"
+                  className="chip quick-chart-btn"
+                  onClick={() => {
+                    setActivePage("analytics");
+                    setShowAdvancedAnalytics(true);
+                  }}
+                >
+                  Charts
+                </button>
                 {loading ? <span className="chip skeleton h-6 w-16" aria-hidden="true" /> : null}
               </div>
             </div>
@@ -931,13 +989,46 @@ const App = () => {
                 <button
                   key={page.key}
                   type="button"
-                  className={`chip page-btn ${activePage === page.key ? "page-btn-active" : ""}`}
+                  className={`chip page-btn page-btn-${page.key} ${activePage === page.key ? "page-btn-active" : ""}`}
                   onClick={() => setActivePage(page.key)}
                 >
                   {page.label}
                   <span className="ml-1 hidden text-[10px] text-textMuted sm:inline">({PAGE_SHORTCUTS[index]})</span>
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div className="mb-4 hidden lg:grid lg:grid-cols-[220px_1fr] lg:gap-4">
+            <aside className="panel sticky top-4 !p-3">
+              <p className="section-kicker">Workspace Sidebar</p>
+              <div className="mt-2 space-y-2">
+                {PAGES.map((page) => (
+                  <button
+                    key={`side-${page.key}`}
+                    type="button"
+                    className={`chip page-btn page-btn-${page.key} inline-flex w-full justify-center ${activePage === page.key ? "page-btn-active" : ""}`}
+                    onClick={() => setActivePage(page.key)}
+                  >
+                    {page.label}
+                  </button>
+                ))}
+              </div>
+            </aside>
+            <div className="soft-frame flex items-center justify-between gap-2">
+              <p className="text-sm text-textMuted">
+                Quick workspace controls for faster navigation and chart review.
+              </p>
+              <button
+                type="button"
+                className="chip quick-chart-btn"
+                onClick={() => {
+                  setActivePage("analytics");
+                  setShowAdvancedAnalytics(true);
+                }}
+              >
+                Open charts
+              </button>
             </div>
           </div>
 
@@ -1107,13 +1198,14 @@ const App = () => {
                   <p>Configuration</p>
                 </div>
                 {showSettingsPanel ? (
-                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                     <SettingsPanel
                       user={user}
                       token={token}
                       onUserUpdate={setUser}
                       onSaved={onSettingsSaved}
                     />
+                    <BillingPanel token={token} user={user} onUserUpdate={setUser} />
                     <DataTools token={token} filters={filters} onImported={loadData} />
                     <AccountSecurityPanel user={user} token={token} onUserUpdate={setUser} />
                   </div>
@@ -1133,6 +1225,7 @@ const App = () => {
                       </button>
                     </div>
                     <AccountSecurityPanel user={user} token={token} onUserUpdate={setUser} />
+                    <BillingPanel token={token} user={user} onUserUpdate={setUser} />
                     <DataTools token={token} filters={filters} onImported={loadData} />
                   </div>
                 )}
@@ -1149,8 +1242,8 @@ const App = () => {
           <button type="button" className="mobile-action-btn mobile-action-btn-primary" onClick={handleQuickSave}>
             Save
           </button>
-          <button type="button" className="mobile-action-btn" onClick={() => setActivePage("analytics")}>
-            Analytics
+          <button type="button" className="mobile-action-btn mobile-action-btn-chart" onClick={() => setActivePage("analytics")}>
+            Charts
           </button>
         </nav>
       ) : null}
@@ -1215,6 +1308,7 @@ const App = () => {
           </form>
         </div>
       ) : null}
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </main>
   );
 };

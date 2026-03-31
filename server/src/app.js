@@ -5,6 +5,7 @@ import rateLimit from "express-rate-limit";
 import path from "path";
 import { fileURLToPath } from "url";
 import authRouter from "./routes/auth.js";
+import billingRouter from "./routes/billing.js";
 import tradesRouter from "./routes/trades.js";
 import { logError, logInfo } from "./services/logger.js";
 import { sendAlert } from "./services/alerts.js";
@@ -151,6 +152,7 @@ app.get("/api/metrics", (req, res) => {
 });
 
 app.use("/api/auth", authRouter);
+app.use("/api/billing", billingRouter);
 app.use("/api/trades", tradesRouter);
 
 app.use((error, req, res, _next) => {

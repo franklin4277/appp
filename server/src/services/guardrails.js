@@ -18,6 +18,7 @@ const toNumber = (value, fallback = 0) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 };
+const RAPID_TRADE_WINDOW_MINUTES = 8;
 
 const createValidationError = (message) => {
   const error = new Error(message);
@@ -68,10 +69,29 @@ export const evaluateGuardrails = async ({
     warnings.push("Rule-break saved. Treat this as an exception, not your default process.");
   }
 
-  if (toNumber(controls.maxTradesPerSession, 0) > 0 && sessionTradeCount >= controls.maxTradesPerSession) {
-    warnings.push(
-      `Overtrading warning: you already logged ${sessionTradeCount} ${session} trades for this date.`
+  const maxTradesPerSession = toNumber(controls.maxTradesPerSession, 0);
+  if (maxTradesPerSession > 0) {
+    if (sessionTradeCount >= maxTradesPerSession) {
+      warnings.push(
+        `Overtrading warning: you already logged ${sessionTradeCount} ${session} trades for this date.`
+      );
+    } else if (sessionTradeCount === maxTradesPerSession - 1) {
+      warnings.push(
+        `Near overtrading limit: next ${session} trade reaches ${maxTradesPerSession} trades for this date.`
+      );
+    }
+  }
+
+  const lastSameSessionTrade = todayTrades.find((trade) => trade.session === session);
+  if (lastSameSessionTrade?.tradeDate) {
+    const elapsedSinceSessionTrade = Math.floor(
+      (date.getTime() - new Date(lastSameSessionTrade.tradeDate).getTime()) / 60000
     );
+    if (elapsedSinceSessionTrade >= 0 && elapsedSinceSessionTrade < RAPID_TRADE_WINDOW_MINUTES) {
+      warnings.push(
+        `Rapid-fire warning: previous ${session} trade was ${elapsedSinceSessionTrade} minutes ago.`
+      );
+    }
   }
 
   if (
@@ -102,4 +122,3 @@ export const evaluateGuardrails = async ({
     todaysTradeCount: todayTrades.length,
   };
 };
-

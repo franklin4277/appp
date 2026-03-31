@@ -1,0 +1,231 @@
+const toText = (value = "") =>
+  String(value || "")
+    .trim()
+    .replace(/\u0000/g, "");
+
+const sanitizeString = (value = "") =>
+  toText(value)
+    .replace(/[\u0001-\u001f\u007f]/g, "")
+    .replace(/<\/?script\b[^>]*>/gi, "");
+
+const isEmail = (value = "") => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").toLowerCase());
+const isHttpUrl = (value = "") => /^https?:\/\//i.test(String(value || "").trim());
+const PROHIBITED_OBJECT_KEYS = new Set(["__proto__", "prototype", "constructor"]);
+
+const createValidationError = (message) => {
+  const error = new Error(message);
+  error.statusCode = 400;
+  return error;
+};
+
+const sanitizeValue = (value, depth = 0) => {
+  if (depth > 18) {
+    return undefined;
+  }
+
+  if (typeof value === "string") {
+    return sanitizeString(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeValue(item, depth + 1));
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const output = {};
+  Object.entries(value).forEach(([rawKey, rawValue]) => {
+    const key = toText(rawKey);
+    if (!key || PROHIBITED_OBJECT_KEYS.has(key) || key.startsWith("$") || key.includes(".")) {
+      return;
+    }
+    output[key] = sanitizeValue(rawValue, depth + 1);
+  });
+  return output;
+};
+
+const sanitizeBodyStrings = (req, _res, next) => {
+  if (!req.body || typeof req.body !== "object") {
+    next();
+    return;
+  }
+
+  req.body = sanitizeValue(req.body);
+  next();
+};
+
+export const sanitizeInput = sanitizeBodyStrings;
+
+export const validateRegisterPayload = (req, _res, next) => {
+  const name = toText(req.body?.name);
+  const email = toText(req.body?.email).toLowerCase();
+  const password = toText(req.body?.password);
+
+  if (name.length < 2 || name.length > 80) {
+    next(createValidationError("Name must be between 2 and 80 characters."));
+    return;
+  }
+  if (!isEmail(email)) {
+    next(createValidationError("A valid email is required."));
+    return;
+  }
+  if (password.length < 8) {
+    next(createValidationError("Password must be at least 8 characters."));
+    return;
+  }
+
+  req.body = { ...req.body, name, email, password };
+  next();
+};
+
+export const validateLoginPayload = (req, _res, next) => {
+  const email = toText(req.body?.email).toLowerCase();
+  const password = toText(req.body?.password);
+  if (!isEmail(email)) {
+    next(createValidationError("A valid email is required."));
+    return;
+  }
+  if (!password) {
+    next(createValidationError("Password is required."));
+    return;
+  }
+  req.body = { ...req.body, email, password };
+  next();
+};
+
+export const validatePasswordResetRequestPayload = (req, _res, next) => {
+  const email = toText(req.body?.email).toLowerCase();
+  if (!isEmail(email)) {
+    next(createValidationError("A valid email is required."));
+    return;
+  }
+  req.body = { ...req.body, email };
+  next();
+};
+
+export const validatePasswordResetConfirmPayload = (req, _res, next) => {
+  const token = toText(req.body?.token);
+  const newPassword = toText(req.body?.newPassword);
+  if (token.length < 12) {
+    next(createValidationError("Reset token is invalid."));
+    return;
+  }
+  if (newPassword.length < 8) {
+    next(createValidationError("New password must be at least 8 characters."));
+    return;
+  }
+  req.body = { ...req.body, token, newPassword };
+  next();
+};
+
+export const validateTradeCreatePayload = (req, _res, next) => {
+  const pair = toText(req.body?.pair).toUpperCase();
+  const session = toText(req.body?.session);
+  const tradeTypeRaw = toText(req.body?.tradeType).toLowerCase();
+  const setupType = toText(req.body?.setupType);
+  const result = toText(req.body?.result || "BE");
+
+  const entry = Number(req.body?.entryPrice);
+  const stop = Number(req.body?.stopLoss);
+  const take = Number(req.body?.takeProfit);
+  const riskPercent =
+    req.body?.riskPercent === undefined || req.body?.riskPercent === null || req.body?.riskPercent === ""
+      ? null
+      : Number(req.body.riskPercent);
+
+  if (!pair || pair.length < 3 || pair.length > 15) {
+    next(createValidationError("pair is required and should be 3-15 characters."));
+    return;
+  }
+
+  if (!session || session.length > 40) {
+    next(createValidationError("session is required and should be under 40 characters."));
+    return;
+  }
+
+  if (!setupType || setupType.length > 80) {
+    next(createValidationError("setupType is required and should be under 80 characters."));
+    return;
+  }
+
+  if (!["buy", "sell"].includes(tradeTypeRaw)) {
+    next(createValidationError("tradeType must be Buy or Sell."));
+    return;
+  }
+
+  if (!Number.isFinite(entry) || entry <= 0) {
+    next(createValidationError("entryPrice is required and must be greater than 0."));
+    return;
+  }
+  if (!Number.isFinite(stop) || stop <= 0) {
+    next(createValidationError("stopLoss is required and must be greater than 0."));
+    return;
+  }
+  if (!Number.isFinite(take) || take <= 0) {
+    next(createValidationError("takeProfit is required and must be greater than 0."));
+    return;
+  }
+
+  if (riskPercent !== null && (!Number.isFinite(riskPercent) || riskPercent < 0 || riskPercent > 100)) {
+    next(createValidationError("riskPercent must be a number between 0 and 100."));
+    return;
+  }
+
+  req.body = {
+    ...req.body,
+    pair,
+    session,
+    setupType,
+    result,
+    tradeType: tradeTypeRaw === "buy" ? "Buy" : "Sell",
+    entryPrice: entry,
+    stopLoss: stop,
+    takeProfit: take,
+    ...(riskPercent !== null ? { riskPercent } : {}),
+  };
+  next();
+};
+
+export const validateBillingCheckoutPayload = (req, _res, next) => {
+  const planId = toText(req.body?.planId).toLowerCase();
+  const successUrl = toText(req.body?.successUrl);
+  const cancelUrl = toText(req.body?.cancelUrl);
+  if (!planId) {
+    next(createValidationError("planId is required."));
+    return;
+  }
+  if (successUrl && !isHttpUrl(successUrl)) {
+    next(createValidationError("successUrl must be an http(s) URL."));
+    return;
+  }
+  if (cancelUrl && !isHttpUrl(cancelUrl)) {
+    next(createValidationError("cancelUrl must be an http(s) URL."));
+    return;
+  }
+  req.body = { ...req.body, planId, successUrl, cancelUrl };
+  next();
+};
+
+export const validateBillingPortalPayload = (req, _res, next) => {
+  const returnUrl = toText(req.body?.returnUrl);
+  if (returnUrl && !isHttpUrl(returnUrl)) {
+    next(createValidationError("returnUrl must be an http(s) URL."));
+    return;
+  }
+  req.body = { ...req.body, returnUrl };
+  next();
+};
+
+export const validateBillingMockPayload = (req, _res, next) => {
+  const planId = toText(req.body?.planId).toLowerCase();
+  const status = toText(req.body?.status || "active").toLowerCase();
+  if (!planId) {
+    next(createValidationError("planId is required."));
+    return;
+  }
+  req.body = { ...req.body, planId, status };
+  next();
+};
+

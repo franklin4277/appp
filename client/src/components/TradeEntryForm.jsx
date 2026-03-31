@@ -22,6 +22,8 @@ const NEGATIVE_EMOTION_TOKENS = [
   "stressed",
   "overconfident",
 ];
+const LIVE_ALERT_REFRESH_MS = 15000;
+const RAPID_TRADE_WINDOW_MINUTES = 8;
 
 const localNow = () => {
   const date = new Date();
@@ -219,6 +221,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
   const [mediaOptimizationMessage, setMediaOptimizationMessage] = useState("");
   const [savedDraft, setSavedDraft] = useState(null);
   const [draftReady, setDraftReady] = useState(false);
+  const [alertClockTs, setAlertClockTs] = useState(() => Date.now());
   const formRef = useRef(null);
   const draftStorageKey = useMemo(() => buildDraftStorageKey(activeProfileId), [activeProfileId]);
 
@@ -348,48 +351,92 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
     [trades]
   );
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setAlertClockTs(Date.now()), LIVE_ALERT_REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const preTradeAlerts = useMemo(() => {
     const warnings = [];
     const tradeTs = new Date(form.tradeDate || new Date()).getTime();
     const safeTs = Number.isFinite(tradeTs) ? tradeTs : Date.now();
-    const dayKey = toDayKey(safeTs);
+    const useLiveClock = Math.abs(alertClockTs - safeTs) <= 15 * 60 * 1000;
+    const effectiveTs = useLiveClock ? alertClockTs : safeTs;
+    const dayKey = toDayKey(effectiveTs);
 
     const sameSessionToday = historicalTimeline.filter(
       (trade) =>
         trade.session === form.session &&
         trade._dayKey === dayKey &&
-        trade._ts <= safeTs
+        trade._ts <= effectiveTs
     );
 
-    if (sameSessionToday.length >= Number(activeRiskControls.maxTradesPerSession || 0)) {
-      warnings.push(
-        `Overtrading risk: ${sameSessionToday.length} ${form.session} trades already logged today.`
-      );
+    const maxTradesPerSession = Number(activeRiskControls.maxTradesPerSession || 0);
+    if (maxTradesPerSession > 0 && sameSessionToday.length >= maxTradesPerSession) {
+      warnings.push({
+        id: "overtrading-limit",
+        level: "critical",
+        message: `Overtrading limit reached: ${sameSessionToday.length}/${maxTradesPerSession} ${form.session} trades already logged today.`,
+      });
+    } else if (
+      maxTradesPerSession > 1 &&
+      sameSessionToday.length === maxTradesPerSession - 1
+    ) {
+      warnings.push({
+        id: "overtrading-near",
+        level: "warn",
+        message: `Near overtrading limit: next ${form.session} trade hits ${maxTradesPerSession} max trades.`,
+      });
     }
 
-    const lastLoss = historicalTimeline.find((trade) => trade.result === "Loss" && trade._ts <= safeTs);
+    const latestSameSessionTrade = sameSessionToday[0];
+    if (latestSameSessionTrade?._ts) {
+      const sinceLastTrade = Math.max(0, Math.floor((effectiveTs - latestSameSessionTrade._ts) / 60000));
+      if (sinceLastTrade < RAPID_TRADE_WINDOW_MINUTES) {
+        warnings.push({
+          id: "rapid-fire",
+          level: "warn",
+          message: `Rapid-fire warning: last ${form.session} trade was ${sinceLastTrade}m ago. Pause to avoid impulse entries.`,
+        });
+      }
+    }
+
+    const lastLoss = historicalTimeline.find((trade) => trade.result === "Loss" && trade._ts <= effectiveTs);
     if (lastLoss) {
-      const minutesSinceLoss = Math.floor((safeTs - lastLoss._ts) / 60000);
+      const minutesSinceLoss = Math.floor((effectiveTs - lastLoss._ts) / 60000);
       const cooldown = Number(activeRiskControls.cooldownMinutesAfterLoss || 0);
       if (cooldown > 0 && minutesSinceLoss < cooldown) {
-        warnings.push(`Cooldown active: wait ${cooldown - minutesSinceLoss} more minutes after last loss.`);
+        warnings.push({
+          id: "cooldown",
+          level: "warn",
+          message: `Cooldown active: wait ${cooldown - minutesSinceLoss} more minute${cooldown - minutesSinceLoss === 1 ? "" : "s"} after last loss.`,
+        });
       }
     }
 
     const todayNetRR = historicalTimeline
-      .filter((trade) => trade._dayKey === dayKey && trade._ts <= safeTs)
+      .filter((trade) => trade._dayKey === dayKey && trade._ts <= effectiveTs)
       .reduce((sum, trade) => sum + (Number(trade.rrAchieved) || 0), 0);
     const stopDayRR = -Math.abs(Number(activeRiskControls.stopForDayLossRR || 0));
     if (stopDayRR < 0 && todayNetRR <= stopDayRR) {
-      warnings.push(`Daily loss guardrail reached (${todayNetRR.toFixed(2)} RR). Stand down for today.`);
+      warnings.push({
+        id: "daily-stop",
+        level: "critical",
+        message: `Daily loss guardrail reached (${todayNetRR.toFixed(2)} RR). Stand down for today.`,
+      });
     }
 
     if (qualityAssessment.grade === "D") {
-      warnings.push("Setup quality is D-grade. Wait for a cleaner confirmation.");
+      warnings.push({
+        id: "quality-d",
+        level: "warn",
+        message: "Setup quality is D-grade. Wait for a cleaner confirmation.",
+      });
     }
 
     return warnings;
   }, [
+    alertClockTs,
     activeRiskControls.cooldownMinutesAfterLoss,
     activeRiskControls.maxTradesPerSession,
     activeRiskControls.stopForDayLossRR,
@@ -398,6 +445,11 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
     historicalTimeline,
     qualityAssessment.grade,
   ]);
+
+  const hasCriticalPreTradeAlert = useMemo(
+    () => preTradeAlerts.some((alert) => alert.level === "critical"),
+    [preTradeAlerts]
+  );
 
   useEffect(() => {
     const onKeyDown = (event) => {
@@ -749,6 +801,16 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
   };
 
   const submitTrade = async (acceptGuardrailOverride = false) => {
+    if (hasCriticalPreTradeAlert && !acceptGuardrailOverride) {
+      setChecklistWarnings(
+        preTradeAlerts
+          .filter((alert) => alert.level === "critical")
+          .map((alert) => alert.message)
+      );
+      setError("Risk guardrail blocked this save. Review warnings or use override.");
+      return;
+    }
+
     if (
       activeRiskControls.strictChecklistGate &&
       !checklistAligned &&
@@ -902,12 +964,35 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
         ) : null}
 
         {preTradeAlerts.length ? (
-          <div className="rounded-xl border border-danger/40 bg-danger/10 p-2 text-xs text-danger">
+          <div
+            className={`rounded-xl border p-2 text-xs ${
+              hasCriticalPreTradeAlert
+                ? "border-danger/45 bg-danger/10 text-danger"
+                : "border-amber-400/40 bg-amber-500/10 text-amber-200"
+            }`}
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-wide">
+              {hasCriticalPreTradeAlert ? "Critical Guardrail Alert" : "Guardrail Caution"}
+            </p>
             {preTradeAlerts.map((alert) => (
-              <p key={alert}>{alert}</p>
+              <p key={alert.id} className="mt-1">
+                {alert.message}
+              </p>
             ))}
+            {!hasCriticalPreTradeAlert ? (
+              <p className="mt-1 text-[11px] opacity-80">These warnings update live while you type.</p>
+            ) : null}
+            {hasCriticalPreTradeAlert ? (
+              <p className="mt-1 text-[11px] opacity-80">
+                Save is blocked until conditions improve, unless you explicitly override.
+              </p>
+            ) : null}
           </div>
-        ) : null}
+        ) : (
+          <div className="rounded-xl border border-border bg-panelMuted p-2 text-xs text-textMuted">
+            No active guardrail alerts.
+          </div>
+        )}
 
         <div className="rounded-xl border border-border bg-panelMuted p-2 text-xs text-textMuted">
           Coach:

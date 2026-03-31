@@ -124,7 +124,7 @@ const AuthPanel = ({ onAuthenticated }) => {
     if (mode === "reset") {
       return "Reset password";
     }
-    return mode === "register" ? "Create account" : "Log in";
+    return mode === "register" ? "Create your workspace" : "Log in";
   }, [mode, twoFactorPending]);
 
   const handlePrimarySubmit = async (event) => {
@@ -249,7 +249,7 @@ const AuthPanel = ({ onAuthenticated }) => {
           <div className="flex items-center gap-2">
             <ThemeToggle theme={theme} onToggle={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))} />
             <button type="button" className="btn-primary !py-1.5" onClick={() => setMode("login")}>
-              Get Started
+              Access Platform
             </button>
           </div>
         </header>
@@ -257,21 +257,17 @@ const AuthPanel = ({ onAuthenticated }) => {
         <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
           <section className="space-y-4">
             <div className="panel animate-riseIn landing-hero">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="section-kicker">Built for serious traders</p>
-                <span className="free-badge">Free forever</span>
-              </div>
+              <p className="section-kicker">Built for serious traders</p>
               <h2 className="hero-title mt-2">Turn Your Trading Data Into Consistent Profit</h2>
               <p className="mt-3 max-w-2xl text-sm text-textMuted">
                 Track, analyze, and improve your trading with powerful insights, not spreadsheets.
-                No subscriptions and no locked analytics.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button type="button" className="btn-primary" onClick={() => setMode("register")}>
-                  Start Free
+                  Open Workspace
                 </button>
                 <button type="button" className="chip text-textMain" onClick={() => setMode("login")}>
-                  Sign In
+                  Member Login
                 </button>
               </div>
               <div className="landing-stats mt-5">
@@ -361,7 +357,7 @@ const AuthPanel = ({ onAuthenticated }) => {
                   className="chip text-textMain transition hover:border-accent"
                   onClick={() => setMode((prev) => (prev === "register" ? "login" : "register"))}
                 >
-                  {mode === "register" ? "Have account?" : "Create account"}
+                  {mode === "register" ? "Already have access?" : "Create workspace"}
                 </button>
               ) : null}
             </div>
@@ -468,7 +464,7 @@ const AuthPanel = ({ onAuthenticated }) => {
                   />
                 </label>
                 <button className="btn-primary w-full" type="submit" disabled={loading}>
-                  {loading ? "Please wait..." : mode === "register" ? "Create account" : "Log in"}
+                  {loading ? "Please wait..." : mode === "register" ? "Create workspace" : "Log in"}
                 </button>
                 {mode === "login" ? (
                   <button

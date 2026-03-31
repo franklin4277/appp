@@ -990,10 +990,7 @@ const App = () => {
               <BrandLogo />
               <div>
                 <p className="section-kicker">The Trading Journal</p>
-                <div className="flex items-center gap-2">
-                  <h1 className="hero-title brand-title">Trading Journal</h1>
-                  <span className="free-badge">Free</span>
-                </div>
+                <h1 className="hero-title brand-title">Trading Journal</h1>
                 <p className="hero-sub">Session-based forex tracking for every trader</p>
               </div>
             </div>

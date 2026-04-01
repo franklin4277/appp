@@ -1032,18 +1032,19 @@ const SaasWorkspace = ({
               </label>
               <label>
                 <span className="label">Currency Pair</span>
-                <select
+                <input
                   className="input"
+                  list="quick-pair-options"
                   value={quickTradeForm.pair}
                   onChange={(event) => handleQuickTradeChange("pair", event.target.value)}
+                  placeholder="Type or pick a pair"
                   required
-                >
+                />
+                <datalist id="quick-pair-options">
                   {(pairOptions || []).map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
+                    <option key={option} value={option} />
                   ))}
-                </select>
+                </datalist>
               </label>
               <label>
                 <span className="label">Entry Price</span>

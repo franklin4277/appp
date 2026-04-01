@@ -801,7 +801,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
       const normalizedPair = String(value || "")
         .toUpperCase()
         .replace(/\s+/g, "");
-      normalizedValue = normalizedPair || optionLists.pairs[0] || "EURUSD";
+      normalizedValue = normalizedPair;
     }
     setForm((prev) => ({
       ...prev,
@@ -883,11 +883,12 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
     const normalizedPair = String(form.pair || "")
       .toUpperCase()
       .replace(/\s+/g, "");
+    const fallbackPair = optionLists.pairs[0] || "EURUSD";
 
     return {
       profileId: form.profileId || activeProfileId || "",
       clientTradeId: form.clientTradeId || generateClientTradeId(),
-      pair: normalizedPair || optionLists.pairs[0] || "EURUSD",
+      pair: normalizedPair || fallbackPair,
       tradeDate: form.tradeDate ? new Date(form.tradeDate).toISOString() : new Date().toISOString(),
       exitTime: form.exitTime ? new Date(form.exitTime).toISOString() : "",
       session: form.session,
@@ -1222,17 +1223,18 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
       <form ref={formRef} onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <Field label="Pair">
           <div>
-            <select
+            <input
               className="input"
+              list="pair-options"
               value={form.pair}
               onChange={(event) => handleChange("pair", event.target.value)}
-            >
+              placeholder="Type or pick a pair"
+            />
+            <datalist id="pair-options">
               {optionLists.pairs.map((pair) => (
-                <option key={pair} value={pair}>
-                  {pair}
-                </option>
+                <option key={pair} value={pair} />
               ))}
-            </select>
+            </datalist>
           </div>
         </Field>
 

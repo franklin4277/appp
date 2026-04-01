@@ -1133,10 +1133,22 @@ const App = () => {
   }, [pairOptions, sessionOptions, setupOptions]);
 
   const handleQuickTradeChange = useCallback((field, value) => {
-    setQuickTradeForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setQuickTradeForm((prev) => {
+      if (field !== "pair") {
+        return {
+          ...prev,
+          [field]: value,
+        };
+      }
+
+      const normalizedPair = String(value || "")
+        .toUpperCase()
+        .replace(/\s+/g, "");
+      return {
+        ...prev,
+        pair: normalizedPair,
+      };
+    });
   }, []);
 
   const resetQuickTradeForm = useCallback(() => {
@@ -1151,7 +1163,7 @@ const App = () => {
       }
 
       const normalizedPair = String(quickTradeForm.pair || "").trim().toUpperCase();
-      const pair = pairOptions.includes(normalizedPair) ? normalizedPair : pairOptions[0] || normalizedPair;
+      const pair = normalizedPair || pairOptions[0] || "";
       const entryPrice = toNumber(quickTradeForm.entryPrice, NaN);
       const exitPrice = quickTradeForm.exitPrice === "" ? NaN : toNumber(quickTradeForm.exitPrice, NaN);
       const plannedRRInput = quickTradeForm.plannedRR === "" ? NaN : toNumber(quickTradeForm.plannedRR, NaN);

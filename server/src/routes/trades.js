@@ -86,12 +86,12 @@ router.get("/:tradeId", getTradeById);
 router.post("/import.csv", uploadCsvFile.single("file"), importTradesCsv);
 router.post(
   "/",
-  sanitizeInput,
-  validateTradeCreatePayload,
   uploadTradeScreenshots.fields([
     { name: "screenshotBefore", maxCount: 1 },
     { name: "screenshotAfter", maxCount: 1 },
   ]),
+  sanitizeInput,
+  validateTradeCreatePayload,
   createTrade
 );
 

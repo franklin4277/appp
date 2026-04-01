@@ -153,15 +153,18 @@ const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade } =
 
       {lightbox ? (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-2 sm:p-4"
           role="dialog"
           aria-modal="true"
           onClick={() => setLightbox(null)}
         >
-          <div className="relative max-h-full w-full max-w-5xl">
+          <div
+            className="relative max-h-[92vh] w-full max-w-6xl overflow-auto rounded-lg bg-black/40 p-2"
+            onClick={(event) => event.stopPropagation()}
+          >
             <button
               type="button"
-              className="absolute right-3 top-3 rounded-full border border-white/30 bg-black/60 px-3 py-1 text-xs text-white"
+              className="sticky left-full top-2 z-10 mb-2 -mr-2 inline-flex rounded-full border border-white/30 bg-black/70 px-3 py-1 text-xs text-white"
               onClick={() => setLightbox(null)}
             >
               Close
@@ -169,7 +172,9 @@ const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade } =
             <img
               src={lightbox.src}
               alt={lightbox.label || "Screenshot preview"}
-              className="max-h-[80vh] w-full rounded-lg object-contain"
+              className="h-auto w-full max-w-none rounded-lg object-contain"
+              decoding="async"
+              fetchPriority="high"
             />
             {lightbox.label ? (
               <p className="mt-2 text-center text-xs text-white/80">{lightbox.label}</p>

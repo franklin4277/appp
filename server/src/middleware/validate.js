@@ -172,8 +172,15 @@ export const validateTradeCreatePayload = (req, _res, next) => {
   }
 
   if (!setupType || setupType.length > 80) {
-    next(createValidationError("setupType is required and should be under 80 characters."));
-    return;
+    const fallbackRaw =
+      req.user?.settings?.options?.setupTypes?.[0] || DEFAULT_STRATEGY_OPTIONS.setupTypes?.[0] || "";
+    const fallback = toText(fallbackRaw);
+    if (fallback && fallback.length <= 80) {
+      req.body = { ...req.body, setupType: fallback };
+    } else {
+      next(createValidationError("setupType is required and should be under 80 characters."));
+      return;
+    }
   }
 
   if (!["buy", "sell"].includes(tradeTypeRaw)) {

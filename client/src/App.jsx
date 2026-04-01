@@ -1203,13 +1203,17 @@ const App = () => {
       if (!String(quickTradeForm.session || "").trim() && sessionOptions[0]) {
         setQuickTradeForm((prev) => ({ ...prev, session: sessionOptions[0] }));
       }
+      const safeSetupType = String(quickTradeForm.setupType || "").trim() || setupOptions[0] || "Breakout";
+      if (!String(quickTradeForm.setupType || "").trim() && setupOptions[0]) {
+        setQuickTradeForm((prev) => ({ ...prev, setupType: setupOptions[0] }));
+      }
       const data = new FormData();
       data.append("profileId", filters.profileId || user?.activeProfileId || "");
       data.append("pair", pair);
       data.append("tradeDate", quickTradeForm.tradeDate || new Date().toISOString().slice(0, 10));
       data.append("session", safeSession);
       data.append("tradeType", "Buy");
-      data.append("setupType", quickTradeForm.setupType || setupOptions[0] || "Breakout");
+      data.append("setupType", safeSetupType);
       data.append("entryPrice", String(entryPrice));
       data.append("exitPrice", Number.isFinite(exitPrice) ? String(exitPrice) : "");
       data.append("stopLoss", String(stopLoss));

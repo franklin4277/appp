@@ -930,6 +930,14 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
   };
 
   const submitTrade = async (acceptGuardrailOverride = false) => {
+    const normalizedPair = String(form.pair || "")
+      .toUpperCase()
+      .replace(/\s+/g, "");
+    if (!normalizedPair || normalizedPair.length < 3 || normalizedPair.length > 15) {
+      setError("Pair is required and should be 3-15 characters.");
+      return;
+    }
+
     if (hasCriticalPreTradeAlert && !acceptGuardrailOverride) {
       setChecklistWarnings(
         preTradeAlerts

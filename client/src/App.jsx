@@ -1190,7 +1190,7 @@ const App = () => {
       const stopLossValue = stopLossInput === "" ? NaN : toNumber(stopLossInput, NaN);
       const takeProfitValue = takeProfitInput === "" ? NaN : toNumber(takeProfitInput, NaN);
       const plannedRRInput = quickTradeForm.plannedRR === "" ? NaN : toNumber(quickTradeForm.plannedRR, NaN);
-      if (!pair || pair.length < 3 || pair.length > 15 || !Number.isFinite(entryPrice)) {
+      if (!pair || pair.length < 3 || pair.length > 15 || !Number.isFinite(entryPrice) || entryPrice <= 0) {
         setError("Pair and entry price are required.");
         return;
       }
@@ -1203,6 +1203,10 @@ const App = () => {
       const defaultTake = round(entryPrice * 1.01, 5);
       const stopLoss = Number.isFinite(stopLossValue) && stopLossValue > 0 ? stopLossValue : defaultStop;
       const takeProfit = Number.isFinite(takeProfitValue) && takeProfitValue > 0 ? takeProfitValue : defaultTake;
+      if (!Number.isFinite(stopLoss) || stopLoss <= 0 || !Number.isFinite(takeProfit) || takeProfit <= 0) {
+        setError("Stop loss and take profit must be greater than 0.");
+        return;
+      }
       const plannedRR = Number.isFinite(plannedRRInput) && plannedRRInput > 0
         ? round(plannedRRInput, 2)
         : round(Math.abs(takeProfit - entryPrice) / Math.max(Math.abs(entryPrice - stopLoss), 0.00001), 2);

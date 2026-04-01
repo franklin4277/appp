@@ -164,10 +164,14 @@ if (exposeLocalUploads) {
 }
 
 app.get("/api/health", (_req, res) => {
+  const version =
+    String(process.env.RENDER_GIT_COMMIT || process.env.GIT_SHA || process.env.COMMIT_SHA || "").trim() ||
+    "unknown";
   res.json({
     ok: true,
     service: "forex-journal-api",
     time: new Date().toISOString(),
+    version,
   });
 });
 

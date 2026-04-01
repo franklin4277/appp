@@ -34,14 +34,14 @@ const localNow = () => {
 const generateClientTradeId = () => `ct-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const buildDraftStorageKey = (profileId = "") => `${DRAFT_STORAGE_PREFIX}:${String(profileId || "main")}`;
 
-const buildOptionLists = (settings = {}) => ({
+  const buildOptionLists = (settings = {}) => ({
   pairs: (() => {
     const source = settings?.options?.pairs?.length ? settings.options.pairs : PAIRS;
     const normalized = source
       .map((pair) =>
         String(pair || "")
           .toUpperCase()
-          .replace(/\s+/g, "")
+          .replace(/[^A-Z0-9]/g, "")
       )
       .filter((pair) => pair.length >= 3 && pair.length <= 15);
     return normalized.length ? normalized : PAIRS;
@@ -800,7 +800,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
     if (field === "pair") {
       const normalizedPair = String(value || "")
         .toUpperCase()
-        .replace(/\s+/g, "");
+        .replace(/[^A-Z0-9]/g, "");
       normalizedValue = normalizedPair;
     }
     setForm((prev) => ({

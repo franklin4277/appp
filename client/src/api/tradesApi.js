@@ -1104,7 +1104,11 @@ export const readOfflineSnapshot = () => {
 };
 
 const normalizeQueuedDraft = (draft = {}) => {
-  const pair = String(draft.pair || "").trim().toUpperCase() || "EURUSD";
+  const pair =
+    String(draft.pair || "")
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "") || "EURUSD";
   return {
     profileId: String(draft.profileId || "").trim(),
     clientTradeId: String(draft.clientTradeId || "").trim(),
@@ -1222,7 +1226,11 @@ export const getOfflineQueue = () => {
       ...item,
       payload: {
         ...item.payload,
-        pair: String(item.payload?.pair || "").trim().toUpperCase() || "EURUSD",
+        pair:
+          String(item.payload?.pair || "")
+            .trim()
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, "") || "EURUSD",
       },
     }));
 };
@@ -1285,7 +1293,11 @@ export const clearOfflineQueue = async () => {
 
 const buildQueuedFormData = (payload = {}) => {
   const data = new FormData();
-  const safePair = String(payload.pair || "").trim().toUpperCase() || "EURUSD";
+  const safePair =
+    String(payload.pair || "")
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "") || "EURUSD";
   const fields = [
     "profileId",
     "clientTradeId",

@@ -33,7 +33,7 @@ const normalizePairList = (value = []) => {
     .map((item) =>
       String(item || "")
         .toUpperCase()
-        .replace(/\s+/g, "")
+        .replace(/[^A-Z0-9]/g, "")
     )
     .filter((item) => item.length >= 3 && item.length <= 15);
 

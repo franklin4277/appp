@@ -121,7 +121,9 @@ export const validatePasswordResetConfirmPayload = (req, _res, next) => {
 };
 
 export const validateTradeCreatePayload = (req, _res, next) => {
-  const pair = toText(req.body?.pair).toUpperCase();
+  const pair = toText(req.body?.pair)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
   const session = toText(req.body?.session);
   const tradeTypeRaw = toText(req.body?.tradeType).toLowerCase();
   const setupType = toText(req.body?.setupType);

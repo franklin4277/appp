@@ -1107,7 +1107,7 @@ const App = () => {
       .map((pair) =>
         String(pair || "")
           .toUpperCase()
-          .replace(/\s+/g, "")
+          .replace(/[^A-Z0-9]/g, "")
       )
       .filter((pair) => pair.length >= 3 && pair.length <= 15);
     return normalized.length ? normalized : PAIRS;
@@ -1149,7 +1149,7 @@ const App = () => {
 
       const normalizedPair = String(value || "")
         .toUpperCase()
-        .replace(/\s+/g, "");
+        .replace(/[^A-Z0-9]/g, "");
       return {
         ...prev,
         pair: normalizedPair,
@@ -1169,7 +1169,8 @@ const App = () => {
       }
 
       const normalizedPair = String(quickTradeForm.pair || "").trim().toUpperCase();
-      const pair = normalizedPair || pairOptions[0] || "";
+      const sanitizedPair = normalizedPair.replace(/[^A-Z0-9]/g, "");
+      const pair = sanitizedPair || pairOptions[0] || "";
       const entryPrice = toNumber(quickTradeForm.entryPrice, NaN);
       const exitPrice = quickTradeForm.exitPrice === "" ? NaN : toNumber(quickTradeForm.exitPrice, NaN);
       const plannedRRInput = quickTradeForm.plannedRR === "" ? NaN : toNumber(quickTradeForm.plannedRR, NaN);

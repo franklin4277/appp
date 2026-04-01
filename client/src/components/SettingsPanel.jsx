@@ -14,7 +14,7 @@ const normalizePairs = (value = "") => {
   const raw = fromCsv(value).map((pair) =>
     String(pair || "")
       .toUpperCase()
-      .replace(/\s+/g, "")
+      .replace(/[^A-Z0-9]/g, "")
   );
   const filtered = raw.filter((pair) => pair.length >= 3 && pair.length <= 15);
   return filtered.length ? filtered : PAIRS;

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import ThemeToggle from "./ThemeToggle";
 import BrandLogo from "./BrandLogo";
+import ScreenshotReplay from "./ScreenshotReplay";
 import { PAIRS } from "../utils/options";
 
 const toNumber = (value, fallback = 0) => {
@@ -1664,6 +1665,8 @@ const SaasWorkspace = ({
               </div>
             </div>
           </article>
+
+          <ScreenshotReplay trades={activeReviewTrades} />
 
           <article className="panel saas-card">
             <div className="saas-card-head">

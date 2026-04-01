@@ -918,6 +918,16 @@ export const fetchTrades = async (filters, token) => {
   return parseResponse(response);
 };
 
+export const fetchTradeById = async (tradeId, token) => {
+  const id = String(tradeId || "").trim();
+  if (!id) {
+    throw new Error("Trade id is required.");
+  }
+
+  const response = await fetchWithAuthRetry(`${API_BASE}/api/trades/${encodeURIComponent(id)}`, {}, token);
+  return parseResponse(response);
+};
+
 export const fetchAnalytics = async (filters, token) => {
   const response = await fetchWithAuthRetry(
     `${API_BASE}/api/trades/analytics${queryString(filters)}`,

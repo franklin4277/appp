@@ -10,6 +10,7 @@ import {
   exportTradesCsv,
   getAnalytics,
   getSharedWeeklyReview,
+  getTradeById,
   getTrades,
   getWeeklyReview,
   importTradesCsv,
@@ -81,6 +82,7 @@ router.post("/review/share", createSharedWeeklyReview);
 router.get("/review/shares", listWeeklyReviewShares);
 router.delete("/review/share/:shareId", revokeWeeklyReviewShare);
 router.get("/export.csv", exportTradesCsv);
+router.get("/:tradeId", getTradeById);
 router.post("/import.csv", uploadCsvFile.single("file"), importTradesCsv);
 router.post(
   "/",

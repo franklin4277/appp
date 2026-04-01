@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import mongoose from "mongoose";
 import Trade from "../models/Trade.js";
 import BridgeIngestEvent from "../models/BridgeIngestEvent.js";
 import User from "../models/User.js";
@@ -1495,6 +1496,30 @@ export const getTrades = async (req, res, next) => {
       pageSize: safeLimit,
       data: trades.map((trade) => transformTrade(trade, req)),
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getTradeById = async (req, res, next) => {
+  try {
+    const tradeId = String(req.params.tradeId || "").trim();
+    if (!mongoose.isValidObjectId(tradeId)) {
+      res.status(400).json({ message: "Invalid trade id." });
+      return;
+    }
+
+    const trade = await Trade.findOne({
+      _id: tradeId,
+      userId: req.user._id,
+    }).lean();
+
+    if (!trade) {
+      res.status(404).json({ message: "Trade not found." });
+      return;
+    }
+
+    res.json(transformTrade(trade, req));
   } catch (error) {
     next(error);
   }

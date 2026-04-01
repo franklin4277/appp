@@ -9,7 +9,9 @@ import {
   ensureLocalDeviceId,
   fetchAnalytics,
   fetchMe,
+  fetchTradeById,
   fetchTrades,
+  exportTradesCsv,
   generateMt5BridgeKey,
   getOfflineQueue,
   isNetworkError,
@@ -238,6 +240,7 @@ const App = () => {
   const [analytics, setAnalytics] = useState(emptyAnalytics);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [exportingCsv, setExportingCsv] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [syncingQueue, setSyncingQueue] = useState(false);
   const [showAdvancedAnalytics, setShowAdvancedAnalytics] = useState(() => {
@@ -969,6 +972,66 @@ const App = () => {
     }
   };
 
+  const handleFetchTradeDetails = useCallback(
+    async (tradeId) => {
+      if (!token) {
+        return null;
+      }
+      if (!isOnline) {
+        return null;
+      }
+
+      try {
+        const trade = await fetchTradeById(tradeId, token);
+        const latestSession = readStoredAuthSession();
+        if (latestSession.token && latestSession.token !== token) {
+          setToken(latestSession.token);
+        }
+        if (latestSession.refreshToken && latestSession.refreshToken !== refreshToken) {
+          setRefreshToken(latestSession.refreshToken);
+        }
+        return trade || null;
+      } catch {
+        return null;
+      }
+    },
+    [isOnline, refreshToken, token]
+  );
+
+  const handleExportTradesCsv = useCallback(async () => {
+    if (!token) {
+      setError("You must be signed in to export trades.");
+      return;
+    }
+
+    if (!isOnline) {
+      setError("You're offline. Connect to the internet to export trades.");
+      return;
+    }
+
+    setExportingCsv(true);
+    setError("");
+    setStatusMessage("");
+
+    try {
+      const blob = await exportTradesCsv(filters, token);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const date = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `trading-journal-${date}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setStatusMessage("CSV export downloaded.");
+    } catch (downloadError) {
+      setError(downloadError.message || "Could not export CSV.");
+    } finally {
+      setExportingCsv(false);
+    }
+  }, [filters, isOnline, token]);
+
   const sessionOptions = useMemo(() => {
     const source = user?.settings?.options?.sessions;
     if (Array.isArray(source) && source.length) {
@@ -1371,6 +1434,9 @@ const App = () => {
         savingUserSettings={savingUserSettings}
         handleGenerateMt5BridgeKey={handleGenerateMt5BridgeKey}
         handleDisableMt5Bridge={handleDisableMt5Bridge}
+        handleFetchTradeDetails={handleFetchTradeDetails}
+        handleExportTradesCsv={handleExportTradesCsv}
+        exportingCsv={exportingCsv}
         onLogout={onLogout}
         loading={loading}
         syncingQueue={syncingQueue}

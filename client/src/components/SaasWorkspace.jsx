@@ -7,6 +7,14 @@ const toNumber = (value, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const toFinite = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return Number.NaN;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+};
+
 const round = (value, precision = 2) => {
   const factor = 10 ** precision;
   return Math.round((value + Number.EPSILON) * factor) / factor;
@@ -258,6 +266,9 @@ const SaasWorkspace = ({
   savingUserSettings,
   handleGenerateMt5BridgeKey,
   handleDisableMt5Bridge,
+  handleFetchTradeDetails,
+  handleExportTradesCsv,
+  exportingCsv,
   onLogout,
   loading,
   syncingQueue,
@@ -423,6 +434,8 @@ const SaasWorkspace = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [newProfileName, setNewProfileName] = useState("");
   const [selectedTrade, setSelectedTrade] = useState(null);
+  const [tradeDetailsBusy, setTradeDetailsBusy] = useState(false);
+  const [tradeDetailsError, setTradeDetailsError] = useState("");
   const [tradeSearch, setTradeSearch] = useState("");
   const [settingsDraft, setSettingsDraft] = useState({
     pairs: "",
@@ -537,6 +550,49 @@ const SaasWorkspace = ({
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [selectedTrade]);
+
+  useEffect(() => {
+    if (selectedTrade) {
+      return;
+    }
+    setTradeDetailsBusy(false);
+    setTradeDetailsError("");
+  }, [selectedTrade]);
+
+  const openTrade = async (trade) => {
+    if (!trade) {
+      return;
+    }
+
+    setSelectedTrade(trade);
+    setTradeDetailsError("");
+
+    const tradeId = trade._id;
+    const hasDetails =
+      trade.entryPrice !== undefined ||
+      trade.stopLoss !== undefined ||
+      trade.takeProfit !== undefined ||
+      trade.plannedRR !== undefined ||
+      trade.screenshots?.before ||
+      trade.screenshots?.after ||
+      trade.notes?.priceAction ||
+      trade.notes?.executionReview;
+
+    if (!tradeId || hasDetails || typeof handleFetchTradeDetails !== "function") {
+      return;
+    }
+
+    setTradeDetailsBusy(true);
+    const detailed = await handleFetchTradeDetails(tradeId);
+    setTradeDetailsBusy(false);
+
+    if (!detailed) {
+      setTradeDetailsError("Could not load full trade details.");
+      return;
+    }
+
+    setSelectedTrade((prev) => (prev && prev._id === tradeId ? detailed : prev));
+  };
 
   const copyText = async (value, successMessage) => {
     if (!value) {
@@ -924,11 +980,11 @@ const SaasWorkspace = ({
                       key={trade._id || `${trade.tradeDate}-${trade.pair}-${trade.setupType}`}
                       className="saas-clickable-row"
                       tabIndex={0}
-                      onClick={() => setSelectedTrade(trade)}
+                      onClick={() => void openTrade(trade)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
-                          setSelectedTrade(trade);
+                          void openTrade(trade);
                         }
                       }}
                     >
@@ -1582,6 +1638,19 @@ const SaasWorkspace = ({
                   placeholder="Search (pair, setup, session...)"
                 />
                 <span className="chip text-textMain">{filteredReviewTrades.length}/{activeReviewTrades.length}</span>
+                <button
+                  type="button"
+                  className="chip quick-chart-btn"
+                  disabled={!isOnline || exportingCsv || typeof handleExportTradesCsv !== "function"}
+                  onClick={() => {
+                    if (typeof handleExportTradesCsv !== "function") {
+                      return;
+                    }
+                    void handleExportTradesCsv();
+                  }}
+                >
+                  {exportingCsv ? "Exporting..." : "Export CSV"}
+                </button>
               </div>
             </div>
             <p className="saas-stat-label mt-2">Tap a row to revisit the full trade details.</p>
@@ -1609,11 +1678,11 @@ const SaasWorkspace = ({
                         key={trade._id || trade.clientTradeId || `${trade.tradeDate}-${trade.pair}-${trade.setupType}`}
                         className="saas-clickable-row"
                         tabIndex={0}
-                        onClick={() => setSelectedTrade(trade)}
+                        onClick={() => void openTrade(trade)}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
-                            setSelectedTrade(trade);
+                            void openTrade(trade);
                           }
                         }}
                       >
@@ -2028,6 +2097,16 @@ const SaasWorkspace = ({
           </div>
 
           <div className="saas-trade-modal-body">
+            {tradeDetailsBusy ? (
+              <p className="saas-alert" role="status" aria-live="polite">
+                Loading trade details...
+              </p>
+            ) : null}
+            {tradeDetailsError ? (
+              <p className="saas-alert saas-alert-error" role="alert">
+                {tradeDetailsError}
+              </p>
+            ) : null}
             <ul className="saas-detail-list">
               <li>
                 <span>Session</span>
@@ -2039,31 +2118,59 @@ const SaasWorkspace = ({
               </li>
               <li>
                 <span>Entry</span>
-                <strong>{Number.isFinite(selectedTrade.entryPrice) ? selectedTrade.entryPrice : "-"}</strong>
+                <strong>
+                  {Number.isFinite(toFinite(selectedTrade.entryPrice))
+                    ? toFinite(selectedTrade.entryPrice)
+                    : "-"}
+                </strong>
               </li>
               <li>
                 <span>Stop</span>
-                <strong>{Number.isFinite(selectedTrade.stopLoss) ? selectedTrade.stopLoss : "-"}</strong>
+                <strong>
+                  {Number.isFinite(toFinite(selectedTrade.stopLoss))
+                    ? toFinite(selectedTrade.stopLoss)
+                    : "-"}
+                </strong>
               </li>
               <li>
                 <span>Take profit</span>
-                <strong>{Number.isFinite(selectedTrade.takeProfit) ? selectedTrade.takeProfit : "-"}</strong>
+                <strong>
+                  {Number.isFinite(toFinite(selectedTrade.takeProfit))
+                    ? toFinite(selectedTrade.takeProfit)
+                    : "-"}
+                </strong>
               </li>
               <li>
                 <span>Planned R:R</span>
-                <strong>{Number.isFinite(selectedTrade.plannedRR) ? Number(selectedTrade.plannedRR).toFixed(2) : "-"}</strong>
+                <strong>
+                  {Number.isFinite(toFinite(selectedTrade.plannedRR))
+                    ? toFinite(selectedTrade.plannedRR).toFixed(2)
+                    : "-"}
+                </strong>
               </li>
               <li>
                 <span>Net R</span>
-                <strong>{Number.isFinite(selectedTrade.rrAchieved) ? Number(selectedTrade.rrAchieved).toFixed(2) : "-"}R</strong>
+                <strong>
+                  {Number.isFinite(toFinite(selectedTrade.rrAchieved))
+                    ? toFinite(selectedTrade.rrAchieved).toFixed(2)
+                    : "-"}R
+                </strong>
               </li>
               <li>
                 <span>Risk %</span>
-                <strong>{Number.isFinite(selectedTrade.riskPercent) ? `${Number(selectedTrade.riskPercent).toFixed(2)}%` : "-"}</strong>
+                <strong>
+                  {Number.isFinite(toFinite(selectedTrade.riskPercent))
+                    ? `${toFinite(selectedTrade.riskPercent).toFixed(2)}%`
+                    : "-"}
+                </strong>
               </li>
               <li>
                 <span>Lot size</span>
-                <strong>{selectedTrade.lotSize === null || selectedTrade.lotSize === undefined ? "-" : selectedTrade.lotSize}</strong>
+                <strong>
+                  {Number.isFinite(toFinite(selectedTrade.lotSize))
+                    ? toFinite(selectedTrade.lotSize)
+                    : "-"}
+                </strong>
               </li>
               <li>
                 <span>Source</span>

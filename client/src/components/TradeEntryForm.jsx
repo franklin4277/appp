@@ -1044,6 +1044,19 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
     setError("");
 
     try {
+      const preflight = {
+        entryPrice: normalizePriceInput(form.entryPrice),
+        stopLoss: normalizePriceInput(form.stopLoss),
+        takeProfit: normalizePriceInput(form.takeProfit),
+        exitPrice: normalizePriceInput(form.exitPrice),
+      };
+      if (!preflight.entryPrice || !preflight.stopLoss || !preflight.takeProfit) {
+        setError(
+          `Preflight check failed. Entry: "${preflight.entryPrice}", SL: "${preflight.stopLoss}", TP: "${preflight.takeProfit}".`
+        );
+        setIsSubmitting(false);
+        return;
+      }
       const payload = buildPayload(acceptGuardrailOverride);
       const savedTrade = await createTrade(payload, token);
       persistLastStructure();

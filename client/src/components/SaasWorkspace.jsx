@@ -236,6 +236,8 @@ const SaasWorkspace = ({
   user,
   filters,
   handleProfileSwitch,
+  handleProfileCreate,
+  creatingProfile,
   onLogout,
   loading,
   syncingQueue,
@@ -362,6 +364,7 @@ const SaasWorkspace = ({
     settings: "Settings",
   };
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [newProfileName, setNewProfileName] = useState("");
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -549,15 +552,6 @@ const SaasWorkspace = ({
         <div>
           <h1>{activeMeta.title}</h1>
           <p>{activeMeta.subtitle}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="chip text-textMain">{loading || syncingQueue ? "Syncing..." : isOnline ? "Online" : "Offline"}</span>
-          {offlineQueue.length ? <span className="chip">{offlineQueue.length} queued</span> : null}
-          <ThemeToggle
-            theme={theme}
-            onToggle={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-            className="!py-1"
-          />
         </div>
       </header>
 
@@ -1322,6 +1316,36 @@ const SaasWorkspace = ({
                 </select>
               </label>
               <div className="saas-settings-theme-row">
+                <span className="label">Create profile</span>
+                <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                  <input
+                    className="input w-full sm:w-[260px]"
+                    value={newProfileName}
+                    onChange={(event) => setNewProfileName(event.target.value)}
+                    placeholder="Profile name"
+                    maxLength={40}
+                    disabled={!isOnline || creatingProfile}
+                  />
+                  <button
+                    type="button"
+                    className="btn-primary !px-4 !py-2 text-sm"
+                    disabled={!isOnline || creatingProfile || newProfileName.trim().length < 2 || typeof handleProfileCreate !== "function"}
+                    onClick={async () => {
+                      const trimmed = newProfileName.trim();
+                      if (trimmed.length < 2 || typeof handleProfileCreate !== "function") {
+                        return;
+                      }
+                      const created = await handleProfileCreate({ name: trimmed, makeActive: true });
+                      if (created) {
+                        setNewProfileName("");
+                      }
+                    }}
+                  >
+                    {creatingProfile ? "Creating..." : "Create"}
+                  </button>
+                </div>
+              </div>
+              <div className="saas-settings-theme-row">
                 <span className="label">Theme</span>
                 <ThemeToggle
                   theme={theme}
@@ -1332,6 +1356,13 @@ const SaasWorkspace = ({
           </article>
           <article className="panel saas-card">
             <h3 className="saas-card-title">Queue & Session</h3>
+            <div className="saas-settings-theme-row mb-3">
+              <span className="label">Connection</span>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <span className="chip text-textMain">{loading || syncingQueue ? "Syncing..." : isOnline ? "Online" : "Offline"}</span>
+                {offlineQueue.length ? <span className="chip">{offlineQueue.length} queued</span> : null}
+              </div>
+            </div>
             <div className="saas-settings-actions">
               <button
                 type="button"

@@ -3,6 +3,7 @@ import {
   clearCachedAuthProfile,
   clearAuthSession,
   clearOfflineQueue,
+  createProfile,
   createTrade,
   ensureLocalDeviceId,
   fetchAnalytics,
@@ -254,6 +255,7 @@ const App = () => {
   const [retentionPrefs, setRetentionPrefs] = useState(() => readRetentionPreferences());
   const [quickTradeForm, setQuickTradeForm] = useState(() => buildQuickTradeForm());
   const [savingQuickTrade, setSavingQuickTrade] = useState(false);
+  const [creatingProfile, setCreatingProfile] = useState(false);
   const syncInFlightRef = useRef(false);
   const loadRequestSeqRef = useRef(0);
   const toastCounterRef = useRef(0);
@@ -828,6 +830,57 @@ const App = () => {
     }
   };
 
+  const handleProfileCreate = async ({ name, description = "", makeActive = true } = {}) => {
+    const trimmedName = String(name || "").trim();
+    const trimmedDescription = String(description || "").trim();
+
+    if (trimmedName.length < 2) {
+      setError("Profile name must be at least 2 characters.");
+      return null;
+    }
+
+    if (!token) {
+      setError("You must be signed in to create a profile.");
+      return null;
+    }
+
+    if (!isOnline) {
+      setError("You're offline. Connect to the internet to create a profile.");
+      return null;
+    }
+
+    setCreatingProfile(true);
+    setError("");
+    setStatusMessage("");
+
+    try {
+      const response = await createProfile(token, {
+        name: trimmedName,
+        description: trimmedDescription,
+        makeActive,
+      });
+
+      if (response.user) {
+        setUser(response.user);
+      }
+
+      if (makeActive && response.profile?.id) {
+        setFilters((prev) => ({
+          ...prev,
+          profileId: response.profile.id,
+        }));
+      }
+
+      setStatusMessage(`Profile created: ${response.profile?.name || trimmedName}`);
+      return response.profile || null;
+    } catch (createError) {
+      setError(createError.message || "Could not create profile.");
+      return null;
+    } finally {
+      setCreatingProfile(false);
+    }
+  };
+
   const sessionOptions = useMemo(() => {
     const source = user?.settings?.options?.sessions;
     if (Array.isArray(source) && source.length) {
@@ -1224,6 +1277,8 @@ const App = () => {
         user={user}
         filters={filters}
         handleProfileSwitch={handleProfileSwitch}
+        handleProfileCreate={handleProfileCreate}
+        creatingProfile={creatingProfile}
         onLogout={onLogout}
         loading={loading}
         syncingQueue={syncingQueue}

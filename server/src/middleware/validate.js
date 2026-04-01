@@ -5,6 +5,18 @@ const toText = (value = "") =>
     .trim()
     .replace(/\u0000/g, "");
 
+const toNumberValue = (value, fallback = Number.NaN) => {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+  const cleaned = String(value).replace(/,/g, "").trim();
+  if (!cleaned) {
+    return fallback;
+  }
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
 const sanitizeString = (value = "") =>
   toText(value)
     .replace(/[\u0001-\u001f\u007f]/g, "")
@@ -131,19 +143,19 @@ export const validateTradeCreatePayload = (req, _res, next) => {
   const setupType = toText(req.body?.setupType);
   const result = toText(req.body?.result || "BE");
 
-  const entry = Number(req.body?.entryPrice);
+  const entry = toNumberValue(req.body?.entryPrice);
   const exitPriceRaw = req.body?.exitPrice;
   const exitPrice =
     exitPriceRaw === undefined || exitPriceRaw === null || exitPriceRaw === ""
       ? null
-      : Number(exitPriceRaw);
+      : toNumberValue(exitPriceRaw);
   const exitTimeRaw = toText(req.body?.exitTime);
-  const stop = Number(req.body?.stopLoss);
-  const take = Number(req.body?.takeProfit);
+  const stop = toNumberValue(req.body?.stopLoss);
+  const take = toNumberValue(req.body?.takeProfit);
   const riskPercent =
     req.body?.riskPercent === undefined || req.body?.riskPercent === null || req.body?.riskPercent === ""
       ? null
-      : Number(req.body.riskPercent);
+      : toNumberValue(req.body.riskPercent);
 
   if (!pair || pair.length < 3 || pair.length > 15) {
     const fallbackRaw =

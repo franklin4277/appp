@@ -1050,6 +1050,9 @@ const SaasWorkspace = ({
                 <span className="label">Entry Price</span>
                 <input
                   className="input"
+                  type="number"
+                  step="0.00001"
+                  inputMode="decimal"
                   value={quickTradeForm.entryPrice}
                   onChange={(event) => handleQuickTradeChange("entryPrice", event.target.value)}
                   placeholder="1.0850"
@@ -1060,6 +1063,9 @@ const SaasWorkspace = ({
                 <span className="label">Stop Loss</span>
                 <input
                   className="input"
+                  type="number"
+                  step="0.00001"
+                  inputMode="decimal"
                   value={quickTradeForm.stopLoss}
                   onChange={(event) => handleQuickTradeChange("stopLoss", event.target.value)}
                   placeholder="1.0820"
@@ -1069,6 +1075,9 @@ const SaasWorkspace = ({
                 <span className="label">Take Profit</span>
                 <input
                   className="input"
+                  type="number"
+                  step="0.00001"
+                  inputMode="decimal"
                   value={quickTradeForm.takeProfit}
                   onChange={(event) => handleQuickTradeChange("takeProfit", event.target.value)}
                   placeholder="1.0920"
@@ -1078,6 +1087,9 @@ const SaasWorkspace = ({
                 <span className="label">Exit Price</span>
                 <input
                   className="input"
+                  type="number"
+                  step="0.00001"
+                  inputMode="decimal"
                   value={quickTradeForm.exitPrice}
                   onChange={(event) => handleQuickTradeChange("exitPrice", event.target.value)}
                   placeholder="1.0920"

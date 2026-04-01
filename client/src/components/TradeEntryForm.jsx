@@ -1010,29 +1010,6 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
         return;
       }
     }
-    const entryValue = Number(form.entryPrice);
-    if (!Number.isFinite(entryValue) || entryValue <= 0) {
-      setError("Entry price is required and must be greater than 0.");
-      return;
-    }
-    const stopValue = Number(form.stopLoss);
-    if (!Number.isFinite(stopValue) || stopValue <= 0) {
-      setError("Stop loss is required and must be greater than 0.");
-      return;
-    }
-    const takeValue = Number(form.takeProfit);
-    if (!Number.isFinite(takeValue) || takeValue <= 0) {
-      setError("Take profit is required and must be greater than 0.");
-      return;
-    }
-    if (String(form.exitPrice || "").trim()) {
-      const exitValue = Number(form.exitPrice);
-      if (!Number.isFinite(exitValue) || exitValue <= 0) {
-        setError("Exit price must be greater than 0 when provided.");
-        return;
-      }
-    }
-
     if (hasCriticalPreTradeAlert && !acceptGuardrailOverride) {
       setChecklistWarnings(
         preTradeAlerts

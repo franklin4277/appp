@@ -1171,6 +1171,9 @@ const App = () => {
       const normalizedPair = String(quickTradeForm.pair || "").trim().toUpperCase();
       const sanitizedPair = normalizedPair.replace(/[^A-Z0-9]/g, "");
       const pair = sanitizedPair || pairOptions[0] || "";
+      if (!sanitizedPair && pairOptions[0]) {
+        setQuickTradeForm((prev) => ({ ...prev, pair: pairOptions[0] }));
+      }
       const entryPrice = toNumber(quickTradeForm.entryPrice, NaN);
       const exitPrice = quickTradeForm.exitPrice === "" ? NaN : toNumber(quickTradeForm.exitPrice, NaN);
       const plannedRRInput = quickTradeForm.plannedRR === "" ? NaN : toNumber(quickTradeForm.plannedRR, NaN);

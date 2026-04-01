@@ -1,3 +1,5 @@
+import { DEFAULT_STRATEGY_OPTIONS } from "../constants/defaults.js";
+
 const toText = (value = "") =>
   String(value || "")
     .trim()
@@ -121,7 +123,7 @@ export const validatePasswordResetConfirmPayload = (req, _res, next) => {
 };
 
 export const validateTradeCreatePayload = (req, _res, next) => {
-  const pair = toText(req.body?.pair)
+  let pair = toText(req.body?.pair)
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "");
   const session = toText(req.body?.session);
@@ -144,8 +146,17 @@ export const validateTradeCreatePayload = (req, _res, next) => {
       : Number(req.body.riskPercent);
 
   if (!pair || pair.length < 3 || pair.length > 15) {
-    next(createValidationError("pair is required and should be 3-15 characters."));
-    return;
+    const fallbackRaw =
+      req.user?.settings?.options?.pairs?.[0] || DEFAULT_STRATEGY_OPTIONS.pairs?.[0] || "";
+    const fallback = String(fallbackRaw || "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
+    if (fallback && fallback.length >= 3 && fallback.length <= 15) {
+      pair = fallback;
+    } else {
+      next(createValidationError("pair is required and should be 3-15 characters."));
+      return;
+    }
   }
 
   if (!session || session.length > 40) {

@@ -6,29 +6,7 @@ import {
   requestPasswordReset,
   verifyTwoFactorLogin,
 } from "../api/tradesApi";
-
-const LandingBrandMark = ({ className = "" }) => (
-  <span className={className} aria-hidden="true">
-    <svg viewBox="0 0 24 24" role="presentation" className="h-full w-full">
-      <defs>
-        <linearGradient id="landing-brand-mark" x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#2563eb" />
-          <stop offset="1" stopColor="#7c3aed" />
-        </linearGradient>
-      </defs>
-      <rect x="1.5" y="1.5" width="21" height="21" rx="6" fill="url(#landing-brand-mark)" />
-      <path
-        d="M6.5 14.25L10 10.75L12.7 13.15L17.5 8.5"
-        fill="none"
-        stroke="#e2e8f0"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path d="M15.35 8.5H17.5V10.65" fill="none" stroke="#e2e8f0" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  </span>
-);
+import BrandLogo from "./BrandLogo";
 
 const AuthPanel = ({ onAuthenticated }) => {
   const showDebugSecrets = Boolean(import.meta.env.DEV || import.meta.env.VITE_SHOW_DEBUG_AUTH_SECRETS === "true");
@@ -164,8 +142,8 @@ const AuthPanel = ({ onAuthenticated }) => {
         <div className="landing-inner">
           <header className="landing-navbar">
             <div className="brand-block landing-brand-block">
-              <LandingBrandMark className="brand-logo-landing" />
-              <h1 className="landing-brand-title">TradeEdge</h1>
+              <BrandLogo className="brand-logo brand-logo-landing" />
+              <h1 className="landing-brand-title">Journex</h1>
             </div>
           </header>
 
@@ -188,7 +166,7 @@ const AuthPanel = ({ onAuthenticated }) => {
             </div>
 
             <footer id="footer" className="panel animate-riseIn landing-footer">
-              <p className="text-sm text-textMuted">(c) {new Date().getFullYear()} TradeEdge</p>
+              <p className="text-sm text-textMuted">(c) {new Date().getFullYear()} Journex</p>
             </footer>
           </section>
         </div>

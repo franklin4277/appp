@@ -52,10 +52,10 @@ export default defineConfig({
         ],
       },
       manifest: {
-        name: "The Trading Journal",
-        short_name: "Trading Journal",
+        name: "Journex",
+        short_name: "Journex",
         description:
-          "Minimal journal for session-based Forex trade tracking and analytics.",
+          "Journex is a minimal journal for session-based Forex trade tracking and analytics.",
         theme_color: "#0f172a",
         background_color: "#0f172a",
         display: "standalone",

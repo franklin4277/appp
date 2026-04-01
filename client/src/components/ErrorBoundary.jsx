@@ -32,7 +32,7 @@ class ErrorBoundary extends React.Component {
     return (
       <main className="app-shell mx-auto flex min-h-screen w-full max-w-4xl items-center justify-center p-4">
         <section className="panel w-full max-w-xl">
-          <p className="section-kicker">The Trading Journal</p>
+          <p className="section-kicker">Journex</p>
           <h1 className="mt-1 text-xl font-semibold text-textMain">Something went wrong</h1>
           <p className="mt-2 text-sm text-textMuted">
             The app hit an unexpected error. Refresh to recover your session.

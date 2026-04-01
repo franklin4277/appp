@@ -673,7 +673,7 @@ const SaasWorkspace = ({
             </svg>
           </button>
           <BrandLogo className="brand-logo brand-logo-landing" />
-          <span>TradeEdge</span>
+          <span>Journex</span>
         </div>
         <nav className="saas-nav">
           {pages.map((page) => (
@@ -727,7 +727,7 @@ const SaasWorkspace = ({
         <div className="saas-mobile-drawer-head">
           <div className="saas-brand">
             <BrandLogo className="brand-logo brand-logo-landing" />
-            <span>TradeEdge</span>
+            <span>Journex</span>
           </div>
           <button
             type="button"

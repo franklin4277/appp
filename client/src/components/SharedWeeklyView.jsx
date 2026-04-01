@@ -32,7 +32,7 @@ const SharedWeeklyView = ({ shareToken }) => {
             <BrandLogo />
             <div>
               <p className="section-kicker">Shared Weekly Report</p>
-              <h1 className="hero-title brand-title mt-1">The Trading Journal</h1>
+              <h1 className="hero-title brand-title mt-1">Journex</h1>
             </div>
           </div>
 

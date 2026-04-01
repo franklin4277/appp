@@ -8,6 +8,12 @@ const normalizeApiBase = (value = "") => {
 
 const API_BASE = normalizeApiBase(import.meta.env.VITE_API_URL || "");
 const API_TIMEOUT_MS = Math.max(5000, Number(import.meta.env.VITE_API_TIMEOUT_MS || 60000) || 60000);
+// Auth flows often run when the backend is "cold" (Render free tier, etc.).
+// Give them a longer default timeout than normal data fetches.
+const AUTH_TIMEOUT_MS = Math.max(
+  API_TIMEOUT_MS,
+  Number(import.meta.env.VITE_AUTH_TIMEOUT_MS || 180000) || 180000
+);
 export const AUTH_STORAGE_KEY = "trading-journal-token";
 export const AUTH_REFRESH_STORAGE_KEY = "trading-journal-refresh-token";
 const AUTH_PROFILE_CACHE_KEY = "trading-journal-user-cache";
@@ -511,11 +517,11 @@ const parseResponse = async (response, { asBlob = false } = {}) => {
 export const isNetworkError = (error) =>
   Boolean(error?.isNetworkError || error?.code === "NETWORK_UNREACHABLE");
 
-const fetchWithDiagnostics = async (url, options = {}) => {
+const fetchWithDiagnostics = async (url, options = {}, timeoutMs = API_TIMEOUT_MS) => {
   const controller = new AbortController();
   const timeoutId = globalThis.setTimeout(() => {
     controller.abort();
-  }, API_TIMEOUT_MS);
+  }, timeoutMs);
 
   try {
     return await fetch(url, {
@@ -525,7 +531,7 @@ const fetchWithDiagnostics = async (url, options = {}) => {
   } catch (error) {
     if (error?.name === "AbortError") {
       const timeoutError = new Error(
-        `Request timed out after ${Math.round(API_TIMEOUT_MS / 1000)}s. Check backend status and SMTP settings.`
+        `Request timed out after ${Math.round(timeoutMs / 1000)}s. The backend may be sleeping or overloaded. Try again in a moment.`
       );
       timeoutError.code = "REQUEST_TIMEOUT";
       timeoutError.isNetworkError = true;
@@ -644,13 +650,17 @@ const fetchWithAuthRetry = async (url, options = {}, token = "") => {
 };
 
 export const registerUser = async ({ name, email, password }) => {
-  const response = await fetchWithDiagnostics(`${API_BASE}/api/auth/register`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  const response = await fetchWithDiagnostics(
+    `${API_BASE}/api/auth/register`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name, email, password }),
     },
-    body: JSON.stringify({ name, email, password }),
-  });
+    AUTH_TIMEOUT_MS
+  );
   const payload = await parseResponse(response);
   if (!payload?.token) {
     throw new Error(
@@ -665,13 +675,17 @@ export const registerUser = async ({ name, email, password }) => {
 };
 
 export const loginUser = async ({ email, password }) => {
-  const response = await fetchWithDiagnostics(`${API_BASE}/api/auth/login`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  const response = await fetchWithDiagnostics(
+    `${API_BASE}/api/auth/login`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password }),
     },
-    body: JSON.stringify({ email, password }),
-  });
+    AUTH_TIMEOUT_MS
+  );
   const payload = await parseResponse(response);
   if (!payload?.requiresTwoFactor && !payload?.token) {
     throw new Error(
@@ -688,13 +702,17 @@ export const loginUser = async ({ email, password }) => {
 };
 
 export const verifyTwoFactorLogin = async ({ email, challengeId, code }) => {
-  const response = await fetchWithDiagnostics(`${API_BASE}/api/auth/2fa/verify-login`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  const response = await fetchWithDiagnostics(
+    `${API_BASE}/api/auth/2fa/verify-login`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, challengeId, code }),
     },
-    body: JSON.stringify({ email, challengeId, code }),
-  });
+    AUTH_TIMEOUT_MS
+  );
 
   const payload = await parseResponse(response);
   persistAuthSession({
@@ -705,24 +723,32 @@ export const verifyTwoFactorLogin = async ({ email, challengeId, code }) => {
 };
 
 export const requestPasswordReset = async ({ email }) => {
-  const response = await fetchWithDiagnostics(`${API_BASE}/api/auth/password-reset/request`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  const response = await fetchWithDiagnostics(
+    `${API_BASE}/api/auth/password-reset/request`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email }),
     },
-    body: JSON.stringify({ email }),
-  });
+    AUTH_TIMEOUT_MS
+  );
   return parseResponse(response);
 };
 
 export const confirmPasswordReset = async ({ token, newPassword }) => {
-  const response = await fetchWithDiagnostics(`${API_BASE}/api/auth/password-reset/confirm`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  const response = await fetchWithDiagnostics(
+    `${API_BASE}/api/auth/password-reset/confirm`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ token, newPassword }),
     },
-    body: JSON.stringify({ token, newPassword }),
-  });
+    AUTH_TIMEOUT_MS
+  );
   return parseResponse(response);
 };
 

@@ -27,6 +27,7 @@ import {
   updateUserSettings,
   unlockTrustedDevice,
 } from "./api/tradesApi";
+import { PAIRS } from "./utils/options";
 import AuthPanel from "./components/AuthPanel";
 import ResetPasswordView from "./components/ResetPasswordView";
 import SharedWeeklyView from "./components/SharedWeeklyView";
@@ -203,9 +204,9 @@ const groupedStats = (trades = [], selector = () => "") =>
     }))
     .sort((a, b) => b.winRate - a.winRate || b.avgRR - a.avgRR);
 
-const buildQuickTradeForm = ({ setupOptions = [], sessionOptions = [] } = {}) => ({
+const buildQuickTradeForm = ({ setupOptions = [], sessionOptions = [], pairOptions = [] } = {}) => ({
   tradeDate: new Date().toISOString().slice(0, 10),
-  pair: "",
+  pair: pairOptions[0] || "",
   entryPrice: "",
   exitPrice: "",
   plannedRR: "",
@@ -271,7 +272,7 @@ const App = () => {
   const [theme, setTheme] = useState(() => resolveInitialTheme());
   const [toasts, setToasts] = useState([]);
   const [retentionPrefs, setRetentionPrefs] = useState(() => readRetentionPreferences());
-  const [quickTradeForm, setQuickTradeForm] = useState(() => buildQuickTradeForm());
+  const [quickTradeForm, setQuickTradeForm] = useState(() => buildQuickTradeForm({ pairOptions: PAIRS }));
   const [savingQuickTrade, setSavingQuickTrade] = useState(false);
   const [creatingProfile, setCreatingProfile] = useState(false);
   const [savingUserSettings, setSavingUserSettings] = useState(false);
@@ -1098,6 +1099,14 @@ const App = () => {
     return ["London", "New York", "Asia"];
   }, [user?.settings?.options?.sessions]);
 
+  const pairOptions = useMemo(() => {
+    const source = user?.settings?.options?.pairs;
+    if (Array.isArray(source) && source.length) {
+      return source;
+    }
+    return PAIRS;
+  }, [user?.settings?.options?.pairs]);
+
   const setupOptions = useMemo(() => {
     const source = user?.settings?.options?.setupTypes;
     if (Array.isArray(source) && source.length) {
@@ -1108,18 +1117,20 @@ const App = () => {
 
   useEffect(() => {
     setQuickTradeForm((prev) => {
+      const nextPair = pairOptions.includes(prev.pair) ? prev.pair : pairOptions[0] || "";
       const nextSetup = prev.setupType || setupOptions[0] || "";
       const nextSession = prev.session || sessionOptions[0] || "";
-      if (nextSetup === prev.setupType && nextSession === prev.session) {
+      if (nextPair === prev.pair && nextSetup === prev.setupType && nextSession === prev.session) {
         return prev;
       }
       return {
         ...prev,
+        pair: nextPair,
         setupType: nextSetup,
         session: nextSession,
       };
     });
-  }, [sessionOptions, setupOptions]);
+  }, [pairOptions, sessionOptions, setupOptions]);
 
   const handleQuickTradeChange = useCallback((field, value) => {
     setQuickTradeForm((prev) => ({
@@ -1129,8 +1140,8 @@ const App = () => {
   }, []);
 
   const resetQuickTradeForm = useCallback(() => {
-    setQuickTradeForm(buildQuickTradeForm({ setupOptions, sessionOptions }));
-  }, [sessionOptions, setupOptions]);
+    setQuickTradeForm(buildQuickTradeForm({ setupOptions, sessionOptions, pairOptions }));
+  }, [pairOptions, sessionOptions, setupOptions]);
 
   const handleQuickTradeSubmit = useCallback(
     async (event) => {
@@ -1139,11 +1150,12 @@ const App = () => {
         return;
       }
 
-      const pair = String(quickTradeForm.pair || "").trim().toUpperCase();
+      const normalizedPair = String(quickTradeForm.pair || "").trim().toUpperCase();
+      const pair = pairOptions.includes(normalizedPair) ? normalizedPair : pairOptions[0] || normalizedPair;
       const entryPrice = toNumber(quickTradeForm.entryPrice, NaN);
       const exitPrice = quickTradeForm.exitPrice === "" ? NaN : toNumber(quickTradeForm.exitPrice, NaN);
       const plannedRRInput = quickTradeForm.plannedRR === "" ? NaN : toNumber(quickTradeForm.plannedRR, NaN);
-      if (!pair || !Number.isFinite(entryPrice)) {
+      if (!pair || pair.length < 3 || pair.length > 15 || !Number.isFinite(entryPrice)) {
         setError("Pair and entry price are required.");
         return;
       }
@@ -1208,6 +1220,7 @@ const App = () => {
       onTradeSaved,
       quickTradeForm,
       resetQuickTradeForm,
+      pairOptions,
       sessionOptions,
       setupOptions,
       token,
@@ -1530,6 +1543,7 @@ const App = () => {
         handleQuickTradeChange={handleQuickTradeChange}
         setupOptions={setupOptions}
         sessionOptions={sessionOptions}
+        pairOptions={pairOptions}
         handleQuickTradeSubmit={handleQuickTradeSubmit}
         savingQuickTrade={savingQuickTrade}
         resetQuickTradeForm={resetQuickTradeForm}

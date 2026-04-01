@@ -295,6 +295,7 @@ const SaasWorkspace = ({
   recentTrades,
   quickTradeForm,
   handleQuickTradeChange,
+  pairOptions,
   setupOptions,
   sessionOptions,
   handleQuickTradeSubmit,
@@ -1031,13 +1032,18 @@ const SaasWorkspace = ({
               </label>
               <label>
                 <span className="label">Currency Pair</span>
-                <input
+                <select
                   className="input"
                   value={quickTradeForm.pair}
                   onChange={(event) => handleQuickTradeChange("pair", event.target.value)}
-                  placeholder="EUR/USD"
                   required
-                />
+                >
+                  {(pairOptions || []).map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label>
                 <span className="label">Entry Price</span>

@@ -1,9 +1,9 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   clearCachedAuthProfile,
   clearAuthSession,
   clearOfflineQueue,
-  createProfile,
+  createTrade,
   ensureLocalDeviceId,
   fetchAnalytics,
   fetchMe,
@@ -22,8 +22,8 @@ import {
   unlockTrustedDevice,
 } from "./api/tradesApi";
 import AuthPanel from "./components/AuthPanel";
-import BrandLogo from "./components/BrandLogo";
 import SharedWeeklyView from "./components/SharedWeeklyView";
+import SaasWorkspace from "./components/SaasWorkspace";
 import { buildLocalDashboardAnalytics } from "./utils/offlineAnalytics";
 import { buildEdgeInsights } from "./utils/insights";
 import {
@@ -33,33 +33,9 @@ import {
   PAGE_STORAGE_KEY,
 } from "./utils/appNavigation";
 import { formatSyncTime, matchesTradeFilters } from "./utils/tradeFilters";
-import ThemeToggle from "./components/ThemeToggle";
 import ToastStack from "./components/ToastStack";
 import { dayKey, dayNameToIndex, readRetentionPreferences, weekKey } from "./utils/retention";
 import { applyTheme, resolveInitialTheme } from "./utils/theme";
-
-const AccountSecurityPanel = lazy(() => import("./components/AccountSecurityPanel"));
-const BehaviorLab = lazy(() => import("./components/BehaviorLab"));
-const CalendarConsistency = lazy(() => import("./components/CalendarConsistency"));
-const CoachingSummary = lazy(() => import("./components/CoachingSummary"));
-const DataTools = lazy(() => import("./components/DataTools"));
-const DrawdownChart = lazy(() => import("./components/DrawdownChart"));
-const EdgeInsightsPanel = lazy(() => import("./components/EdgeInsightsPanel"));
-const FiltersBar = lazy(() => import("./components/FiltersBar"));
-const HeatmapMatrix = lazy(() => import("./components/HeatmapMatrix"));
-const MonthlyPerformancePanel = lazy(() => import("./components/MonthlyPerformancePanel"));
-const ProfitCurveChart = lazy(() => import("./components/ProfitCurveChart"));
-const RetentionPanel = lazy(() => import("./components/RetentionPanel"));
-const ScreenshotReplay = lazy(() => import("./components/ScreenshotReplay"));
-const SessionPerformanceGraph = lazy(() => import("./components/SessionPerformanceGraph"));
-const SettingsPanel = lazy(() => import("./components/SettingsPanel"));
-const SetupBreakdown = lazy(() => import("./components/SetupBreakdown"));
-const StatCards = lazy(() => import("./components/StatCards"));
-const StreakTracker = lazy(() => import("./components/StreakTracker"));
-const TagAnalytics = lazy(() => import("./components/TagAnalytics"));
-const TradeEntryForm = lazy(() => import("./components/TradeEntryForm"));
-const TradesTable = lazy(() => import("./components/TradesTable"));
-const WeeklyReviewReport = lazy(() => import("./components/WeeklyReviewReport"));
 
 const emptySummary = {
   totalTrades: 0,
@@ -115,12 +91,6 @@ const emptyAnalytics = {
   },
 };
 
-const SectionLoader = ({ label = "Loading section..." }) => (
-  <section className="panel animate-riseIn">
-    <p className="text-sm text-textMuted">{label}</p>
-  </section>
-);
-
 const useDebouncedValue = (value, delayMs = 320) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
 
@@ -135,14 +105,113 @@ const useDebouncedValue = (value, delayMs = 320) => {
   return debouncedValue;
 };
 
+const pageMeta = {
+  dashboard: {
+    title: "Dashboard",
+    subtitle: "Track your trading performance at a glance",
+  },
+  journal: {
+    title: "Add New Trade",
+    subtitle: "Log your trade in under 60 seconds",
+  },
+  analytics: {
+    title: "Analytics",
+    subtitle: "Deep dive into your trading performance",
+  },
+  edge: {
+    title: "Edge Detection",
+    subtitle: "Discover what's working and what's not",
+  },
+  behavior: {
+    title: "Behavior Tracking",
+    subtitle: "Understand the psychology behind your trades",
+  },
+  review: {
+    title: "Performance Review",
+    subtitle: "Weekly and monthly performance breakdown",
+  },
+};
+
+const toNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const normalizeEmotion = (value = "") =>
+  String(value || "")
+    .trim()
+    .split(/[,\|/;]/)[0]
+    .trim();
+
+const round = (value, precision = 2) => {
+  const factor = 10 ** precision;
+  return Math.round((value + Number.EPSILON) * factor) / factor;
+};
+
+const computeWinRate = (trades = []) => {
+  if (!trades.length) {
+    return 0;
+  }
+  const wins = trades.filter((trade) => String(trade?.result || "").toLowerCase() === "win").length;
+  return round((wins / trades.length) * 100, 1);
+};
+
+const computeAverageRR = (trades = []) => {
+  if (!trades.length) {
+    return 0;
+  }
+  const net = trades.reduce((sum, trade) => sum + toNumber(trade?.rrAchieved), 0);
+  return round(net / trades.length, 2);
+};
+
+const groupedStats = (trades = [], selector = () => "") =>
+  Object.values(
+    trades.reduce((acc, trade) => {
+      const label = String(selector(trade) || "").trim() || "Unknown";
+      if (!acc[label]) {
+        acc[label] = {
+          label,
+          trades: 0,
+          wins: 0,
+          rr: 0,
+        };
+      }
+      acc[label].trades += 1;
+      if (String(trade?.result || "").toLowerCase() === "win") {
+        acc[label].wins += 1;
+      }
+      acc[label].rr += toNumber(trade?.rrAchieved);
+      return acc;
+    }, {})
+  )
+    .map((item) => ({
+      ...item,
+      winRate: item.trades ? round((item.wins / item.trades) * 100, 1) : 0,
+      avgRR: item.trades ? round(item.rr / item.trades, 2) : 0,
+    }))
+    .sort((a, b) => b.winRate - a.winRate || b.avgRR - a.avgRR);
+
+const buildQuickTradeForm = ({ setupOptions = [], sessionOptions = [] } = {}) => ({
+  tradeDate: new Date().toISOString().slice(0, 10),
+  pair: "EUR/USD",
+  entryPrice: "",
+  exitPrice: "",
+  plannedRR: "",
+  setupType: setupOptions[0] || "",
+  session: sessionOptions[0] || "",
+  emotion: "",
+  followedPlan: true,
+  notes: "",
+});
+
 const App = () => {
   const sharedToken = useMemo(() => {
-    const path = String(window.location.pathname || "");
+    const currentPath = String(window.location.pathname || "");
     const marker = "/shared/";
-    if (!path.startsWith(marker)) {
+    if (!currentPath.startsWith(marker)) {
       return "";
     }
-    return decodeURIComponent(path.slice(marker.length));
+    return decodeURIComponent(currentPath.slice(marker.length));
   }, []);
 
   const storedSession = useMemo(() => readStoredAuthSession(), []);
@@ -163,11 +232,10 @@ const App = () => {
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [syncingQueue, setSyncingQueue] = useState(false);
-  const [showSettingsPanel, setShowSettingsPanel] = useState(true);
-  const [settingsSavedAt, setSettingsSavedAt] = useState("");
   const [showAdvancedAnalytics, setShowAdvancedAnalytics] = useState(() => {
     return localStorage.getItem(ADVANCED_ANALYTICS_STORAGE_KEY) === "1";
   });
+  const [reviewRange, setReviewRange] = useState("week");
   const [activePage, setActivePage] = useState(() => {
     const stored = localStorage.getItem(PAGE_STORAGE_KEY);
     return PAGES.some((page) => page.key === stored) ? stored : "journal";
@@ -177,13 +245,11 @@ const App = () => {
   );
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [offlineQueue, setOfflineQueue] = useState([]);
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
-  const [newProfileName, setNewProfileName] = useState("");
-  const [newProfileDescription, setNewProfileDescription] = useState("");
-  const [creatingProfile, setCreatingProfile] = useState(false);
   const [theme, setTheme] = useState(() => resolveInitialTheme());
   const [toasts, setToasts] = useState([]);
   const [retentionPrefs, setRetentionPrefs] = useState(() => readRetentionPreferences());
+  const [quickTradeForm, setQuickTradeForm] = useState(() => buildQuickTradeForm());
+  const [savingQuickTrade, setSavingQuickTrade] = useState(false);
   const syncInFlightRef = useRef(false);
   const loadRequestSeqRef = useRef(0);
   const toastCounterRef = useRef(0);
@@ -203,6 +269,12 @@ const App = () => {
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (activePage !== "review" && reviewRange !== "week") {
+      setReviewRange("week");
+    }
+  }, [activePage, reviewRange]);
 
   useEffect(() => {
     if (!window.matchMedia) {
@@ -423,35 +495,6 @@ const App = () => {
   }, [loadData]);
 
   useEffect(() => {
-    if (!token || !user) {
-      return undefined;
-    }
-
-    const preloadNonCriticalChunks = () => {
-      import("./components/StatCards");
-      import("./components/ProfitCurveChart");
-      import("./components/DrawdownChart");
-      import("./components/BehaviorLab");
-      import("./components/EdgeInsightsPanel");
-      import("./components/MonthlyPerformancePanel");
-      import("./components/RetentionPanel");
-      import("./components/TagAnalytics");
-      import("./components/SettingsPanel");
-      import("./components/TradesTable");
-    };
-
-    if ("requestIdleCallback" in window) {
-      const idleId = window.requestIdleCallback(preloadNonCriticalChunks, {
-        timeout: 2500,
-      });
-      return () => window.cancelIdleCallback(idleId);
-    }
-
-    const timerId = window.setTimeout(preloadNonCriticalChunks, 1200);
-    return () => window.clearTimeout(timerId);
-  }, [token, user]);
-
-  useEffect(() => {
     if (!user?.activeProfileId) {
       return;
     }
@@ -462,13 +505,6 @@ const App = () => {
       }));
     }
   }, [filters.profileId, user?.activeProfileId]);
-
-  const onFilterChange = useCallback((key, value) => {
-    setFilters((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
-  }, []);
 
   const dismissToast = useCallback((id) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
@@ -768,17 +804,6 @@ const App = () => {
     syncInFlightRef.current = false;
   };
 
-  const onSettingsSaved = () => {
-    setShowSettingsPanel(false);
-    setSettingsSavedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
-    setActivePage("journal");
-  };
-
-  const onRetentionSaved = (next) => {
-    setRetentionPrefs(next || readRetentionPreferences());
-    setStatusMessage("Retention reminders updated.");
-  };
-
   const handleProfileSwitch = async (profileId) => {
     if (!profileId || profileId === user?.activeProfileId) {
       return;
@@ -799,55 +824,130 @@ const App = () => {
     }
   };
 
-  const handleCreateProfile = async () => {
-    const name = String(newProfileName || "").trim();
-    if (name.length < 2) {
-      setError("Profile name must be at least 2 characters.");
-      return;
+  const sessionOptions = useMemo(() => {
+    const source = user?.settings?.options?.sessions;
+    if (Array.isArray(source) && source.length) {
+      return source;
     }
+    return ["London", "New York", "Asia"];
+  }, [user?.settings?.options?.sessions]);
 
-    setCreatingProfile(true);
-    try {
-      const response = await createProfile(token, {
-        name,
-        description: String(newProfileDescription || "").trim(),
-        makeActive: true,
-      });
-      setUser(response.user);
-      setFilters((prev) => ({
+  const setupOptions = useMemo(() => {
+    const source = user?.settings?.options?.setupTypes;
+    if (Array.isArray(source) && source.length) {
+      return source;
+    }
+    return ["Breakout", "Trend Continuation", "Pullback", "Reversal", "Support/Resistance", "Range Trading"];
+  }, [user?.settings?.options?.setupTypes]);
+
+  useEffect(() => {
+    setQuickTradeForm((prev) => {
+      const nextSetup = prev.setupType || setupOptions[0] || "";
+      const nextSession = prev.session || sessionOptions[0] || "";
+      if (nextSetup === prev.setupType && nextSession === prev.session) {
+        return prev;
+      }
+      return {
         ...prev,
-        profileId: response.user?.activeProfileId || prev.profileId,
-      }));
-      setStatusMessage(`Created profile: ${name}`);
+        setupType: nextSetup,
+        session: nextSession,
+      };
+    });
+  }, [sessionOptions, setupOptions]);
+
+  const handleQuickTradeChange = useCallback((field, value) => {
+    setQuickTradeForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }, []);
+
+  const resetQuickTradeForm = useCallback(() => {
+    setQuickTradeForm(buildQuickTradeForm({ setupOptions, sessionOptions }));
+  }, [sessionOptions, setupOptions]);
+
+  const handleQuickTradeSubmit = useCallback(
+    async (event) => {
+      event.preventDefault();
+      if (!token) {
+        return;
+      }
+
+      const pair = String(quickTradeForm.pair || "").trim().toUpperCase();
+      const entryPrice = toNumber(quickTradeForm.entryPrice, NaN);
+      const exitPrice = quickTradeForm.exitPrice === "" ? NaN : toNumber(quickTradeForm.exitPrice, NaN);
+      const plannedRRInput = quickTradeForm.plannedRR === "" ? NaN : toNumber(quickTradeForm.plannedRR, NaN);
+      if (!pair || !Number.isFinite(entryPrice)) {
+        setError("Pair and entry price are required.");
+        return;
+      }
+      if (quickTradeForm.plannedRR !== "" && (!Number.isFinite(plannedRRInput) || plannedRRInput <= 0)) {
+        setError("Planned R:R must be greater than 0.");
+        return;
+      }
+
+      const defaultStop = round(entryPrice * 0.995, 5);
+      const defaultTake = round(entryPrice * 1.01, 5);
+      const stopLoss = defaultStop;
+      const takeProfit = defaultTake;
+      const plannedRR = Number.isFinite(plannedRRInput) && plannedRRInput > 0
+        ? round(plannedRRInput, 2)
+        : round(Math.abs(takeProfit - entryPrice) / Math.max(Math.abs(entryPrice - stopLoss), 0.00001), 2);
+      const isWinning = Number.isFinite(exitPrice) ? exitPrice >= entryPrice : false;
+      const result = Number.isFinite(exitPrice) ? (isWinning ? "Win" : "Loss") : "BE";
+      const rrAchieved = Number.isFinite(exitPrice)
+        ? round((Math.abs(exitPrice - entryPrice) / Math.max(Math.abs(entryPrice - stopLoss), 0.00001)) * (isWinning ? 1 : -1), 2)
+        : 0;
+
+      const data = new FormData();
+      data.append("profileId", filters.profileId || user?.activeProfileId || "");
+      data.append("pair", pair);
+      data.append("tradeDate", quickTradeForm.tradeDate || new Date().toISOString().slice(0, 10));
+      data.append("session", quickTradeForm.session || sessionOptions[0] || "London");
+      data.append("tradeType", "Buy");
+      data.append("setupType", quickTradeForm.setupType || setupOptions[0] || "Breakout");
+      data.append("entryPrice", String(entryPrice));
+      data.append("exitPrice", Number.isFinite(exitPrice) ? String(exitPrice) : "");
+      data.append("stopLoss", String(stopLoss));
+      data.append("takeProfit", String(takeProfit));
+      data.append("plannedRR", String(plannedRR));
+      data.append("riskPercent", "1");
+      data.append("result", result);
+      data.append("rrAchieved", String(rrAchieved));
+      data.append("asiaHighLowUsed", "false");
+      data.append("pocInteraction", "false");
+      data.append("pocOutcome", "");
+      data.append("cleanSetup", String(Boolean(quickTradeForm.followedPlan)));
+      data.append("acceptGuardrailOverride", "true");
+      data.append("ruleBreakReason", quickTradeForm.followedPlan ? "" : "Quick entry plan override");
+      data.append("priceAction", "");
+      data.append("executionReview", quickTradeForm.notes || "");
+      data.append("emotionalState", quickTradeForm.emotion || "");
+
+      setSavingQuickTrade(true);
       setError("");
-      setNewProfileName("");
-      setNewProfileDescription("");
-      setProfileModalOpen(false);
-    } catch (createError) {
-      setError(createError.message || "Could not create profile.");
-    } finally {
-      setCreatingProfile(false);
-    }
-  };
-
-  const handleQuickSave = () => {
-    if (activePage !== "journal") {
-      setActivePage("journal");
-      setStatusMessage("Journal page ready. Tap Save again to submit.");
-      return;
-    }
-    window.dispatchEvent(new Event("journal-save-request"));
-  };
-
-  const handleQuickNew = () => {
-    if (activePage !== "journal") {
-      setActivePage("journal");
-      setStatusMessage("Journal page ready. Tap New again to reset the form.");
-      return;
-    }
-    window.dispatchEvent(new Event("journal-new-request"));
-    setStatusMessage("Trade form reset.");
-  };
+      try {
+        await createTrade(data, token);
+        resetQuickTradeForm();
+        onTradeSaved();
+        setStatusMessage("Trade saved successfully.");
+      } catch (submitError) {
+        setError(submitError.message || "Failed to save trade.");
+      } finally {
+        setSavingQuickTrade(false);
+      }
+    },
+    [
+      filters.profileId,
+      onTradeSaved,
+      quickTradeForm,
+      resetQuickTradeForm,
+      sessionOptions,
+      setupOptions,
+      token,
+      user?.activeProfileId,
+    ]
+  );
 
   const queuedTrades = useMemo(
     () =>
@@ -914,6 +1014,153 @@ const App = () => {
     };
   }, [offlineQueue]);
 
+  const closedTrades = useMemo(
+    () => mergedTrades.filter((trade) => String(trade?.automation?.status || "").toLowerCase() !== "open"),
+    [mergedTrades]
+  );
+
+  const edgeInsights = useMemo(
+    () =>
+      buildEdgeInsights({
+        trades: closedTrades,
+        analytics: displayAnalytics,
+        riskControls: user?.settings?.riskControls || {},
+      }),
+    [closedTrades, displayAnalytics, user?.settings?.riskControls]
+  );
+
+  const totalTrades = closedTrades.length;
+  const totalWins = useMemo(
+    () => closedTrades.filter((trade) => String(trade?.result || "").toLowerCase() === "win").length,
+    [closedTrades]
+  );
+  const totalLosses = useMemo(
+    () => closedTrades.filter((trade) => String(trade?.result || "").toLowerCase() === "loss").length,
+    [closedTrades]
+  );
+  const totalBreakEven = Math.max(totalTrades - totalWins - totalLosses, 0);
+  const overallWinRate = computeWinRate(closedTrades);
+  const overallAvgRR = computeAverageRR(closedTrades);
+  const expectancyValue = toNumber(edgeInsights.expectancy);
+  const derivedPnL = useMemo(() => {
+    const explicitPnl = closedTrades.reduce(
+      (sum, trade) => sum + toNumber(trade?.pnl || trade?.profitLoss || trade?.profit || trade?.netPnl, 0),
+      0
+    );
+    if (Math.abs(explicitPnl) > 0.0001) {
+      return round(explicitPnl, 2);
+    }
+    return round(closedTrades.reduce((sum, trade) => sum + toNumber(trade?.rrAchieved) * 100, 0), 2);
+  }, [closedTrades]);
+
+  const setupRankings = useMemo(() => groupedStats(closedTrades, (trade) => trade?.setupType), [closedTrades]);
+  const sessionRankings = useMemo(() => groupedStats(closedTrades, (trade) => trade?.session), [closedTrades]);
+  const emotionRankings = useMemo(() => groupedStats(closedTrades, (trade) => normalizeEmotion(trade?.notes?.emotionalState)), [closedTrades]);
+
+  const followedPlanTrades = useMemo(
+    () => closedTrades.filter((trade) => Boolean(trade?.tags?.cleanSetup)),
+    [closedTrades]
+  );
+  const violatedPlanTrades = useMemo(
+    () => closedTrades.filter((trade) => !trade?.tags?.cleanSetup),
+    [closedTrades]
+  );
+  const followedPlanWinRate = computeWinRate(followedPlanTrades);
+  const violatedPlanWinRate = computeWinRate(violatedPlanTrades);
+
+  const equityCurvePoints = useMemo(() => {
+    if (Array.isArray(displayAnalytics?.profitCurve) && displayAnalytics.profitCurve.length > 1) {
+      return displayAnalytics.profitCurve.map((point, index) => ({
+        x: index,
+        y: toNumber(point?.cumulativeRR || point?.value || point?.rr),
+        label: String(point?.label || point?.date || ""),
+      }));
+    }
+    const chronologicalTrades = [...closedTrades].sort(
+      (a, b) => new Date(a?.tradeDate || 0).getTime() - new Date(b?.tradeDate || 0).getTime()
+    );
+    let cumulative = 0;
+    return chronologicalTrades.slice(-120).map((trade, index) => {
+      cumulative += toNumber(trade?.rrAchieved);
+      return {
+        x: index,
+        y: round(cumulative, 2),
+        label: String(trade?.tradeDate || ""),
+      };
+    });
+  }, [closedTrades, displayAnalytics?.profitCurve]);
+
+  const weeklyTrades = useMemo(() => {
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return closedTrades.filter((trade) => new Date(trade?.tradeDate || 0).getTime() >= weekAgo);
+  }, [closedTrades]);
+
+  const monthlyTrades = useMemo(() => {
+    const now = new Date();
+    const month = now.getMonth();
+    const year = now.getFullYear();
+    return closedTrades.filter((trade) => {
+      const date = new Date(trade?.tradeDate || 0);
+      return date.getMonth() === month && date.getFullYear() === year;
+    });
+  }, [closedTrades]);
+
+  const quarterlyTrades = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    return closedTrades.filter((trade) => {
+      const date = new Date(trade?.tradeDate || 0);
+      return date.getTime() >= start.getTime() && date.getTime() <= now.getTime();
+    });
+  }, [closedTrades]);
+
+  const recentTrades = useMemo(
+    () =>
+      [...closedTrades]
+        .sort((a, b) => new Date(b?.tradeDate || 0).getTime() - new Date(a?.tradeDate || 0).getTime())
+        .slice(0, 6),
+    [closedTrades]
+  );
+
+  const activeMeta = pageMeta[activePage] || pageMeta.dashboard;
+  const setupTop = setupRankings.slice(0, 6);
+  const sessionTop = sessionRankings.slice(0, 3);
+  const emotionTop = emotionRankings.filter((item) => item.label && item.label !== "Unknown").slice(0, 6);
+  const weeklyWinRate = computeWinRate(weeklyTrades);
+  const weeklyAvgRR = computeAverageRR(weeklyTrades);
+  const monthlyWinRate = computeWinRate(monthlyTrades);
+  const monthlyAvgRR = computeAverageRR(monthlyTrades);
+  const quarterlyWinRate = computeWinRate(quarterlyTrades);
+  const quarterlyAvgRR = computeAverageRR(quarterlyTrades);
+  const monthLabel = new Date().toLocaleDateString([], { month: "long", year: "numeric" });
+  const quarterLabel = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    return `${start.toLocaleDateString([], { month: "short", year: "numeric" })} - ${now.toLocaleDateString([], {
+      month: "short",
+      year: "numeric",
+    })}`;
+  }, []);
+
+  const equityPolyline = useMemo(() => {
+    if (!equityCurvePoints.length) {
+      return "0,120 360,120";
+    }
+    const values = equityCurvePoints.map((point) => point.y);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = Math.max(max - min, 0.01);
+    const width = 640;
+    const height = 260;
+    return equityCurvePoints
+      .map((point, index) => {
+        const x = (index / Math.max(equityCurvePoints.length - 1, 1)) * width;
+        const y = height - ((point.y - min) / range) * height;
+        return `${round(x, 2)},${round(y, 2)}`;
+      })
+      .join(" ");
+  }, [equityCurvePoints]);
+
   useEffect(() => {
     localStorage.setItem(PAGE_STORAGE_KEY, activePage);
   }, [activePage]);
@@ -936,11 +1183,6 @@ const App = () => {
 
   useEffect(() => {
     const onKeyDown = (event) => {
-      if (profileModalOpen && event.key === "Escape") {
-        setProfileModalOpen(false);
-        return;
-      }
-
       if (!event.altKey || event.ctrlKey || event.metaKey) {
         return;
       }
@@ -956,7 +1198,7 @@ const App = () => {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [profileModalOpen]);
+  }, []);
 
   if (authLoading) {
     return (
@@ -974,439 +1216,72 @@ const App = () => {
     return <AuthPanel onAuthenticated={onAuthenticated} />;
   }
 
-  const showMobileJournalActions = activePage === "journal";
-
   return (
-    <main
-      className={`app-shell mx-auto w-full max-w-[1600px] p-0 ${
-        showMobileJournalActions ? "pb-20 sm:pb-20" : "pb-6 sm:pb-6"
-      } sm:p-3 md:p-5 md:pb-5`}
-    >
-      {loading || syncingQueue ? <div className="top-loader" aria-hidden="true" /> : null}
-      <section className="journal-shell app-journal p-0 sm:p-4 md:p-6">
-        <header className="journal-hero mb-4 md:mb-5">
-          <div className="top-header">
-            <div className="brand-block">
-              <BrandLogo />
-              <div>
-                <p className="section-kicker">The Trading Journal</p>
-                <h1 className="hero-title brand-title">Trading Journal</h1>
-                <p className="hero-sub">Session-based forex tracking for every trader</p>
-              </div>
-            </div>
-
-            <aside className="account-mini">
-              <p className="text-sm font-semibold">{user.name}</p>
-              <p className="text-xs text-textMuted">{user.email}</p>
-              <div className="mt-2 flex gap-2">
-                <select
-                  className="input !h-9 !rounded-full !py-1 text-xs"
-                  value={filters.profileId || user.activeProfileId || ""}
-                  onChange={(event) => handleProfileSwitch(event.target.value)}
-                >
-                  {(user.profiles || []).map((profile) => (
-                    <option key={profile.id} value={profile.id}>
-                      {profile.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className="chip text-textMain transition hover:border-accent"
-                  onClick={() => setProfileModalOpen(true)}
-                >
-                  New profile
-                </button>
-              </div>
-              <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                <span className="chip">
-                  {loading || syncingQueue ? "Syncing..." : isOnline ? "Online" : "Offline"}
-                </span>
-                <span className="chip hidden sm:inline-flex">Alt+1..5</span>
-                <ThemeToggle
-                  theme={theme}
-                  onToggle={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-                  className="!py-1"
-                />
-                {offlineQueue.length ? (
-                  <span className="chip">{offlineQueue.length} queued</span>
-                ) : null}
-                <button
-                  type="button"
-                  className="chip text-textMain transition hover:border-accent"
-                  onClick={onLogout}
-                >
-                  Log out
-                </button>
-              </div>
-            </aside>
-          </div>
-          <div className="strategy-badge mt-3 px-3 py-2 text-sm">{strategySignal}</div>
-        </header>
-
-        <section className="dashboard-frame">
-          <div className="page-nav mb-4">
-            <div className="flex items-center justify-between gap-2">
-              <p className="section-kicker">Workspace</p>
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="chip">{activeFilterCount} active filters</span>
-                <button
-                  type="button"
-                  className="chip quick-chart-btn"
-                  onClick={() => {
-                    setActivePage("analytics");
-                    setShowAdvancedAnalytics(true);
-                  }}
-                >
-                  Charts
-                </button>
-                {loading ? <span className="chip skeleton h-6 w-16" aria-hidden="true" /> : null}
-              </div>
-            </div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {PAGES.map((page, index) => (
-                <button
-                  key={page.key}
-                  type="button"
-                  className={`chip page-btn page-btn-${page.key} ${activePage === page.key ? "page-btn-active" : ""}`}
-                  onClick={() => setActivePage(page.key)}
-                >
-                  {page.label}
-                  <span className="ml-1 hidden text-[10px] text-textMuted sm:inline">({PAGE_SHORTCUTS[index]})</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mb-4 hidden lg:grid lg:grid-cols-[220px_1fr] lg:gap-4">
-            <aside className="panel sticky top-4 !p-3">
-              <p className="section-kicker">Workspace Sidebar</p>
-              <div className="mt-2 space-y-2">
-                {PAGES.map((page) => (
-                  <button
-                    key={`side-${page.key}`}
-                    type="button"
-                    className={`chip page-btn page-btn-${page.key} inline-flex w-full justify-center ${activePage === page.key ? "page-btn-active" : ""}`}
-                    onClick={() => setActivePage(page.key)}
-                  >
-                    {page.label}
-                  </button>
-                ))}
-              </div>
-            </aside>
-            <div className="soft-frame flex items-center justify-between gap-2">
-              <p className="text-sm text-textMuted">
-                Quick workspace controls for faster navigation and chart review.
-              </p>
-              <button
-                type="button"
-                className="chip quick-chart-btn"
-                onClick={() => {
-                  setActivePage("analytics");
-                  setShowAdvancedAnalytics(true);
-                }}
-              >
-                Open charts
-              </button>
-            </div>
-          </div>
-
-          {error ? (
-            <p
-              className="mb-4 rounded-xl border border-danger/40 bg-danger/10 p-3 text-sm text-danger"
-              role="alert"
-              aria-live="assertive"
-            >
-              {error}
-            </p>
-          ) : null}
-          {statusMessage ? (
-            <p
-              className="mb-4 rounded-xl border border-border bg-panelMuted p-3 text-sm text-textMuted"
-              role="status"
-              aria-live="polite"
-            >
-              {statusMessage}
-            </p>
-          ) : null}
-          {queueInsights ? (
-            <div className="mb-4 rounded-xl border border-border bg-panelMuted p-3 text-sm text-textMuted">
-              <p>
-                Queue: {queueInsights.total} pending
-                {queueInsights.failed ? ` | ${queueInsights.failed} need review` : ""}
-                {queueInsights.waiting && queueInsights.nextRetryLabel
-                  ? ` | next retry ${queueInsights.nextRetryLabel}`
-                  : ""}
-              </p>
-              {queueInsights.firstError ? (
-                <p className="mt-1 text-danger" role="alert" aria-live="assertive">
-                  {queueInsights.firstError}
-                </p>
-              ) : null}
-              <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                <button
-                  type="button"
-                  className="chip text-textMain transition hover:border-accent"
-                  onClick={() => syncQueuedData(true)}
-                  disabled={!isOnline || syncingQueue}
-                >
-                  {syncingQueue ? "Syncing..." : "Retry sync now"}
-                </button>
-                <button
-                  type="button"
-                  className="chip text-textMain transition hover:border-danger"
-                  onClick={handleClearQueuedTrades}
-                  disabled={syncingQueue}
-                >
-                  Clear queue
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          <div className="section-divider mb-4" />
-
-          {loading && !mergedTrades.length ? (
-            <section className="panel skeleton mb-4 h-24" aria-hidden="true" />
-          ) : null}
-
-          {activePage === "dashboard" ? (
-            <Suspense fallback={<SectionLoader label="Loading dashboard..." />}>
-              <section className="space-y-4">
-                <div className="section-title">
-                  <h2>Filters & Session Activity</h2>
-                  <p>Preparation</p>
-                </div>
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-                  <FiltersBar filters={filters} onChange={onFilterChange} options={user.settings?.options} />
-                  <SessionPerformanceGraph
-                    trades={mergedTrades}
-                    sessionOptions={user.settings?.options?.sessions || []}
-                  />
-                </div>
-                <StatCards
-                  overview={displayAnalytics.overview}
-                  cleanOnlyPerformance={displayAnalytics.cleanOnlyPerformance}
-                  trades={mergedTrades}
-                  analytics={displayAnalytics}
-                  riskControls={user.settings?.riskControls}
-                />
-                <EdgeInsightsPanel
-                  trades={mergedTrades}
-                  analytics={displayAnalytics}
-                  riskControls={user.settings?.riskControls}
-                />
-              </section>
-            </Suspense>
-          ) : null}
-
-          {activePage === "journal" ? (
-            <Suspense fallback={<SectionLoader label="Loading journal..." />}>
-              <section className="space-y-4">
-                <div className="section-title">
-                  <h2>Trade Entry</h2>
-                  <p>Execution</p>
-                </div>
-                <TradeEntryForm
-                  onTradeSaved={onTradeSaved}
-                  token={token}
-                  settings={user.settings}
-                  trades={mergedTrades}
-                  activeProfileId={filters.profileId}
-                />
-              </section>
-            </Suspense>
-          ) : null}
-
-          {activePage === "analytics" ? (
-            <Suspense fallback={<SectionLoader label="Loading analytics..." />}>
-              <section className="space-y-4">
-                <div className="section-title">
-                  <h2>Analytics</h2>
-                  <p>Performance</p>
-                </div>
-                <div className="soft-frame flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm text-textMuted">
-                    Core analytics stay visible. Advanced panels are optional to reduce noise.
-                  </p>
-                  <button
-                    type="button"
-                    className="chip text-textMain transition hover:border-accent"
-                    onClick={() => setShowAdvancedAnalytics((prev) => !prev)}
-                  >
-                    {showAdvancedAnalytics ? "Hide advanced analytics" : "Show advanced analytics"}
-                  </button>
-                </div>
-                <StatCards
-                  overview={displayAnalytics.overview}
-                  cleanOnlyPerformance={displayAnalytics.cleanOnlyPerformance}
-                  trades={mergedTrades}
-                  analytics={displayAnalytics}
-                  riskControls={user.settings?.riskControls}
-                />
-                <EdgeInsightsPanel
-                  trades={mergedTrades}
-                  analytics={displayAnalytics}
-                  riskControls={user.settings?.riskControls}
-                />
-                <BehaviorLab trades={mergedTrades} />
-                <ProfitCurveChart points={displayAnalytics.profitCurve} />
-                <SetupBreakdown setupBreakdown={displayAnalytics.setupBreakdown} />
-                {showAdvancedAnalytics ? (
-                  <>
-                    <StreakTracker streaks={displayAnalytics.streaks} />
-                    <DrawdownChart points={displayAnalytics.drawdownCurve} />
-                    <TagAnalytics
-                      tagAnalytics={displayAnalytics.tagAnalytics}
-                      cleanOnlyPerformance={displayAnalytics.cleanOnlyPerformance}
-                      conditionScores={displayAnalytics.conditionScores}
-                      fingerprintPerformance={displayAnalytics.fingerprintPerformance}
-                    />
-                  </>
-                ) : null}
-              </section>
-            </Suspense>
-          ) : null}
-
-          {activePage === "review" ? (
-            <Suspense fallback={<SectionLoader label="Loading review..." />}>
-              <section className="space-y-4">
-                <div className="section-title">
-                  <h2>Review & Boards</h2>
-                  <p>Reflection</p>
-                </div>
-                <CalendarConsistency trades={mergedTrades} />
-                <HeatmapMatrix heatmap={displayAnalytics.heatmap} />
-                <CoachingSummary coaching={displayAnalytics.coaching} />
-                <MonthlyPerformancePanel trades={mergedTrades} />
-                <ScreenshotReplay trades={mergedTrades} />
-                <WeeklyReviewReport token={token} profileId={filters.profileId} />
-                <TradesTable trades={mergedTrades} />
-              </section>
-            </Suspense>
-          ) : null}
-
-          {activePage === "settings" ? (
-            <Suspense fallback={<SectionLoader label="Loading settings..." />}>
-              <section className="space-y-4">
-                <div className="section-title">
-                  <h2>Settings & Data Tools</h2>
-                  <p>Configuration</p>
-                </div>
-                {showSettingsPanel ? (
-                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                    <SettingsPanel
-                      user={user}
-                      token={token}
-                      onUserUpdate={setUser}
-                      onSaved={onSettingsSaved}
-                    />
-                    <RetentionPanel onPreferencesSaved={onRetentionSaved} />
-                    <DataTools token={token} filters={filters} onImported={loadData} />
-                    <AccountSecurityPanel user={user} token={token} onUserUpdate={setUser} />
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="soft-frame flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm text-textMuted">
-                        Settings hidden
-                        {settingsSavedAt ? ` after save at ${settingsSavedAt}.` : "."}
-                      </p>
-                      <button
-                        type="button"
-                        className="btn-primary"
-                        onClick={() => setShowSettingsPanel(true)}
-                      >
-                        Change settings
-                      </button>
-                    </div>
-                    <AccountSecurityPanel user={user} token={token} onUserUpdate={setUser} />
-                    <RetentionPanel onPreferencesSaved={onRetentionSaved} />
-                    <DataTools token={token} filters={filters} onImported={loadData} />
-                  </div>
-                )}
-              </section>
-            </Suspense>
-          ) : null}
-        </section>
-      </section>
-      {showMobileJournalActions ? (
-        <nav className="mobile-action-bar md:hidden">
-          <button type="button" className="mobile-action-btn" onClick={handleQuickNew}>
-            New
-          </button>
-          <button type="button" className="mobile-action-btn mobile-action-btn-primary" onClick={handleQuickSave}>
-            Save
-          </button>
-          <button type="button" className="mobile-action-btn mobile-action-btn-chart" onClick={() => setActivePage("analytics")}>
-            Charts
-          </button>
-        </nav>
-      ) : null}
-      {profileModalOpen ? (
-        <div
-          className="modal-backdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Create profile"
-          onClick={() => setProfileModalOpen(false)}
-        >
-          <form
-            className="modal-card animate-riseIn"
-            onSubmit={(event) => {
-              event.preventDefault();
-              handleCreateProfile();
-            }}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-semibold">Create profile</h2>
-              <button
-                type="button"
-                className="chip text-textMain transition hover:border-accent"
-                onClick={() => setProfileModalOpen(false)}
-              >
-                Close
-              </button>
-            </div>
-            <label>
-              <span className="label">Profile name</span>
-              <input
-                className="input"
-                value={newProfileName}
-                onChange={(event) => setNewProfileName(event.target.value)}
-                placeholder="Scalping plan / profile name"
-                autoFocus
-              />
-            </label>
-            <label className="mt-2 block">
-              <span className="label">Description (optional)</span>
-              <textarea
-                className="input min-h-24"
-                value={newProfileDescription}
-                onChange={(event) => setNewProfileDescription(event.target.value)}
-                placeholder="Short note about this profile"
-              />
-            </label>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button type="submit" className="btn-primary" disabled={creatingProfile}>
-                {creatingProfile ? "Creating..." : "Create profile"}
-              </button>
-              <button
-                type="button"
-                className="chip text-textMain transition hover:border-accent"
-                onClick={() => setProfileModalOpen(false)}
-                disabled={creatingProfile}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : null}
+    <main className="app-shell mx-auto w-full max-w-[1600px] p-0 sm:p-3 md:p-5 md:pb-5">
+      <SaasWorkspace
+        activePage={activePage}
+        setActivePage={setActivePage}
+        pages={PAGES}
+        activeMeta={activeMeta}
+        user={user}
+        filters={filters}
+        handleProfileSwitch={handleProfileSwitch}
+        onLogout={onLogout}
+        loading={loading}
+        syncingQueue={syncingQueue}
+        isOnline={isOnline}
+        offlineQueue={offlineQueue}
+        theme={theme}
+        setTheme={setTheme}
+        error={error}
+        statusMessage={statusMessage}
+        queueInsights={queueInsights}
+        syncQueuedData={syncQueuedData}
+        handleClearQueuedTrades={handleClearQueuedTrades}
+        totalTrades={totalTrades}
+        totalWins={totalWins}
+        totalLosses={totalLosses}
+        totalBreakEven={totalBreakEven}
+        overallWinRate={overallWinRate}
+        overallAvgRR={overallAvgRR}
+        derivedPnL={derivedPnL}
+        edgeInsights={edgeInsights}
+        expectancyValue={expectancyValue}
+        equityPolyline={equityPolyline}
+        recentTrades={recentTrades}
+        quickTradeForm={quickTradeForm}
+        handleQuickTradeChange={handleQuickTradeChange}
+        setupOptions={setupOptions}
+        sessionOptions={sessionOptions}
+        handleQuickTradeSubmit={handleQuickTradeSubmit}
+        savingQuickTrade={savingQuickTrade}
+        resetQuickTradeForm={resetQuickTradeForm}
+        setupTop={setupTop}
+        sessionTop={sessionTop}
+        emotionTop={emotionTop}
+        followedPlanTrades={followedPlanTrades}
+        violatedPlanTrades={violatedPlanTrades}
+        followedPlanWinRate={followedPlanWinRate}
+        violatedPlanWinRate={violatedPlanWinRate}
+        weeklyTrades={weeklyTrades}
+        weeklyWinRate={weeklyWinRate}
+        weeklyAvgRR={weeklyAvgRR}
+        monthlyTrades={monthlyTrades}
+        monthlyWinRate={monthlyWinRate}
+        monthlyAvgRR={monthlyAvgRR}
+        quarterlyTrades={quarterlyTrades}
+        quarterlyWinRate={quarterlyWinRate}
+        quarterlyAvgRR={quarterlyAvgRR}
+        quarterLabel={quarterLabel}
+        monthLabel={monthLabel}
+        reviewRange={reviewRange}
+        setReviewRange={setReviewRange}
+      />
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </main>
   );
+
 };
 
 export default App;
+

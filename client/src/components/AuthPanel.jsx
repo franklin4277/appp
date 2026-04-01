@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   confirmPasswordReset,
   loginUser,
@@ -6,9 +6,6 @@ import {
   requestPasswordReset,
   verifyTwoFactorLogin,
 } from "../api/tradesApi";
-import BrandLogo from "./BrandLogo";
-import ThemeToggle from "./ThemeToggle";
-import { applyTheme, resolveInitialTheme } from "../utils/theme";
 
 const marketingFeatures = [
   {
@@ -58,10 +55,33 @@ const testimonials = [
 ];
 
 const heroStats = [
-  { label: "Avg win rate", value: "68%" },
-  { label: "Avg R:R", value: "2.4x" },
-  { label: "Trades logged", value: "10k+" },
+  { label: "Avg Win Rate", value: "68%" },
+  { label: "Avg RR Ratio", value: "2.4x" },
+  { label: "Trades Logged", value: "10k+" },
 ];
+
+const LandingBrandMark = ({ className = "" }) => (
+  <span className={className} aria-hidden="true">
+    <svg viewBox="0 0 24 24" role="presentation" className="h-full w-full">
+      <defs>
+        <linearGradient id="landing-brand-mark" x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#2563eb" />
+          <stop offset="1" stopColor="#7c3aed" />
+        </linearGradient>
+      </defs>
+      <rect x="1.5" y="1.5" width="21" height="21" rx="6" fill="url(#landing-brand-mark)" />
+      <path
+        d="M6.5 14.25L10 10.75L12.7 13.15L17.5 8.5"
+        fill="none"
+        stroke="#e2e8f0"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M15.35 8.5H17.5V10.65" fill="none" stroke="#e2e8f0" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  </span>
+);
 
 const FeatureIcon = ({ type = "journal" }) => {
   if (type === "behavior") {
@@ -99,6 +119,7 @@ const FeatureIcon = ({ type = "journal" }) => {
 
 const AuthPanel = ({ onAuthenticated }) => {
   const showDebugSecrets = Boolean(import.meta.env.DEV || import.meta.env.VITE_SHOW_DEBUG_AUTH_SECRETS === "true");
+  const [authModalOpen, setAuthModalOpen] = useState(false);
   const [mode, setMode] = useState("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -111,11 +132,6 @@ const AuthPanel = ({ onAuthenticated }) => {
   const [resetToken, setResetToken] = useState("");
   const [resetPassword, setResetPassword] = useState("");
   const [debugSecret, setDebugSecret] = useState("");
-  const [theme, setTheme] = useState(() => resolveInitialTheme());
-
-  useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
 
   const authTitle = useMemo(() => {
     if (twoFactorPending) {
@@ -124,7 +140,7 @@ const AuthPanel = ({ onAuthenticated }) => {
     if (mode === "reset") {
       return "Reset password";
     }
-    return mode === "register" ? "Create your workspace" : "Log in";
+    return mode === "register" ? "Create account" : "Sign in";
   }, [mode, twoFactorPending]);
 
   const handlePrimarySubmit = async (event) => {
@@ -230,109 +246,135 @@ const AuthPanel = ({ onAuthenticated }) => {
   };
 
   return (
-    <main className="app-shell mx-auto min-h-screen w-full max-w-[1600px] p-0 sm:p-4">
-      <section className="journal-shell app-journal w-full p-0 sm:p-4 md:p-6">
-        <header className="landing-navbar">
-          <div className="brand-block">
-            <BrandLogo />
-            <div>
-              <p className="section-kicker">Trading Journal Platform</p>
-              <h1 className="brand-title">The Trading Journal</h1>
+    <main className="app-shell mx-auto min-h-screen w-full max-w-none p-0">
+      <section className="journal-shell app-journal landing-shell w-full p-0">
+        <div className="landing-inner">
+          <header className="landing-navbar">
+            <div className="brand-block landing-brand-block">
+              <LandingBrandMark className="brand-logo-landing" />
+              <h1 className="landing-brand-title">TradeEdge</h1>
             </div>
-          </div>
-          <nav className="hidden items-center gap-3 text-sm text-textMuted md:flex">
-            <a href="#features">Features</a>
-            <a href="#how-it-works">How it works</a>
-            <a href="#testimonials">Testimonials</a>
-            <a href="#footer">Contact</a>
-          </nav>
-          <div className="flex items-center gap-2">
-            <ThemeToggle theme={theme} onToggle={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))} />
-            <button type="button" className="btn-primary !py-1.5" onClick={() => setMode("login")}>
-              Access Platform
+            <button
+              type="button"
+              className="landing-signin-btn"
+              onClick={() => {
+                setMode("login");
+                setAuthModalOpen(true);
+              }}
+            >
+              Sign In
             </button>
-          </div>
-        </header>
+          </header>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-          <section className="space-y-4">
-            <div className="panel animate-riseIn landing-hero">
-              <p className="section-kicker">Built for serious traders</p>
-              <h2 className="hero-title mt-2">Turn Your Trading Data Into Consistent Profit</h2>
-              <p className="mt-3 max-w-2xl text-sm text-textMuted">
-                Track, analyze, and improve your trading with powerful insights, not spreadsheets.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button type="button" className="btn-primary" onClick={() => setMode("register")}>
-                  Open Workspace
-                </button>
-                <button type="button" className="chip text-textMain" onClick={() => setMode("login")}>
-                  Member Login
-                </button>
-              </div>
-              <div className="landing-stats mt-5">
-                {heroStats.map((item) => (
-                  <div key={item.label} className="landing-stat">
-                    <p className="landing-stat-value">{item.value}</p>
-                    <p className="landing-stat-label">{item.label}</p>
-                  </div>
-                ))}
-              </div>
+          <section className="mt-4 space-y-4">
+          <div className="panel animate-riseIn landing-hero">
+            <p className="landing-kicker">
+              <span className="landing-kicker-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5">
+                  <path
+                    d="M11 3L6 12h4l-1 9 9-12h-4l2-6z"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </span>
+              Built for serious traders
+            </p>
+            <h2 className="landing-hero-title mt-4">
+              Turn Your Trading Data
+              <br />
+              Into <span className="landing-hero-gradient">Consistent Profit</span>
+            </h2>
+            <p className="landing-hero-copy mt-4">
+              Track, analyze, and improve your trading with powerful insights, not spreadsheets.
+            </p>
+            <div className="landing-cta mt-6">
+              <button
+                type="button"
+                className="btn-primary landing-cta-primary"
+                onClick={() => {
+                  setMode("register");
+                  setAuthModalOpen(true);
+                }}
+              >
+                Start Free Trial <span aria-hidden="true">&rarr;</span>
+              </button>
+              <button
+                type="button"
+                className="landing-cta-secondary"
+                onClick={() => {
+                  document.getElementById("features")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+              >
+                View Demo
+              </button>
             </div>
+            <div className="landing-stats mt-8">
+              {heroStats.map((item) => (
+                <div key={item.label} className="landing-stat">
+                  <p className="landing-stat-value">{item.value}</p>
+                  <p className="landing-stat-label">{item.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
 
-            <section id="features" className="panel animate-riseIn space-y-3">
-              <div className="section-title">
-                <h3>Features</h3>
-                <p>Built for real execution</p>
-              </div>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {marketingFeatures.map((feature) => (
-                  <article key={feature.title} className="soft-frame">
-                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-accent/45 bg-accent/15 text-accent">
-                      <FeatureIcon type={feature.icon} />
-                    </span>
-                    <h4 className="mt-2 text-sm font-semibold">{feature.title}</h4>
-                    <p className="mt-2 text-xs text-textMuted">{feature.text}</p>
-                  </article>
-                ))}
-              </div>
-            </section>
+          <section id="features" className="panel animate-riseIn space-y-3 landing-content-section landing-features-section">
+            <div className="section-title section-title-centered landing-section-title">
+              <h3>Everything You Need to Find Your Edge</h3>
+              <p>Professional tools built specifically for traders</p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4 landing-features-grid">
+              {marketingFeatures.map((feature) => (
+                <article key={feature.title} className="soft-frame landing-feature-card">
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-accent/45 bg-accent/15 text-accent">
+                    <FeatureIcon type={feature.icon} />
+                  </span>
+                  <h4 className="mt-2 text-sm font-semibold">{feature.title}</h4>
+                  <p className="mt-2 text-xs text-textMuted">{feature.text}</p>
+                </article>
+              ))}
+            </div>
+          </section>
 
-            <section id="how-it-works" className="panel animate-riseIn space-y-3">
-              <div className="section-title">
-                <h3>How It Works</h3>
-                <p>Simple 3-step flow</p>
-              </div>
-              <ol className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                {workflowSteps.map((step, index) => (
-                  <li key={step} className="soft-frame text-sm text-textMuted">
-                    <p className="text-xs font-semibold text-accent">Step {index + 1}</p>
-                    <p className="mt-1">{step}</p>
-                  </li>
-                ))}
-              </ol>
-            </section>
+          <section id="how-it-works" className="panel animate-riseIn space-y-3 landing-content-section">
+            <div className="section-title section-title-centered landing-section-title">
+              <h3>How It Works</h3>
+              <p>Simple 3-step flow</p>
+            </div>
+            <ol className="grid grid-cols-1 gap-3 md:grid-cols-3 landing-steps-grid">
+              {workflowSteps.map((step, index) => (
+                <li key={step} className="soft-frame landing-step-card">
+                  <p className="landing-step-index">Step {index + 1}</p>
+                  <p className="landing-step-copy">{step}</p>
+                </li>
+              ))}
+            </ol>
+          </section>
 
-            <section id="testimonials" className="panel animate-riseIn space-y-3">
-              <div className="section-title">
-                <h3>Testimonials</h3>
-                <p>Trusted by active traders</p>
-              </div>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                {testimonials.map((item) => (
-                  <blockquote key={item.author} className="soft-frame">
-                    <p className="text-sm text-textMain">"{item.quote}"</p>
-                    <footer className="mt-2 text-xs text-textMuted">
-                      {item.author} - {item.role}
-                    </footer>
-                  </blockquote>
-                ))}
-              </div>
-            </section>
+          <section id="testimonials" className="panel animate-riseIn space-y-3 landing-content-section">
+            <div className="section-title section-title-centered landing-section-title">
+              <h3>Testimonials</h3>
+              <p>Trusted by active traders</p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              {testimonials.map((item) => (
+                <blockquote key={item.author} className="soft-frame landing-testimonial-card">
+                  <p className="landing-testimonial-quote">"{item.quote}"</p>
+                  <footer className="landing-testimonial-meta">
+                    {item.author} - {item.role}
+                  </footer>
+                </blockquote>
+              ))}
+            </div>
+          </section>
 
-            <footer id="footer" className="panel animate-riseIn">
+            <footer id="footer" className="panel animate-riseIn landing-footer">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm text-textMuted">(c) {new Date().getFullYear()} The Trading Journal</p>
+                <p className="text-sm text-textMuted">(c) {new Date().getFullYear()} TradeEdge</p>
                 <div className="flex flex-wrap gap-2 text-xs">
                   <a className="chip text-textMain" href="#features">
                     Features
@@ -347,20 +389,32 @@ const AuthPanel = ({ onAuthenticated }) => {
               </div>
             </footer>
           </section>
+        </div>
 
-          <aside className="panel animate-riseIn auth-card-shell">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-base font-semibold">{authTitle}</h3>
-              {!twoFactorPending && mode !== "reset" ? (
-                <button
-                  type="button"
-                  className="chip text-textMain transition hover:border-accent"
-                  onClick={() => setMode((prev) => (prev === "register" ? "login" : "register"))}
-                >
-                  {mode === "register" ? "Already have access?" : "Create workspace"}
-                </button>
-              ) : null}
-            </div>
+        {authModalOpen ? (
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Authentication" onClick={() => setAuthModalOpen(false)}>
+            <aside className="panel animate-riseIn auth-modal-card" onClick={(event) => event.stopPropagation()}>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h3 className="text-base font-semibold">{authTitle}</h3>
+                <div className="flex items-center gap-2">
+                  {!twoFactorPending && mode !== "reset" ? (
+                    <button
+                      type="button"
+                      className="chip text-textMain transition hover:border-accent"
+                      onClick={() => setMode((prev) => (prev === "register" ? "login" : "register"))}
+                    >
+                      {mode === "register" ? "Have account?" : "Create account"}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="chip text-textMain transition hover:border-accent"
+                    onClick={() => setAuthModalOpen(false)}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
 
             {twoFactorPending ? (
               <form onSubmit={handleTwoFactorSubmit} className="space-y-3">
@@ -464,7 +518,7 @@ const AuthPanel = ({ onAuthenticated }) => {
                   />
                 </label>
                 <button className="btn-primary w-full" type="submit" disabled={loading}>
-                  {loading ? "Please wait..." : mode === "register" ? "Create workspace" : "Log in"}
+                  {loading ? "Please wait..." : mode === "register" ? "Create account" : "Log in"}
                 </button>
                 {mode === "login" ? (
                   <button
@@ -490,8 +544,9 @@ const AuthPanel = ({ onAuthenticated }) => {
                 Dev token/code: {debugSecret}
               </p>
             ) : null}
-          </aside>
-        </div>
+            </aside>
+          </div>
+        ) : null}
       </section>
     </main>
   );

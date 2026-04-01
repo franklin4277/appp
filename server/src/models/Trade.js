@@ -1,5 +1,68 @@
 import mongoose from "mongoose";
 
+const normalizeText = (value = "") =>
+  String(value || "")
+    .replace(/\u0000/g, "")
+    .trim()
+    .replace(/\s+/g, " ");
+
+const normalizeStringList = (value = []) => {
+  const source = Array.isArray(value) ? value : [value];
+  const seen = new Set();
+  const output = [];
+
+  source.forEach((item) => {
+    const text = normalizeText(item);
+    if (!text) {
+      return;
+    }
+    const key = text.toLowerCase();
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    output.push(text);
+  });
+
+  return output;
+};
+
+const normalizeTradeType = (value = "") => {
+  const normalized = normalizeText(value).toLowerCase();
+  if (normalized === "buy") {
+    return "Buy";
+  }
+  if (normalized === "sell") {
+    return "Sell";
+  }
+  return normalizeText(value);
+};
+
+const normalizeResult = (value = "") => {
+  const normalized = normalizeText(value).toLowerCase();
+  if (normalized === "win" || normalized === "w") {
+    return "Win";
+  }
+  if (normalized === "loss" || normalized === "lose" || normalized === "l") {
+    return "Loss";
+  }
+  if (normalized === "be" || normalized === "breakeven" || normalized === "break-even") {
+    return "BE";
+  }
+  return normalizeText(value);
+};
+
+const normalizeAutomationStatus = (value = "") => {
+  const normalized = normalizeText(value).toLowerCase();
+  if (normalized === "open") {
+    return "open";
+  }
+  if (normalized === "closed") {
+    return "closed";
+  }
+  return normalizeText(value).toLowerCase();
+};
+
 const tradeSchema = new mongoose.Schema(
   {
     userId: {
@@ -35,16 +98,19 @@ const tradeSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      set: normalizeText,
     },
     tradeType: {
       type: String,
       required: true,
       trim: true,
+      set: normalizeTradeType,
     },
     setupType: {
       type: String,
       required: true,
       trim: true,
+      set: normalizeText,
     },
     strategyFingerprint: {
       type: String,
@@ -77,6 +143,7 @@ const tradeSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      set: normalizeResult,
     },
     rrAchieved: {
       type: Number,
@@ -99,6 +166,7 @@ const tradeSchema = new mongoose.Schema(
         type: String,
         trim: true,
         default: "",
+        set: normalizeText,
       },
       cleanSetup: {
         type: Boolean,
@@ -114,23 +182,28 @@ const tradeSchema = new mongoose.Schema(
     guardrailWarnings: {
       type: [String],
       default: [],
+      set: normalizeStringList,
     },
     qualityFlags: {
       type: [String],
       default: [],
+      set: normalizeStringList,
     },
     notes: {
       priceAction: {
         type: String,
         default: "",
+        trim: true,
       },
       executionReview: {
         type: String,
         default: "",
+        trim: true,
       },
       emotionalState: {
         type: String,
         default: "",
+        trim: true,
       },
     },
     screenshots: {
@@ -171,10 +244,12 @@ const tradeSchema = new mongoose.Schema(
         default: "ready",
         trim: true,
         maxlength: 20,
+        set: normalizeAutomationStatus,
       },
       pendingItems: {
         type: [String],
         default: [],
+        set: normalizeStringList,
       },
       lastError: {
         type: String,
@@ -197,24 +272,28 @@ const tradeSchema = new mongoose.Schema(
         default: "manual",
         trim: true,
         maxlength: 40,
+        set: (value) => normalizeText(value).toLowerCase(),
       },
       bridge: {
         type: String,
         default: "",
         trim: true,
         maxlength: 40,
+        set: normalizeText,
       },
       status: {
         type: String,
         default: "closed",
         trim: true,
         maxlength: 20,
+        set: normalizeAutomationStatus,
       },
       eventType: {
         type: String,
         default: "",
         trim: true,
         maxlength: 20,
+        set: (value) => normalizeText(value).toLowerCase(),
       },
       externalTradeId: {
         type: String,

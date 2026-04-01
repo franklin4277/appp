@@ -10,3 +10,6 @@ server/uploads/*
 
 render.backend.env
 render.frontend.env
+
+tmp/
+client/visual-baseline/

@@ -2,13 +2,57 @@ import mongoose from "mongoose";
 import { DEFAULT_RISK_CONTROLS, DEFAULT_STRATEGY_OPTIONS } from "../constants/defaults.js";
 import { DEFAULT_SUBSCRIPTION } from "../constants/plans.js";
 
+const normalizeText = (value = "") =>
+  String(value || "")
+    .replace(/\u0000/g, "")
+    .trim()
+    .replace(/\s+/g, " ");
+
+const normalizeStringList = (value = []) => {
+  const source = Array.isArray(value) ? value : [value];
+  const seen = new Set();
+  const output = [];
+
+  source.forEach((item) => {
+    const text = normalizeText(item);
+    if (!text) {
+      return;
+    }
+    const key = text.toLowerCase();
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    output.push(text);
+  });
+
+  return output.slice(0, 64);
+};
+
 const stringListField = {
   type: [String],
   default: [],
+  set: normalizeStringList,
 };
 
 const cloneList = (value = []) => value.map((item) => String(item));
 const DEFAULT_PROFILE_ID = "main";
+const defaultProfile = () => ({
+  id: DEFAULT_PROFILE_ID,
+  name: "Main Profile",
+  description: "Default journal profile",
+  isDefault: true,
+});
+
+const normalizeProfileId = (value, fallback) => {
+  const text = normalizeText(value).slice(0, 64);
+  return text || fallback;
+};
+
+const ensureValidDate = (value, fallback = new Date()) => {
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed : fallback;
+};
 
 const profileSchema = new mongoose.Schema(
   {
@@ -333,14 +377,7 @@ const userSchema = new mongoose.Schema(
     },
     profiles: {
       type: [profileSchema],
-      default: () => [
-        {
-          id: DEFAULT_PROFILE_ID,
-          name: "Main Profile",
-          description: "Default journal profile",
-          isDefault: true,
-        },
-      ],
+      default: () => [defaultProfile()],
     },
     activeProfileId: {
       type: String,
@@ -377,24 +414,58 @@ const userSchema = new mongoose.Schema(
 
 userSchema.pre("save", function normalizeProfiles(next) {
   if (!Array.isArray(this.profiles) || !this.profiles.length) {
-    this.profiles = [
-      {
-        id: DEFAULT_PROFILE_ID,
-        name: "Main Profile",
-        description: "Default journal profile",
-        isDefault: true,
-      },
-    ];
+    this.profiles = [defaultProfile()];
   }
+
+  const normalizedProfiles = [];
+  const usedIds = new Set();
+  this.profiles.forEach((profile, index) => {
+    const source = profile && typeof profile === "object" ? profile : {};
+    const baseId = normalizeProfileId(source.id, index === 0 ? DEFAULT_PROFILE_ID : `profile-${index + 1}`);
+    let nextId = baseId;
+    let attempt = 2;
+    while (usedIds.has(nextId.toLowerCase())) {
+      const suffix = `-${attempt}`;
+      nextId = `${baseId.slice(0, Math.max(64 - suffix.length, 1))}${suffix}`;
+      attempt += 1;
+    }
+    usedIds.add(nextId.toLowerCase());
+
+    const name = normalizeText(source.name).slice(0, 80);
+    const description = normalizeText(source.description).slice(0, 200);
+    normalizedProfiles.push({
+      id: nextId,
+      name: name || (nextId === DEFAULT_PROFILE_ID ? "Main Profile" : `Profile ${index + 1}`),
+      description,
+      isDefault: Boolean(source.isDefault),
+      createdAt: ensureValidDate(source.createdAt),
+    });
+  });
+  this.profiles = normalizedProfiles;
 
   const hasDefault = this.profiles.some((profile) => profile.isDefault);
   if (!hasDefault) {
     this.profiles[0].isDefault = true;
   }
+  if (this.profiles.filter((profile) => profile.isDefault).length > 1) {
+    let firstDefaultFound = false;
+    this.profiles = this.profiles.map((profile) => {
+      if (!profile.isDefault) {
+        return profile;
+      }
+      if (!firstDefaultFound) {
+        firstDefaultFound = true;
+        return profile;
+      }
+      return { ...profile, isDefault: false };
+    });
+  }
+
+  this.activeProfileId = normalizeProfileId(this.activeProfileId, "");
 
   if (!this.activeProfileId || !this.profiles.some((profile) => profile.id === this.activeProfileId)) {
-    const defaultProfile = this.profiles.find((profile) => profile.isDefault) || this.profiles[0];
-    this.activeProfileId = defaultProfile.id;
+    const defaultProfileEntry = this.profiles.find((profile) => profile.isDefault) || this.profiles[0];
+    this.activeProfileId = defaultProfileEntry.id;
   }
 
   const now = new Date();
@@ -421,6 +492,28 @@ userSchema.pre("save", function normalizeProfiles(next) {
   if (!this.subscription || typeof this.subscription !== "object") {
     this.subscription = { ...DEFAULT_SUBSCRIPTION };
   }
+  if (!this.settings || typeof this.settings !== "object") {
+    this.settings = buildDefaultSettings();
+  }
+  if (!this.settings.options || typeof this.settings.options !== "object") {
+    this.settings.options = buildDefaultSettings().options;
+  }
+  const options = this.settings.options;
+  options.pairs = normalizeStringList(options.pairs ?? DEFAULT_STRATEGY_OPTIONS.pairs);
+  options.sessions = normalizeStringList(options.sessions ?? DEFAULT_STRATEGY_OPTIONS.sessions);
+  options.setupTypes = normalizeStringList(options.setupTypes ?? DEFAULT_STRATEGY_OPTIONS.setupTypes);
+  options.tradeTypes = normalizeStringList(options.tradeTypes ?? DEFAULT_STRATEGY_OPTIONS.tradeTypes);
+  options.results = normalizeStringList(options.results ?? DEFAULT_STRATEGY_OPTIONS.results);
+  options.pocOutcomes = normalizeStringList(options.pocOutcomes ?? DEFAULT_STRATEGY_OPTIONS.pocOutcomes);
+  options.emotionTags = normalizeStringList(options.emotionTags ?? DEFAULT_STRATEGY_OPTIONS.emotionTags);
+
+  if (!this.settings.riskControls || typeof this.settings.riskControls !== "object") {
+    this.settings.riskControls = { ...DEFAULT_RISK_CONTROLS };
+  }
+  this.settings.riskControls = {
+    ...DEFAULT_RISK_CONTROLS,
+    ...this.settings.riskControls,
+  };
   this.subscription.planId = this.subscription.planId || DEFAULT_SUBSCRIPTION.planId;
   this.subscription.status = this.subscription.status || DEFAULT_SUBSCRIPTION.status;
   this.subscription.provider = this.subscription.provider || DEFAULT_SUBSCRIPTION.provider;

@@ -167,28 +167,6 @@ const AuthPanel = ({ onAuthenticated }) => {
               <LandingBrandMark className="brand-logo-landing" />
               <h1 className="landing-brand-title">TradeEdge</h1>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                className="landing-cta-secondary"
-                onClick={() => {
-                  setMode("login");
-                  setAuthModalOpen(true);
-                }}
-              >
-                Sign In
-              </button>
-              <button
-                type="button"
-                className="btn-primary landing-cta-primary"
-                onClick={() => {
-                  setMode("register");
-                  setAuthModalOpen(true);
-                }}
-              >
-                Get Started
-              </button>
-            </div>
           </header>
 
           <section className="mt-4 space-y-4">
@@ -200,21 +178,11 @@ const AuthPanel = ({ onAuthenticated }) => {
                   type="button"
                   className="btn-primary landing-cta-primary"
                   onClick={() => {
-                    setMode("register");
-                    setAuthModalOpen(true);
-                  }}
-                >
-                  Create account
-                </button>
-                <button
-                  type="button"
-                  className="landing-cta-secondary"
-                  onClick={() => {
                     setMode("login");
                     setAuthModalOpen(true);
                   }}
                 >
-                  Sign in
+                  Continue
                 </button>
               </div>
             </div>

@@ -211,15 +211,25 @@ export const validateTradeCreatePayload = (req, _res, next) => {
   }
 
   if (!Number.isFinite(entry) || entry <= 0) {
-    next(createValidationError("entryPrice is required and must be greater than 0."));
+    next(
+      createValidationError(
+        `entryPrice is required and must be greater than 0. Received: "${toText(req.body?.entryPrice)}".`
+      )
+    );
     return;
   }
   if (!Number.isFinite(stop) || stop <= 0) {
-    next(createValidationError("stopLoss is required and must be greater than 0."));
+    next(
+      createValidationError(`stopLoss is required and must be greater than 0. Received: "${toText(req.body?.stopLoss)}".`)
+    );
     return;
   }
   if (!Number.isFinite(take) || take <= 0) {
-    next(createValidationError("takeProfit is required and must be greater than 0."));
+    next(
+      createValidationError(
+        `takeProfit is required and must be greater than 0. Received: "${toText(req.body?.takeProfit)}".`
+      )
+    );
     return;
   }
   if (exitPrice !== null && (!Number.isFinite(exitPrice) || exitPrice <= 0)) {

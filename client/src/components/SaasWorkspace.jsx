@@ -1057,6 +1057,24 @@ const SaasWorkspace = ({
                 />
               </label>
               <label>
+                <span className="label">Stop Loss</span>
+                <input
+                  className="input"
+                  value={quickTradeForm.stopLoss}
+                  onChange={(event) => handleQuickTradeChange("stopLoss", event.target.value)}
+                  placeholder="1.0820"
+                />
+              </label>
+              <label>
+                <span className="label">Take Profit</span>
+                <input
+                  className="input"
+                  value={quickTradeForm.takeProfit}
+                  onChange={(event) => handleQuickTradeChange("takeProfit", event.target.value)}
+                  placeholder="1.0920"
+                />
+              </label>
+              <label>
                 <span className="label">Exit Price</span>
                 <input
                   className="input"

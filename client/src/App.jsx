@@ -150,6 +150,13 @@ const toNumber = (value, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const normalizePriceInput = (value) => {
+  if (value === undefined || value === null) {
+    return "";
+  }
+  return String(value).replace(/,/g, "").trim();
+};
+
 const normalizeEmotion = (value = "") =>
   String(value || "")
     .trim()
@@ -209,6 +216,8 @@ const buildQuickTradeForm = ({ setupOptions = [], sessionOptions = [], pairOptio
   pair: pairOptions[0] || "",
   entryPrice: "",
   exitPrice: "",
+  stopLoss: "",
+  takeProfit: "",
   plannedRR: "",
   setupType: setupOptions[0] || "",
   session: sessionOptions[0] || "",
@@ -1174,8 +1183,12 @@ const App = () => {
       if (!sanitizedPair && pairOptions[0]) {
         setQuickTradeForm((prev) => ({ ...prev, pair: pairOptions[0] }));
       }
-      const entryPrice = toNumber(quickTradeForm.entryPrice, NaN);
-      const exitPrice = quickTradeForm.exitPrice === "" ? NaN : toNumber(quickTradeForm.exitPrice, NaN);
+      const entryPrice = toNumber(normalizePriceInput(quickTradeForm.entryPrice), NaN);
+      const exitPrice = quickTradeForm.exitPrice === "" ? NaN : toNumber(normalizePriceInput(quickTradeForm.exitPrice), NaN);
+      const stopLossInput = normalizePriceInput(quickTradeForm.stopLoss);
+      const takeProfitInput = normalizePriceInput(quickTradeForm.takeProfit);
+      const stopLossValue = stopLossInput === "" ? NaN : toNumber(stopLossInput, NaN);
+      const takeProfitValue = takeProfitInput === "" ? NaN : toNumber(takeProfitInput, NaN);
       const plannedRRInput = quickTradeForm.plannedRR === "" ? NaN : toNumber(quickTradeForm.plannedRR, NaN);
       if (!pair || pair.length < 3 || pair.length > 15 || !Number.isFinite(entryPrice)) {
         setError("Pair and entry price are required.");
@@ -1188,8 +1201,8 @@ const App = () => {
 
       const defaultStop = round(entryPrice * 0.995, 5);
       const defaultTake = round(entryPrice * 1.01, 5);
-      const stopLoss = defaultStop;
-      const takeProfit = defaultTake;
+      const stopLoss = Number.isFinite(stopLossValue) && stopLossValue > 0 ? stopLossValue : defaultStop;
+      const takeProfit = Number.isFinite(takeProfitValue) && takeProfitValue > 0 ? takeProfitValue : defaultTake;
       const plannedRR = Number.isFinite(plannedRRInput) && plannedRRInput > 0
         ? round(plannedRRInput, 2)
         : round(Math.abs(takeProfit - entryPrice) / Math.max(Math.abs(entryPrice - stopLoss), 0.00001), 2);

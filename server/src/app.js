@@ -1,4 +1,5 @@
 import cors from "cors";
+import compression from "compression";
 import express from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -99,6 +100,12 @@ app.use(
       callback(new Error("Origin not allowed by CORS policy."));
     },
     credentials: false,
+  })
+);
+app.use(
+  compression({
+    // Favor speed over max compression; helps large analytics/trade payloads.
+    level: 5,
   })
 );
 app.use(

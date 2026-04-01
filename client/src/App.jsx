@@ -448,27 +448,29 @@ const App = () => {
     setLoading(true);
     setError("");
     setStatusMessage("");
-    try {
-      const tradeLimit = includeDetailedTrades ? (isCompactMobile ? 260 : 500) : isCompactMobile ? 180 : 320;
-      const [tradesResponse, analyticsResponse] = await Promise.all([
-        fetchTrades(
-          {
-            ...debouncedFilters,
-            limit: tradeLimit,
-            includeDetails: includeDetailedTrades ? "true" : "false",
-            includeTotal: includeTotalTrades ? "true" : "false",
-          },
-          token
-        ),
-        fetchAnalytics(debouncedFilters, token),
-      ]);
+    const tradeLimit = includeDetailedTrades
+      ? isCompactMobile
+        ? 260
+        : 500
+      : isCompactMobile
+        ? 120
+        : 220;
 
-      if (requestSeq !== loadRequestSeqRef.current) {
-        return;
-      }
+    const tradesPromise = fetchTrades(
+      {
+        ...debouncedFilters,
+        limit: tradeLimit,
+        includeDetails: includeDetailedTrades ? "true" : "false",
+        includeTotal: includeTotalTrades ? "true" : "false",
+      },
+      token
+    );
+    const analyticsPromise = fetchAnalytics(debouncedFilters, token);
 
-      const nextTrades = tradesResponse.data || [];
-      const nextAnalytics = analyticsResponse || emptyAnalytics;
+    let nextTrades = null;
+    let nextAnalytics = null;
+
+    const syncLatestSession = () => {
       const latestSession = readStoredAuthSession();
       if (latestSession.token && latestSession.token !== token) {
         setToken(latestSession.token);
@@ -476,12 +478,19 @@ const App = () => {
       if (latestSession.refreshToken && latestSession.refreshToken !== refreshToken) {
         setRefreshToken(latestSession.refreshToken);
       }
+    };
 
+    try {
+      const tradesResponse = await tradesPromise;
+      if (requestSeq !== loadRequestSeqRef.current) {
+        return;
+      }
+      nextTrades = tradesResponse.data || [];
+      syncLatestSession();
       setTrades(nextTrades);
-      setAnalytics(nextAnalytics);
       saveOfflineSnapshot({
         trades: nextTrades,
-        analytics: nextAnalytics,
+        analytics,
         filters: debouncedFilters,
       });
     } catch (fetchError) {
@@ -505,9 +514,46 @@ const App = () => {
           setAnalytics(emptyAnalytics);
           setStatusMessage("Offline mode: no synced data yet. New trades will queue locally.");
         }
-      } else {
-        setError(fetchError.message);
+        return;
       }
+
+      setError(fetchError.message);
+      // Still try to fetch analytics (it can be useful even if trade list fails for other reasons).
+    }
+
+    try {
+      const analyticsResponse = await analyticsPromise;
+      if (requestSeq !== loadRequestSeqRef.current) {
+        return;
+      }
+      nextAnalytics = analyticsResponse || emptyAnalytics;
+      syncLatestSession();
+      setAnalytics(nextAnalytics);
+      saveOfflineSnapshot({
+        trades: nextTrades ?? trades,
+        analytics: nextAnalytics,
+        filters: debouncedFilters,
+      });
+    } catch (fetchError) {
+      if (requestSeq !== loadRequestSeqRef.current) {
+        return;
+      }
+
+      if (isNetworkError(fetchError)) {
+        const snapshot = readOfflineSnapshot();
+        if (snapshot?.analytics) {
+          setAnalytics(snapshot.analytics || emptyAnalytics);
+          const syncedAt = formatSyncTime(snapshot.updatedAt);
+          setStatusMessage(
+            syncedAt
+              ? `Offline mode: showing last synced data from ${syncedAt}.`
+              : "Offline mode: showing last synced data."
+          );
+        }
+        return;
+      }
+
+      setError(fetchError.message);
     } finally {
       if (requestSeq === loadRequestSeqRef.current) {
         setLoading(false);

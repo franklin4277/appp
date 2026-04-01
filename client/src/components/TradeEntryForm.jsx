@@ -33,6 +33,12 @@ const localNow = () => {
 
 const generateClientTradeId = () => `ct-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const buildDraftStorageKey = (profileId = "") => `${DRAFT_STORAGE_PREFIX}:${String(profileId || "main")}`;
+const normalizePriceInput = (value) => {
+  if (value === undefined || value === null) {
+    return "";
+  }
+  return String(value).replace(/,/g, "").trim();
+};
 
   const buildOptionLists = (settings = {}) => ({
   pairs: (() => {
@@ -902,10 +908,10 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
       session: form.session,
       tradeType: tradeTypeLabel,
       setupType: form.setupType,
-      entryPrice: form.entryPrice,
-      exitPrice: form.exitPrice,
-      stopLoss: form.stopLoss,
-      takeProfit: form.takeProfit,
+      entryPrice: normalizePriceInput(form.entryPrice),
+      exitPrice: normalizePriceInput(form.exitPrice),
+      stopLoss: normalizePriceInput(form.stopLoss),
+      takeProfit: normalizePriceInput(form.takeProfit),
       riskPercent: form.riskPercent,
       lotSize: lotSizeToSave > 0 ? String(round(lotSizeToSave, 2)) : "",
       result: effectiveResult,
@@ -981,6 +987,28 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
     if ((!normalizedSetupType && !fallbackSetupType) || normalizedSetupType.length > 80) {
       setError("Setup type is required and should be under 80 characters.");
       return;
+    }
+    const entryValue = Number(normalizePriceInput(form.entryPrice));
+    if (!Number.isFinite(entryValue) || entryValue <= 0) {
+      setError("Entry price is required and must be greater than 0.");
+      return;
+    }
+    const stopValue = Number(normalizePriceInput(form.stopLoss));
+    if (!Number.isFinite(stopValue) || stopValue <= 0) {
+      setError("Stop loss is required and must be greater than 0.");
+      return;
+    }
+    const takeValue = Number(normalizePriceInput(form.takeProfit));
+    if (!Number.isFinite(takeValue) || takeValue <= 0) {
+      setError("Take profit is required and must be greater than 0.");
+      return;
+    }
+    if (String(form.exitPrice || "").trim()) {
+      const exitValue = Number(normalizePriceInput(form.exitPrice));
+      if (!Number.isFinite(exitValue) || exitValue <= 0) {
+        setError("Exit price must be greater than 0 when provided.");
+        return;
+      }
     }
     const entryValue = Number(form.entryPrice);
     if (!Number.isFinite(entryValue) || entryValue <= 0) {

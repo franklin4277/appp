@@ -7,59 +7,6 @@ import {
   verifyTwoFactorLogin,
 } from "../api/tradesApi";
 
-const marketingFeatures = [
-  {
-    icon: "journal",
-    title: "Trade Logging",
-    text: "Log complete trades in under 60 seconds with screenshots, RR, and context notes.",
-  },
-  {
-    icon: "behavior",
-    title: "Smart Analytics",
-    text: "Get clean dashboards for expectancy, drawdown, equity curve, and setup quality.",
-  },
-  {
-    icon: "behavior",
-    title: "Behavior Tracking",
-    text: "Track FOMO, revenge, and discipline drift so you can fix costly habits faster.",
-  },
-  {
-    icon: "session",
-    title: "Session Performance (Asia/London/NY)",
-    text: "Identify your strongest session and focus where your edge is statistically proven.",
-  },
-];
-
-const workflowSteps = [
-  "Log trade details and screenshots immediately after execution.",
-  "Review setup tags and behavior feedback to confirm rule alignment.",
-  "Use analytics to double down on A+ setups and cut low-quality entries.",
-];
-
-const testimonials = [
-  {
-    quote: "Built for serious traders. It finally feels like a real trading operating system.",
-    author: "Nicolas T.",
-    role: "Full-time FX Trader",
-  },
-  {
-    quote: "I can now see exactly when my edge appears and when my behavior slips.",
-    author: "Samuel K.",
-    role: "Intraday FX Trader",
-  },
-  {
-    quote: "Journaling went from a chore to a process I actually want to keep doing daily.",
-    author: "Nadia M.",
-    role: "Prop Firm Candidate",
-  },
-];
-
-const heroStats = [
-  { label: "Avg Win Rate", value: "68%" },
-  { label: "Avg RR Ratio", value: "2.4x" },
-  { label: "Trades Logged", value: "10k+" },
-];
-
 const LandingBrandMark = ({ className = "" }) => (
   <span className={className} aria-hidden="true">
     <svg viewBox="0 0 24 24" role="presentation" className="h-full w-full">
@@ -82,40 +29,6 @@ const LandingBrandMark = ({ className = "" }) => (
     </svg>
   </span>
 );
-
-const FeatureIcon = ({ type = "journal" }) => {
-  if (type === "behavior") {
-    return (
-      <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
-        <path d="M4 18h16M6 14h12M8 10h8M10 6h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      </svg>
-    );
-  }
-  if (type === "session") {
-    return (
-      <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
-        <path
-          d="M4 18h16M7 18V9m5 9V6m5 12v-4"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    );
-  }
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
-      <path
-        d="M6 4h12a2 2 0 0 1 2 2v12H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm3 4h6M9 11h6M9 14h4"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-};
 
 const AuthPanel = ({ onAuthenticated }) => {
   const showDebugSecrets = Boolean(import.meta.env.DEV || import.meta.env.VITE_SHOW_DEBUG_AUTH_SECRETS === "true");
@@ -254,44 +167,17 @@ const AuthPanel = ({ onAuthenticated }) => {
               <LandingBrandMark className="brand-logo-landing" />
               <h1 className="landing-brand-title">TradeEdge</h1>
             </div>
-            <button
-              type="button"
-              className="landing-signin-btn"
-              onClick={() => {
-                setMode("login");
-                setAuthModalOpen(true);
-              }}
-            >
-              Sign In
-            </button>
-          </header>
-
-          <section className="mt-4 space-y-4">
-          <div className="panel animate-riseIn landing-hero">
-            <p className="landing-kicker">
-              <span className="landing-kicker-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5">
-                  <path
-                    d="M11 3L6 12h4l-1 9 9-12h-4l2-6z"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </span>
-              Built for serious traders
-            </p>
-            <h2 className="landing-hero-title mt-4">
-              Turn Your Trading Data
-              <br />
-              Into <span className="landing-hero-gradient">Consistent Profit</span>
-            </h2>
-            <p className="landing-hero-copy mt-4">
-              Track, analyze, and improve your trading with powerful insights, not spreadsheets.
-            </p>
-            <div className="landing-cta mt-6">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="landing-cta-secondary"
+                onClick={() => {
+                  setMode("login");
+                  setAuthModalOpen(true);
+                }}
+              >
+                Sign In
+              </button>
               <button
                 type="button"
                 className="btn-primary landing-cta-primary"
@@ -300,93 +186,41 @@ const AuthPanel = ({ onAuthenticated }) => {
                   setAuthModalOpen(true);
                 }}
               >
-                Start Free Trial <span aria-hidden="true">&rarr;</span>
-              </button>
-              <button
-                type="button"
-                className="landing-cta-secondary"
-                onClick={() => {
-                  document.getElementById("features")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
-              >
-                View Demo
+                Get Started
               </button>
             </div>
-            <div className="landing-stats mt-8">
-              {heroStats.map((item) => (
-                <div key={item.label} className="landing-stat">
-                  <p className="landing-stat-value">{item.value}</p>
-                  <p className="landing-stat-label">{item.label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+          </header>
 
-          <section id="features" className="panel animate-riseIn space-y-3 landing-content-section landing-features-section">
-            <div className="section-title section-title-centered landing-section-title">
-              <h3>Everything You Need to Find Your Edge</h3>
-              <p>Professional tools built specifically for traders</p>
+          <section className="mt-4 space-y-4">
+            <div className="panel animate-riseIn landing-hero">
+              <h2 className="landing-hero-title">Trading journal, analytics, and review.</h2>
+              <p className="landing-hero-copy mt-3">Sign in to continue.</p>
+              <div className="landing-cta mt-6">
+                <button
+                  type="button"
+                  className="btn-primary landing-cta-primary"
+                  onClick={() => {
+                    setMode("register");
+                    setAuthModalOpen(true);
+                  }}
+                >
+                  Create account
+                </button>
+                <button
+                  type="button"
+                  className="landing-cta-secondary"
+                  onClick={() => {
+                    setMode("login");
+                    setAuthModalOpen(true);
+                  }}
+                >
+                  Sign in
+                </button>
+              </div>
             </div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4 landing-features-grid">
-              {marketingFeatures.map((feature) => (
-                <article key={feature.title} className="soft-frame landing-feature-card">
-                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-accent/45 bg-accent/15 text-accent">
-                    <FeatureIcon type={feature.icon} />
-                  </span>
-                  <h4 className="mt-2 text-sm font-semibold">{feature.title}</h4>
-                  <p className="mt-2 text-xs text-textMuted">{feature.text}</p>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section id="how-it-works" className="panel animate-riseIn space-y-3 landing-content-section">
-            <div className="section-title section-title-centered landing-section-title">
-              <h3>How It Works</h3>
-              <p>Simple 3-step flow</p>
-            </div>
-            <ol className="grid grid-cols-1 gap-3 md:grid-cols-3 landing-steps-grid">
-              {workflowSteps.map((step, index) => (
-                <li key={step} className="soft-frame landing-step-card">
-                  <p className="landing-step-index">Step {index + 1}</p>
-                  <p className="landing-step-copy">{step}</p>
-                </li>
-              ))}
-            </ol>
-          </section>
-
-          <section id="testimonials" className="panel animate-riseIn space-y-3 landing-content-section">
-            <div className="section-title section-title-centered landing-section-title">
-              <h3>Testimonials</h3>
-              <p>Trusted by active traders</p>
-            </div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              {testimonials.map((item) => (
-                <blockquote key={item.author} className="soft-frame landing-testimonial-card">
-                  <p className="landing-testimonial-quote">"{item.quote}"</p>
-                  <footer className="landing-testimonial-meta">
-                    {item.author} - {item.role}
-                  </footer>
-                </blockquote>
-              ))}
-            </div>
-          </section>
 
             <footer id="footer" className="panel animate-riseIn landing-footer">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm text-textMuted">(c) {new Date().getFullYear()} TradeEdge</p>
-                <div className="flex flex-wrap gap-2 text-xs">
-                  <a className="chip text-textMain" href="#features">
-                    Features
-                  </a>
-                  <a className="chip text-textMain" href="#how-it-works">
-                    How it works
-                  </a>
-                  <a className="chip text-textMain" href="#testimonials">
-                    Testimonials
-                  </a>
-                </div>
-              </div>
+              <p className="text-sm text-textMuted">(c) {new Date().getFullYear()} TradeEdge</p>
             </footer>
           </section>
         </div>

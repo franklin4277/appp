@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import ThemeToggle from "./ThemeToggle";
 import BrandLogo from "./BrandLogo";
 
@@ -71,12 +72,12 @@ const computeMaxDrawdown = (trades = []) => {
   let maxDrawdown = 0;
 
   for (const trade of chronological) {
-    cumulative += toNumber(trade?.rrAchieved) * 100;
+    cumulative += toNumber(trade?.rrAchieved);
     peak = Math.max(peak, cumulative);
     maxDrawdown = Math.max(maxDrawdown, peak - cumulative);
   }
 
-  return round(maxDrawdown, 0);
+  return round(maxDrawdown, 2);
 };
 
 const formatTradeDate = (value) => {
@@ -253,7 +254,7 @@ const SaasWorkspace = ({
   totalBreakEven,
   overallWinRate,
   overallAvgRR,
-  derivedPnL,
+  netRR,
   edgeInsights,
   expectancyValue,
   equityPolyline,
@@ -320,7 +321,7 @@ const SaasWorkspace = ({
   };
   const activeReview = reviewConfig[reviewRange] || reviewConfig.week;
   const activeReviewTrades = activeReview.trades || [];
-  const activeReviewPnL = round(activeReviewTrades.reduce((sum, trade) => sum + toNumber(trade?.rrAchieved) * 100, 0), 0);
+  const activeReviewNetRR = round(activeReviewTrades.reduce((sum, trade) => sum + toNumber(trade?.rrAchieved), 0), 2);
   const activeBestTrade = [...activeReviewTrades].sort((a, b) => toNumber(b?.rrAchieved) - toNumber(a?.rrAchieved))[0] || null;
   const activeWorstTrade = [...activeReviewTrades].sort((a, b) => toNumber(a?.rrAchieved) - toNumber(b?.rrAchieved))[0] || null;
   const reviewSetupStats = groupedStats(activeReviewTrades, (trade) => trade?.setupType);
@@ -342,11 +343,11 @@ const SaasWorkspace = ({
       ? edgeInsights.worstHabit?.detail || "Keep journaling with discipline."
       : "Log trades in this period to unlock focused review insights.";
   const reviewExpectancy = activeReviewTrades.length
-    ? round(activeReviewTrades.reduce((sum, trade) => sum + toNumber(trade?.rrAchieved) * 100, 0) / activeReviewTrades.length, 2)
+    ? round(activeReviewTrades.reduce((sum, trade) => sum + toNumber(trade?.rrAchieved), 0) / activeReviewTrades.length, 2)
     : 0;
   const setupChartItems = setupTop.slice(0, 6);
   const sessionChartItems = sessionTop.slice(0, 6);
-  const netRR = round(derivedPnL / 100, 2);
+  const monthNetRR = round((monthlyTrades || []).reduce((sum, trade) => sum + toNumber(trade?.rrAchieved), 0), 2);
   const winShareLabel = totalTrades ? `${totalWins}/${totalTrades} wins` : "No trades yet";
   const mobilePrimaryPages = pages.filter((page) =>
     ["dashboard", "journal", "analytics", "edge", "behavior", "review", "settings"].includes(page.key)
@@ -360,12 +361,50 @@ const SaasWorkspace = ({
     review: "Review",
     settings: "Settings",
   };
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [activePage]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) {
+      return undefined;
+    }
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [mobileMenuOpen]);
 
   return (
   <section className="saas-shell app-journal">
     <aside className="saas-sidebar">
       <div className="saas-sidebar-main">
         <div className="saas-brand">
+          <button
+            type="button"
+            className="saas-mobile-menu-btn"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Open navigation menu"
+            aria-expanded={mobileMenuOpen}
+            aria-controls="saas-mobile-drawer"
+          >
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </button>
           <BrandLogo className="brand-logo brand-logo-landing" />
           <span>TradeEdge</span>
         </div>
@@ -405,6 +444,71 @@ const SaasWorkspace = ({
       </div>
     </aside>
 
+    <div
+      className={`saas-mobile-drawer-backdrop ${mobileMenuOpen ? "saas-mobile-drawer-backdrop-open" : ""}`}
+      onClick={() => setMobileMenuOpen(false)}
+      aria-hidden={!mobileMenuOpen}
+    >
+      <aside
+        id="saas-mobile-drawer"
+        className={`saas-mobile-drawer ${mobileMenuOpen ? "saas-mobile-drawer-open" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation menu"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="saas-mobile-drawer-head">
+          <div className="saas-brand">
+            <BrandLogo className="brand-logo brand-logo-landing" />
+            <span>TradeEdge</span>
+          </div>
+          <button
+            type="button"
+            className="saas-mobile-drawer-close"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="Close navigation menu"
+          >
+            x
+          </button>
+        </div>
+        <nav className="saas-mobile-drawer-nav">
+          {mobilePrimaryPages.map((page) => (
+            <button
+              key={`drawer-${page.key}`}
+              type="button"
+              className={`saas-nav-item ${activePage === page.key ? "saas-nav-item-active" : ""}`}
+              onClick={() => {
+                setActivePage(page.key);
+                setMobileMenuOpen(false);
+              }}
+              aria-current={activePage === page.key ? "page" : undefined}
+            >
+              <span className="saas-nav-icon" aria-hidden="true">
+                <IconGlyph name={navIconMap[page.key] || "dot"} />
+              </span>
+              {mobileLabelMap[page.key] || page.label}
+            </button>
+          ))}
+        </nav>
+        <div className="saas-mobile-drawer-footer">
+          <select
+            className="input saas-profile-select !h-9 !rounded-lg !py-1 text-xs"
+            value={filters.profileId || user.activeProfileId || ""}
+            onChange={(event) => handleProfileSwitch(event.target.value)}
+          >
+            {(user.profiles || []).map((profile) => (
+              <option key={profile.id} value={profile.id}>
+                {profile.name}
+              </option>
+            ))}
+          </select>
+          <button type="button" className="saas-signout" onClick={onLogout}>
+            Sign Out
+          </button>
+        </div>
+      </aside>
+    </div>
+
     <section className="saas-content">
       {loading || syncingQueue ? <div className="top-loader" aria-hidden="true" /> : null}
 
@@ -423,23 +527,6 @@ const SaasWorkspace = ({
           />
         </div>
       </header>
-
-      <nav className="saas-mobile-nav" aria-label="Mobile workspace navigation">
-        {mobilePrimaryPages.map((page) => (
-          <button
-            key={`mobile-${page.key}`}
-            type="button"
-            className={`saas-mobile-nav-item ${activePage === page.key ? "saas-mobile-nav-item-active" : ""}`}
-            onClick={() => setActivePage(page.key)}
-            aria-current={activePage === page.key ? "page" : undefined}
-          >
-            <span className="saas-mobile-nav-icon" aria-hidden="true">
-              <IconGlyph name={navIconMap[page.key] || "dot"} />
-            </span>
-            <span>{mobileLabelMap[page.key] || page.label}</span>
-          </button>
-        ))}
-      </nav>
 
       {error ? (
         <p className="saas-alert saas-alert-error" role="alert" aria-live="assertive">
@@ -515,12 +602,12 @@ const SaasWorkspace = ({
                 <span className="saas-stat-icon saas-stat-icon-gold">
                   <IconGlyph name="money" />
                 </span>
-                <p className="saas-stat-kicker">Exp ${(toNumber(expectancyValue) * 100).toFixed(2)}</p>
+                <p className="saas-stat-kicker">Exp {round(expectancyValue, 2)}R</p>
               </div>
               <p className="saas-stat-value">
-                {derivedPnL >= 0 ? "+" : ""}${Math.abs(derivedPnL).toFixed(0)}
+                {netRR >= 0 ? "+" : ""}{Math.abs(netRR).toFixed(2)}R
               </p>
-              <p className="saas-stat-label">Total P&L</p>
+              <p className="saas-stat-label">Net R</p>
             </article>
           </div>
 
@@ -529,13 +616,25 @@ const SaasWorkspace = ({
               <span className="saas-stat-icon saas-stat-icon-blue">
                 <IconGlyph name="pulse" />
               </span>
-              <h3>Edge Detected</h3>
+              <h3>Edge Insights</h3>
             </div>
-            <p>
-              Your <span>{edgeInsights.bestSession?.key || "best"} session</span> trades have a
-              <span> {edgeInsights.bestSession?.winRate || overallWinRate}% win rate</span>. Best setup is
-              <span> {edgeInsights.bestSetup?.key || "Breakout"}</span>.
-            </p>
+            {totalTrades ? (
+              <p>
+                Best session: <span>{edgeInsights.bestSession?.key || "N/A"}</span>
+                {edgeInsights.bestSession?.winRate !== undefined ? (
+                  <span> ({edgeInsights.bestSession.winRate}% WR)</span>
+                ) : null}
+                {edgeInsights.bestSetup?.key ? (
+                  <>
+                    . Best setup: <span>{edgeInsights.bestSetup.key}</span>.
+                  </>
+                ) : (
+                  "."
+                )}
+              </p>
+            ) : (
+              <p>No closed trades yet. Log trades to unlock edge insights.</p>
+            )}
             <button type="button" className="chip quick-chart-btn" onClick={() => setActivePage("edge")}>
               View Full Analysis
             </button>
@@ -561,17 +660,17 @@ const SaasWorkspace = ({
               <div className="saas-metric-list">
                 <div className="saas-metric-item">
                   <span>Expectancy</span>
-                  <strong>${(expectancyValue * 100).toFixed(2)}</strong>
+                  <strong>{round(expectancyValue, 2)}R</strong>
                 </div>
                 <div className="saas-progress saas-progress-blue">
-                  <span style={{ width: `${Math.min(Math.max((expectancyValue + 1) * 45, 5), 100)}%` }} />
+                  <span style={{ width: `${Math.min(Math.max((expectancyValue + 1) * 45, 0), 100)}%` }} />
                 </div>
                 <div className="saas-metric-item">
                   <span>Max Drawdown</span>
-                  <strong>${Math.abs(toNumber(edgeInsights.maxDrawdown) * 100).toFixed(0)}</strong>
+                  <strong>{round(Math.abs(toNumber(edgeInsights.maxDrawdown)), 2)}R</strong>
                 </div>
                 <div className="saas-progress saas-progress-red">
-                  <span style={{ width: `${Math.min(Math.max(Math.abs(toNumber(edgeInsights.maxDrawdown)) * 30, 5), 100)}%` }} />
+                  <span style={{ width: `${Math.min(Math.max(Math.abs(toNumber(edgeInsights.maxDrawdown)) * 30, 0), 100)}%` }} />
                 </div>
                 <div className="saas-metric-item">
                   <span>Worst Habit</span>
@@ -606,7 +705,7 @@ const SaasWorkspace = ({
                     <th scope="col">Setup</th>
                     <th scope="col">R:R</th>
                     <th scope="col">Outcome</th>
-                    <th scope="col">P&L</th>
+                    <th scope="col">Net R</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -620,10 +719,11 @@ const SaasWorkspace = ({
                         <TradeOutcome result={trade.result} />
                       </td>
                       <td
-                        data-label="P&L"
+                        data-label="Net R"
                         className={toNumber(trade.rrAchieved) >= 0 ? "saas-table-pnl-positive" : "saas-table-pnl-negative"}
                       >
-                        {toNumber(trade.rrAchieved) >= 0 ? "+" : "-"}${Math.abs(toNumber(trade.rrAchieved) * 100).toFixed(0)}
+                        {toNumber(trade.rrAchieved) >= 0 ? "+" : "-"}
+                        {Math.abs(toNumber(trade.rrAchieved)).toFixed(2)}R
                       </td>
                     </tr>
                   ))}
@@ -797,7 +897,7 @@ const SaasWorkspace = ({
                 </span>
                 <p className="saas-stat-kicker">Expectancy</p>
               </div>
-              <p className="saas-stat-value">${(expectancyValue * 100).toFixed(2)}</p>
+              <p className="saas-stat-value">{round(expectancyValue, 2)}R</p>
               <p className="saas-stat-label">Per Trade</p>
             </article>
             <article className="panel saas-card">
@@ -818,7 +918,7 @@ const SaasWorkspace = ({
               <div className="saas-bars" style={{ "--saas-bars-columns": String(Math.max(setupChartItems.length, 1)) }}>
                 {setupChartItems.map((item) => (
                   <div key={item.label} className="saas-bar-item">
-                    <div className="saas-bar" style={{ height: `${Math.max(item.winRate, 4)}%` }} />
+                    <div className="saas-bar" style={{ height: `${Math.min(Math.max(item.winRate, 0), 100)}%` }} />
                     <span>{item.label}</span>
                   </div>
                 ))}
@@ -829,7 +929,7 @@ const SaasWorkspace = ({
               <div className="saas-bars" style={{ "--saas-bars-columns": String(Math.max(sessionChartItems.length, 1)) }}>
                 {sessionChartItems.map((item) => (
                   <div key={item.label} className="saas-bar-item">
-                    <div className="saas-bar saas-bar-purple" style={{ height: `${Math.max(item.winRate, 4)}%` }} />
+                    <div className="saas-bar saas-bar-purple" style={{ height: `${Math.min(Math.max(item.winRate, 0), 100)}%` }} />
                     <span>{item.label}</span>
                   </div>
                 ))}
@@ -855,11 +955,12 @@ const SaasWorkspace = ({
               </div>
             </article>
             <article className="panel saas-card">
-              <h3 className="saas-card-title">Monthly P&L</h3>
-              <div className="saas-single-bar-wrap">
-                <div className="saas-single-bar" style={{ height: `${Math.min(Math.max(Math.abs(derivedPnL) / 40, 18), 100)}%` }} />
-              </div>
-              <p className="saas-stat-label text-center">{new Date().toLocaleDateString([], { month: "short" })}</p>
+              <h3 className="saas-card-title">This Month</h3>
+              <p className="saas-stat-value">
+                {monthNetRR >= 0 ? "+" : "-"}
+                {Math.abs(monthNetRR).toFixed(2)}R
+              </p>
+              <p className="saas-stat-label">Net R</p>
             </article>
           </div>
         </section>
@@ -875,8 +976,8 @@ const SaasWorkspace = ({
               <h3>Your Trading Edge</h3>
             </div>
             <p>
-              Best Setup: <span>{setupTop[0]?.label || "Breakout"}</span> ({setupTop[0]?.winRate || 0}% WR)
-              <span className="ml-3">Best Session: {sessionTop[0]?.label || "Asia"} ({sessionTop[0]?.winRate || 0}% WR)</span>
+              Best Setup: <span>{setupTop[0]?.label || "N/A"}</span> ({setupTop[0]?.winRate ?? 0}% WR)
+              <span className="ml-3">Best Session: {sessionTop[0]?.label || "N/A"} ({sessionTop[0]?.winRate ?? 0}% WR)</span>
             </p>
           </article>
 
@@ -900,7 +1001,7 @@ const SaasWorkspace = ({
                       </p>
                     </div>
                     <div className={`saas-progress ${item.winRate < 40 ? "saas-progress-muted" : "saas-progress-green"}`}>
-                      <span style={{ width: `${Math.max(item.winRate, 3)}%` }} />
+                      <span style={{ width: `${Math.min(Math.max(item.winRate, 0), 100)}%` }} />
                     </div>
                   </div>
                 ))}
@@ -925,7 +1026,7 @@ const SaasWorkspace = ({
                       </p>
                     </div>
                     <div className={`saas-progress ${item.winRate < 40 ? "saas-progress-muted" : "saas-progress-green"}`}>
-                      <span style={{ width: `${Math.max(item.winRate, 3)}%` }} />
+                      <span style={{ width: `${Math.min(Math.max(item.winRate, 0), 100)}%` }} />
                     </div>
                   </div>
                 ))}
@@ -978,11 +1079,11 @@ const SaasWorkspace = ({
               <div className="saas-impact-chart">
                 <div className="saas-impact-bars">
                   <div className="saas-impact-bar-item">
-                    <div className="saas-impact-bar saas-impact-bar-good" style={{ height: `${Math.max(followedPlanWinRate, 3)}%` }} />
+                    <div className="saas-impact-bar saas-impact-bar-good" style={{ height: `${Math.min(Math.max(followedPlanWinRate, 0), 100)}%` }} />
                     <span>Followed Plan</span>
                   </div>
                   <div className="saas-impact-bar-item">
-                    <div className="saas-impact-bar saas-impact-bar-bad" style={{ height: `${Math.max(violatedPlanWinRate, 2)}%` }} />
+                    <div className="saas-impact-bar saas-impact-bar-bad" style={{ height: `${Math.min(Math.max(violatedPlanWinRate, 0), 100)}%` }} />
                     <span>Violated Plan</span>
                   </div>
                 </div>
@@ -1011,7 +1112,7 @@ const SaasWorkspace = ({
                   </div>
                   <p>{item.trades} trades</p>
                   <div className={`saas-progress ${item.winRate >= 50 ? "saas-progress-green" : "saas-progress-muted"}`}>
-                    <span style={{ width: `${Math.max(item.winRate, 3)}%` }} />
+                    <span style={{ width: `${Math.min(Math.max(item.winRate, 0), 100)}%` }} />
                   </div>
                 </div>
               ))}
@@ -1047,7 +1148,7 @@ const SaasWorkspace = ({
               <article className="saas-mini-stat"><p>Total Trades</p><strong>{activeReviewTrades.length}</strong></article>
               <article className="saas-mini-stat"><p>Win Rate</p><strong>{activeReview.winRate}%</strong></article>
               <article className="saas-mini-stat"><p>Avg R:R</p><strong>{activeReview.avgRR}x</strong></article>
-              <article className="saas-mini-stat saas-mini-stat-profit"><p>Total P&L</p><strong>${activeReviewPnL}</strong></article>
+              <article className="saas-mini-stat saas-mini-stat-profit"><p>Net R</p><strong>{activeReviewNetRR >= 0 ? "+" : "-"}{Math.abs(activeReviewNetRR).toFixed(2)}R</strong></article>
             </div>
             {!activeReviewTrades.length ? (
               <p className="saas-stat-label mt-3">No closed trades in {activeReview.label.toLowerCase()} yet.</p>
@@ -1089,7 +1190,7 @@ const SaasWorkspace = ({
                     </span>
                     <span>
                       <strong>Expectancy</strong>
-                      <small>${reviewExpectancy.toFixed(2)} per trade ({activeReview.label})</small>
+                      <small>{reviewExpectancy.toFixed(2)}R per trade ({activeReview.label})</small>
                     </span>
                   </li>
                 </ul>
@@ -1112,7 +1213,7 @@ const SaasWorkspace = ({
                     </span>
                     <span>
                       <strong>Max Drawdown</strong>
-                      <small>${reviewMaxDrawdown.toFixed(0)} peak-to-trough over {activeReview.label.toLowerCase()}</small>
+                      <small>{reviewMaxDrawdown.toFixed(2)}R peak-to-trough over {activeReview.label.toLowerCase()}</small>
                     </span>
                   </li>
                   {reviewWorstEmotion ? (

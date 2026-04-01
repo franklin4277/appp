@@ -919,9 +919,19 @@ body::before {
 
 .saas-card-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 0.7rem;
+}
+
+.saas-card-head .saas-card-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.saas-card-head .chip {
+  flex-shrink: 0;
 }
 
 .saas-sr-only {
@@ -1598,6 +1608,14 @@ body::before {
   display: none;
 }
 
+.saas-mobile-menu-btn {
+  display: none;
+}
+
+.saas-mobile-drawer-backdrop {
+  display: none;
+}
+
 .saas-settings-grid {
   display: grid;
   gap: 0.7rem;
@@ -2188,8 +2206,8 @@ body::before {
   }
 
   .saas-nav-item {
-    flex: 0 0 auto;
-    min-width: 118px;
+    width: 100%;
+    min-width: 0;
     border-radius: 8px;
     font-size: 0.77rem;
     padding: 0.48rem 0.5rem;
@@ -2208,6 +2226,104 @@ body::before {
 
   .saas-sidebar-footer {
     display: none;
+  }
+
+  .saas-mobile-menu-btn {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(100, 116, 139, 0.26);
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.74);
+    color: #8da3c8;
+    flex-shrink: 0;
+  }
+
+  .saas-mobile-menu-btn svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+  }
+
+  .saas-mobile-menu-btn:focus-visible,
+  .saas-mobile-drawer-close:focus-visible {
+    outline: 2px solid rgba(147, 197, 253, 0.9);
+    outline-offset: 2px;
+  }
+
+  .saas-mobile-drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: rgba(2, 8, 23, 0.56);
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 180ms ease;
+  }
+
+  .saas-mobile-drawer-backdrop-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .saas-mobile-drawer {
+    width: min(292px, 84vw);
+    height: 100%;
+    border-right: 1px solid rgba(52, 77, 122, 0.58);
+    background: linear-gradient(180deg, rgba(12, 23, 43, 0.98), rgba(10, 20, 37, 0.97));
+    padding: 0.74rem 0.66rem 0.68rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.58rem;
+    transform: translateX(-104%);
+    transition: transform 220ms ease;
+  }
+
+  .saas-mobile-drawer-open {
+    transform: translateX(0);
+  }
+
+  .saas-mobile-drawer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .saas-mobile-drawer-close {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(100, 116, 139, 0.28);
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.74);
+    color: #8da3c8;
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .saas-mobile-drawer-nav {
+    display: grid;
+    gap: 0.34rem;
+    margin-top: 0.22rem;
+  }
+
+  .saas-mobile-drawer-nav .saas-nav-item {
+    justify-content: flex-start;
+  }
+
+  .saas-mobile-drawer-footer {
+    margin-top: auto;
+    display: grid;
+    gap: 0.45rem;
   }
 
   .saas-content {
@@ -2291,6 +2407,8 @@ body::before {
   .saas-page-dashboard .saas-table td,
   .saas-page-dashboard .saas-table tbody th {
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .saas-page-dashboard .saas-table td[data-label="Setup"] {
@@ -2412,66 +2530,7 @@ body::before {
   }
 
   .saas-mobile-nav {
-    position: sticky;
-    top: 0;
-    z-index: 30;
-    display: flex;
-    gap: 0.34rem;
-    overflow-x: auto;
-    scrollbar-width: none;
-    border: 1px solid rgba(52, 77, 122, 0.6);
-    border-radius: 12px;
-    background: linear-gradient(180deg, rgba(8, 17, 32, 0.95), rgba(8, 17, 32, 0.99));
-    backdrop-filter: blur(8px);
-    padding: 0.38rem;
-    margin: 0 0 0.6rem;
-  }
-
-  .saas-mobile-nav::-webkit-scrollbar {
-    display: none;
-  }
-
-  .saas-mobile-nav-item {
-    flex: 0 0 auto;
-    border: 1px solid rgba(100, 116, 139, 0.26);
-    border-radius: 10px;
-    background: rgba(15, 23, 42, 0.74);
-    color: #8da3c8;
-    min-width: 102px;
-    padding: 0.34rem 0.48rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.16rem;
-    font-size: 0.68rem;
-    font-weight: 600;
-    line-height: 1.2;
-    white-space: nowrap;
-  }
-
-  .saas-mobile-nav-item-active {
-    border-color: rgba(96, 165, 250, 0.64);
-    color: #dbeafe;
-    background: linear-gradient(180deg, rgba(37, 99, 235, 0.82), rgba(30, 64, 175, 0.9));
-  }
-
-  .saas-mobile-nav-item:focus-visible {
-    outline: 2px solid rgba(147, 197, 253, 0.9);
-    outline-offset: 2px;
-  }
-
-  .saas-mobile-nav-icon {
-    width: 13px;
-    height: 13px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .saas-mobile-nav-icon svg {
-    width: 12px;
-    height: 12px;
-    display: block;
+    display: none !important;
   }
 
   .saas-settings-actions {
@@ -2521,15 +2580,6 @@ body::before {
 
   .saas-sidebar-footer {
     grid-template-columns: 1fr;
-  }
-
-  .saas-signout {
-    width: 100%;
-  }
-
-  .saas-mobile-nav-item {
-    min-width: 94px;
-    font-size: 0.62rem;
   }
 }
 

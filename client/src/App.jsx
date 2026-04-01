@@ -197,7 +197,7 @@ const groupedStats = (trades = [], selector = () => "") =>
 
 const buildQuickTradeForm = ({ setupOptions = [], sessionOptions = [] } = {}) => ({
   tradeDate: new Date().toISOString().slice(0, 10),
-  pair: "EUR/USD",
+  pair: "",
   entryPrice: "",
   exitPrice: "",
   plannedRR: "",
@@ -1046,16 +1046,10 @@ const App = () => {
   const overallWinRate = computeWinRate(closedTrades);
   const overallAvgRR = computeAverageRR(closedTrades);
   const expectancyValue = toNumber(edgeInsights.expectancy);
-  const derivedPnL = useMemo(() => {
-    const explicitPnl = closedTrades.reduce(
-      (sum, trade) => sum + toNumber(trade?.pnl || trade?.profitLoss || trade?.profit || trade?.netPnl, 0),
-      0
-    );
-    if (Math.abs(explicitPnl) > 0.0001) {
-      return round(explicitPnl, 2);
-    }
-    return round(closedTrades.reduce((sum, trade) => sum + toNumber(trade?.rrAchieved) * 100, 0), 2);
-  }, [closedTrades]);
+  const netRR = useMemo(
+    () => round(closedTrades.reduce((sum, trade) => sum + toNumber(trade?.rrAchieved), 0), 2),
+    [closedTrades]
+  );
 
   const setupRankings = useMemo(() => groupedStats(closedTrades, (trade) => trade?.setupType), [closedTrades]);
   const sessionRankings = useMemo(() => groupedStats(closedTrades, (trade) => trade?.session), [closedTrades]);
@@ -1248,7 +1242,7 @@ const App = () => {
         totalBreakEven={totalBreakEven}
         overallWinRate={overallWinRate}
         overallAvgRR={overallAvgRR}
-        derivedPnL={derivedPnL}
+        netRR={netRR}
         edgeInsights={edgeInsights}
         expectancyValue={expectancyValue}
         equityPolyline={equityPolyline}

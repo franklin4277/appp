@@ -365,8 +365,31 @@ const SaasWorkspace = ({
 
   useEffect(() => {
     setMobileMenuOpen(false);
+
     // Ensure each page starts from the top when switching views.
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    // Some mobile browsers/webviews are picky about scroll targets and options objects.
+    const scrollToTop = () => {
+      try {
+        window.scrollTo(0, 0);
+      } catch (error) {
+        // Ignore scroll failures (e.g. in non-browser environments).
+      }
+
+      const rootScroller = document.scrollingElement || document.documentElement || document.body;
+      if (rootScroller && typeof rootScroller.scrollTo === "function") {
+        rootScroller.scrollTo(0, 0);
+      }
+
+      const content = document.querySelector(".saas-content");
+      if (content && typeof content.scrollTo === "function") {
+        content.scrollTo(0, 0);
+      }
+    };
+
+    // Run immediately and again after layout settles.
+    scrollToTop();
+    const raf = window.requestAnimationFrame(scrollToTop);
+    return () => window.cancelAnimationFrame(raf);
   }, [activePage]);
 
   useEffect(() => {

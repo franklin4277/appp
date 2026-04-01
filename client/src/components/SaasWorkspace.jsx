@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import ThemeToggle from "./ThemeToggle";
 import BrandLogo from "./BrandLogo";
 import ScreenshotReplay from "./ScreenshotReplay";
@@ -438,6 +438,7 @@ const SaasWorkspace = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [newProfileName, setNewProfileName] = useState("");
   const [selectedTrade, setSelectedTrade] = useState(null);
+  const [reviewReplayTarget, setReviewReplayTarget] = useState("");
   const [tradeDetailsBusy, setTradeDetailsBusy] = useState(false);
   const [tradeDetailsError, setTradeDetailsError] = useState("");
   const [settingsDraft, setSettingsDraft] = useState({
@@ -568,6 +569,7 @@ const SaasWorkspace = ({
     }
 
     setSelectedTrade(trade);
+    setReviewReplayTarget(trade._id || "");
     setTradeDetailsError("");
 
     const tradeId = trade._id;
@@ -596,6 +598,18 @@ const SaasWorkspace = ({
 
     setSelectedTrade((prev) => (prev && prev._id === tradeId ? detailed : prev));
   };
+
+  const openTradeFromReview = useCallback(
+    (trade) => {
+      setReviewReplayTarget(trade?._id || "");
+      void openTrade(trade);
+      const replay = document.getElementById("review-screenshot-replay");
+      if (replay?.scrollIntoView) {
+        replay.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    },
+    [openTrade]
+  );
 
   const copyText = async (value, successMessage) => {
     if (!value) {
@@ -1693,7 +1707,9 @@ const SaasWorkspace = ({
             </div>
           </article>
 
-          <ScreenshotReplay trades={activeReviewTrades} />
+          <div id="review-screenshot-replay">
+            <ScreenshotReplay trades={activeReviewTrades} selectedTradeId={reviewReplayTarget} onSelectTrade={openTradeFromReview} />
+          </div>
 
           <article className="panel saas-card">
             <div className="saas-card-head">
@@ -1746,11 +1762,11 @@ const SaasWorkspace = ({
                         key={trade._id || trade.clientTradeId || `${trade.tradeDate}-${trade.pair}-${trade.setupType}`}
                         className="saas-clickable-row"
                         tabIndex={0}
-                        onClick={() => void openTrade(trade)}
+                        onClick={() => openTradeFromReview(trade)}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
-                            void openTrade(trade);
+                            openTradeFromReview(trade);
                           }
                         }}
                       >

@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import SectionEmptyState from "./SectionEmptyState";
 
 const hasImage = (trade) =>
@@ -9,9 +9,19 @@ const hasImage = (trade) =>
       trade?.offlineMeta?.screenshotAfterName
   );
 
-const ScreenshotReplay = ({ trades = [] }) => {
+const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade } = {}) => {
   const imageTrades = useMemo(() => trades.filter(hasImage), [trades]);
   const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (!selectedTradeId) {
+      return;
+    }
+    const nextIndex = imageTrades.findIndex((item) => item?._id === selectedTradeId);
+    if (nextIndex >= 0) {
+      setIndex(nextIndex);
+    }
+  }, [imageTrades, selectedTradeId]);
 
   const trade = imageTrades[index] || null;
   if (!trade) {
@@ -55,6 +65,15 @@ const ScreenshotReplay = ({ trades = [] }) => {
 
       <p className="mb-3 text-xs text-textMuted">
         {trade.pair} | {trade.session} | {trade.setupType} | RR {trade.rrAchieved}
+        {typeof onSelectTrade === "function" ? (
+          <button
+            type="button"
+            className="ml-2 text-xs text-textMain underline underline-offset-2"
+            onClick={() => onSelectTrade(trade)}
+          >
+            Open trade
+          </button>
+        ) : null}
       </p>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

@@ -782,6 +782,8 @@ export const requestPasswordReset = async (req, res, next) => {
     let debugToken = "";
     let mailSent = false;
     let mailError = "";
+    let mailErrorCode = "";
+    let mailHint = "";
 
     if (user) {
       const resetToken = createPasswordResetForUser(user);
@@ -794,6 +796,8 @@ export const requestPasswordReset = async (req, res, next) => {
       });
       mailSent = resetMail.sent;
       mailError = resetMail.error || "";
+      mailErrorCode = resetMail.errorCode || "";
+      mailHint = resetMail.errorHint || "";
 
       await recordAudit({
         req,
@@ -831,6 +835,8 @@ export const requestPasswordReset = async (req, res, next) => {
               sent: mailSent,
               configured: isMailerConfigured(),
               error: mailSent ? "" : mailError,
+              errorCode: mailSent ? "" : mailErrorCode,
+              hint: mailSent ? "" : mailHint,
             },
           }
         : {}),

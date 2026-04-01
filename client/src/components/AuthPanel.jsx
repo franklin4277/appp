@@ -23,6 +23,7 @@ const AuthPanel = ({ onAuthenticated }) => {
   const [resetToken, setResetToken] = useState("");
   const [resetPassword, setResetPassword] = useState("");
   const [debugSecret, setDebugSecret] = useState("");
+  const [deliveryHint, setDeliveryHint] = useState("");
 
   const authTitle = useMemo(() => {
     if (twoFactorPending) {
@@ -40,6 +41,7 @@ const AuthPanel = ({ onAuthenticated }) => {
     setError("");
     setMessage("");
     setDebugSecret("");
+    setDeliveryHint("");
 
     try {
       const payload =
@@ -104,9 +106,16 @@ const AuthPanel = ({ onAuthenticated }) => {
     setError("");
     setMessage("");
     setDebugSecret("");
+    setDeliveryHint("");
     try {
       const payload = await requestPasswordReset({ email: normalizedEmail });
       setMessage(payload.message || "Reset instructions generated.");
+      if (payload.delivery && !payload.delivery.sent && payload.delivery.error) {
+        setError(payload.delivery.error);
+      }
+      if (payload.delivery?.hint) {
+        setDeliveryHint(payload.delivery.hint);
+      }
       setDebugSecret(showDebugSecrets ? payload.debugToken || "" : "");
       setMode("reset");
     } catch (submitError) {
@@ -121,6 +130,7 @@ const AuthPanel = ({ onAuthenticated }) => {
     setLoading(true);
     setError("");
     setMessage("");
+    setDeliveryHint("");
     try {
       const payload = await confirmPasswordReset({
         token: String(resetToken || "").trim(),
@@ -317,6 +327,7 @@ const AuthPanel = ({ onAuthenticated }) => {
             {message ? (
               <p className="mt-3 rounded-md border border-accent/40 bg-accent/10 p-2 text-sm text-accent">{message}</p>
             ) : null}
+            {deliveryHint ? <p className="mt-2 text-xs text-textMuted">Delivery hint: {deliveryHint}</p> : null}
             {error ? (
               <p className="mt-3 rounded-md border border-danger/40 bg-danger/10 p-2 text-sm text-danger">{error}</p>
             ) : null}

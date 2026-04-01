@@ -468,7 +468,15 @@ const SaasWorkspace = ({
             onClick={() => setMobileMenuOpen(false)}
             aria-label="Close navigation menu"
           >
-            x
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path
+                d="M6 6l8 8M14 6l-8 8"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            </svg>
           </button>
         </div>
         <nav className="saas-mobile-drawer-nav">

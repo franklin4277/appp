@@ -594,6 +594,11 @@ body::before {
   font-weight: 700;
 }
 
+.saas-brand .brand-logo-landing {
+  width: 32px;
+  height: 32px;
+}
+
 .saas-nav {
   margin-top: 0.95rem;
   display: grid;
@@ -2197,8 +2202,8 @@ body::before {
   }
 
   .saas-brand .brand-logo-landing {
-    width: 18px;
-    height: 18px;
+    width: 28px;
+    height: 28px;
   }
 
   .saas-nav {
@@ -2229,21 +2234,21 @@ body::before {
   }
 
   .saas-mobile-menu-btn {
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border: 1px solid rgba(100, 116, 139, 0.26);
-    border-radius: 8px;
+    border-radius: 10px;
     background: rgba(15, 23, 42, 0.74);
     color: #8da3c8;
     flex-shrink: 0;
   }
 
   .saas-mobile-menu-btn svg {
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
     display: block;
   }
 
@@ -2295,19 +2300,21 @@ body::before {
   }
 
   .saas-mobile-drawer-close {
-    width: 30px;
-    height: 30px;
+    width: 40px;
+    height: 40px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border: 1px solid rgba(100, 116, 139, 0.28);
-    border-radius: 8px;
+    border-radius: 10px;
     background: rgba(15, 23, 42, 0.74);
     color: #8da3c8;
-    font-size: 0.95rem;
-    font-weight: 700;
-    line-height: 1;
-    text-transform: uppercase;
+  }
+
+  .saas-mobile-drawer-close svg {
+    width: 20px;
+    height: 20px;
+    display: block;
   }
 
   .saas-mobile-drawer-nav {

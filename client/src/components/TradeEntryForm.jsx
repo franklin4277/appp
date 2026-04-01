@@ -882,8 +882,16 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
     const lotSizeToSave = autoLotSize ? computedLotSize : Number(form.lotSize || 0);
     const normalizedPair = String(form.pair || "")
       .toUpperCase()
-      .replace(/\s+/g, "");
+      .replace(/[^A-Z0-9]/g, "");
     const fallbackPair = optionLists.pairs[0] || "EURUSD";
+    const normalizedTradeType = String(form.tradeType || "").trim().toLowerCase();
+    const fallbackTradeType = (optionLists.tradeTypes[0] || "Buy").toLowerCase();
+    const tradeTypeValue = ["buy", "sell"].includes(normalizedTradeType)
+      ? normalizedTradeType
+      : ["buy", "sell"].includes(fallbackTradeType)
+        ? fallbackTradeType
+        : "buy";
+    const tradeTypeLabel = tradeTypeValue === "buy" ? "Buy" : "Sell";
 
     return {
       profileId: form.profileId || activeProfileId || "",
@@ -892,7 +900,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
       tradeDate: form.tradeDate ? new Date(form.tradeDate).toISOString() : new Date().toISOString(),
       exitTime: form.exitTime ? new Date(form.exitTime).toISOString() : "",
       session: form.session,
-      tradeType: form.tradeType,
+      tradeType: tradeTypeLabel,
       setupType: form.setupType,
       entryPrice: form.entryPrice,
       exitPrice: form.exitPrice,

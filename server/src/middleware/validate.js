@@ -184,8 +184,15 @@ export const validateTradeCreatePayload = (req, _res, next) => {
   }
 
   if (!["buy", "sell"].includes(tradeTypeRaw)) {
-    next(createValidationError("tradeType must be Buy or Sell."));
-    return;
+    const fallbackRaw =
+      req.user?.settings?.options?.tradeTypes?.[0] || DEFAULT_STRATEGY_OPTIONS.tradeTypes?.[0] || "Buy";
+    const fallback = toText(fallbackRaw).toLowerCase();
+    if (["buy", "sell"].includes(fallback)) {
+      req.body = { ...req.body, tradeType: fallback === "buy" ? "Buy" : "Sell" };
+    } else {
+      next(createValidationError("tradeType must be Buy or Sell."));
+      return;
+    }
   }
 
   if (!Number.isFinite(entry) || entry <= 0) {

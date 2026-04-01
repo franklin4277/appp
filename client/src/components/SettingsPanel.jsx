@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { disableMt5Bridge, generateMt5BridgeKey, updateUserSettings } from "../api/tradesApi";
+import { PAIRS } from "../utils/options";
 
 const toCsv = (value = []) => value.join(", ");
 const fromCsv = (value = "") =>
@@ -9,6 +10,15 @@ const fromCsv = (value = "") =>
     .filter(Boolean);
 
 const normalizeBaseUrl = (value = "") => String(value || "").trim().replace(/\/+$/, "").replace(/\/api$/i, "");
+const normalizePairs = (value = "") => {
+  const raw = fromCsv(value).map((pair) =>
+    String(pair || "")
+      .toUpperCase()
+      .replace(/\s+/g, "")
+  );
+  const filtered = raw.filter((pair) => pair.length >= 3 && pair.length <= 15);
+  return filtered.length ? filtered : PAIRS;
+};
 
 const formatDateTime = (value = "") => {
   if (!value) {
@@ -90,9 +100,14 @@ const SettingsPanel = ({ user, token, onUserUpdate, onSaved }) => {
     setError("");
 
     try {
+      const nextPairs = normalizePairs(state.pairs);
+      const nextPairsCsv = nextPairs.join(", ");
+      if (state.pairs !== nextPairsCsv) {
+        setState((prev) => ({ ...prev, pairs: nextPairsCsv }));
+      }
       const payload = {
         options: {
-          pairs: fromCsv(state.pairs),
+          pairs: nextPairs,
           sessions: fromCsv(state.sessions),
           setupTypes: fromCsv(state.setupTypes),
           tradeTypes: fromCsv(state.tradeTypes),

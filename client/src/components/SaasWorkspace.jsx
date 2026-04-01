@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import ThemeToggle from "./ThemeToggle";
 import BrandLogo from "./BrandLogo";
+import { PAIRS } from "../utils/options";
 
 const toNumber = (value, fallback = 0) => {
   const parsed = Number(value);
@@ -1883,9 +1884,25 @@ const SaasWorkspace = ({
                     .map((item) => item.trim())
                     .filter(Boolean);
 
+                const normalizePairs = (value = "") => {
+                  const raw = fromCsv(value).map((pair) =>
+                    String(pair || "")
+                      .toUpperCase()
+                      .replace(/\s+/g, "")
+                  );
+                  const filtered = raw.filter((pair) => pair.length >= 3 && pair.length <= 15);
+                  return filtered.length ? filtered : PAIRS;
+                };
+
+                const nextPairs = normalizePairs(settingsDraft.pairs);
+                const nextPairsCsv = nextPairs.join(", ");
+                if (settingsDraft.pairs !== nextPairsCsv) {
+                  setSettingsDraft((prev) => ({ ...prev, pairs: nextPairsCsv }));
+                }
+
                 void handleUpdateUserSettings({
                   options: {
-                    pairs: fromCsv(settingsDraft.pairs),
+                    pairs: nextPairs,
                     sessions: fromCsv(settingsDraft.sessions),
                     setupTypes: fromCsv(settingsDraft.setupTypes),
                   },

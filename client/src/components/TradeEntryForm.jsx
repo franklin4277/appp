@@ -35,7 +35,17 @@ const generateClientTradeId = () => `ct-${Date.now()}-${Math.random().toString(3
 const buildDraftStorageKey = (profileId = "") => `${DRAFT_STORAGE_PREFIX}:${String(profileId || "main")}`;
 
 const buildOptionLists = (settings = {}) => ({
-  pairs: settings?.options?.pairs?.length ? settings.options.pairs : PAIRS,
+  pairs: (() => {
+    const source = settings?.options?.pairs?.length ? settings.options.pairs : PAIRS;
+    const normalized = source
+      .map((pair) =>
+        String(pair || "")
+          .toUpperCase()
+          .replace(/\s+/g, "")
+      )
+      .filter((pair) => pair.length >= 3 && pair.length <= 15);
+    return normalized.length ? normalized : PAIRS;
+  })(),
   sessions: settings?.options?.sessions?.length ? settings.options.sessions : SESSIONS,
   setupTypes: settings?.options?.setupTypes?.length ? settings.options.setupTypes : SETUP_TYPES,
   tradeTypes: settings?.options?.tradeTypes?.length ? settings.options.tradeTypes : TRADE_TYPES,

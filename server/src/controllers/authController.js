@@ -28,6 +28,22 @@ const asStringArray = (value = []) => {
   return [...new Set(source.map((item) => String(item || "").trim()).filter(Boolean))].slice(0, 64);
 };
 
+const normalizePairList = (value = []) => {
+  const normalized = (Array.isArray(value) ? value : [])
+    .map((item) =>
+      String(item || "")
+        .toUpperCase()
+        .replace(/\s+/g, "")
+    )
+    .filter((item) => item.length >= 3 && item.length <= 15);
+
+  if (normalized.length) {
+    return normalized.slice(0, 64);
+  }
+
+  return DEFAULT_STRATEGY_OPTIONS.pairs;
+};
+
 const toNumber = (value, fallback) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -142,7 +158,9 @@ const mergeSettings = (current = {}, next = {}) => {
 
   return {
     options: {
-      pairs: asStringArray(optionsPayload.pairs ?? current.options?.pairs ?? DEFAULT_STRATEGY_OPTIONS.pairs),
+      pairs: normalizePairList(
+        asStringArray(optionsPayload.pairs ?? current.options?.pairs ?? DEFAULT_STRATEGY_OPTIONS.pairs)
+      ),
       sessions: asStringArray(
         optionsPayload.sessions ?? current.options?.sessions ?? DEFAULT_STRATEGY_OPTIONS.sessions
       ),

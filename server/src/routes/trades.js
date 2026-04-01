@@ -1,5 +1,8 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import {
   createTradeFromBridge,
   createTrade,
@@ -19,6 +22,32 @@ import { uploadCsvFile, uploadTradeScreenshots } from "../services/upload.js";
 import { sendAlert } from "../services/alerts.js";
 
 const router = Router();
+
+const resolveBridgePath = (filename = "") => {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const bridgeDir = path.resolve(__dirname, "../../../scripts/mt5-bridge");
+  return path.join(bridgeDir, filename);
+};
+
+router.get("/bridge/mt5/guide", (req, res) => {
+  const guidePath = resolveBridgePath("README.md");
+  if (!fs.existsSync(guidePath)) {
+    res.status(404).json({ message: "MT5 bridge setup guide not found." });
+    return;
+  }
+  res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+  res.sendFile(guidePath);
+});
+
+router.get("/bridge/mt5/download", (req, res) => {
+  const scriptPath = resolveBridgePath("mt5_auto_journal_bridge.py");
+  if (!fs.existsSync(scriptPath)) {
+    res.status(404).json({ message: "MT5 bridge script not found." });
+    return;
+  }
+  res.download(scriptPath, "mt5_auto_journal_bridge.py");
+});
 
 const bridgeLimiter = rateLimit({
   windowMs: 60 * 1000,

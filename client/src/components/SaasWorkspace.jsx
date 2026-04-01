@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ThemeToggle from "./ThemeToggle";
 import BrandLogo from "./BrandLogo";
 
@@ -86,6 +86,22 @@ const formatTradeDate = (value) => {
     return "-";
   }
   return date.toLocaleDateString();
+};
+
+const formatDateTime = (value = "") => {
+  if (!value) {
+    return "";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return date.toLocaleString([], {
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
 const TradeOutcome = ({ result = "" }) => {
@@ -240,6 +256,8 @@ const SaasWorkspace = ({
   creatingProfile,
   handleUpdateUserSettings,
   savingUserSettings,
+  handleGenerateMt5BridgeKey,
+  handleDisableMt5Bridge,
   onLogout,
   loading,
   syncingQueue,
@@ -288,6 +306,7 @@ const SaasWorkspace = ({
   quarterlyAvgRR,
   quarterLabel,
   monthLabel,
+  allTrades,
   reviewRange,
   setReviewRange,
 }) => {
@@ -322,9 +341,45 @@ const SaasWorkspace = ({
       avgRR: Number.isFinite(Number(quarterlyAvgRR)) ? quarterlyAvgRR : computeAverageRR(quarterlyTrades),
       label: quarterLabel,
     },
+    all: {
+      key: "all",
+      tab: "All Time",
+      title: "All Time Summary",
+      summaryTitle: "Long-Term Highlights",
+      trades: allTrades,
+      winRate: computeWinRate(allTrades),
+      avgRR: computeAverageRR(allTrades),
+      label: "All Time",
+    },
   };
   const activeReview = reviewConfig[reviewRange] || reviewConfig.week;
   const activeReviewTrades = activeReview.trades || [];
+  const sortedReviewTrades = useMemo(() => {
+    return [...activeReviewTrades].sort(
+      (a, b) => new Date(b?.tradeDate || 0).getTime() - new Date(a?.tradeDate || 0).getTime()
+    );
+  }, [activeReviewTrades]);
+  const filteredReviewTrades = useMemo(() => {
+    const query = String(tradeSearch || "").trim().toLowerCase();
+    if (!query) {
+      return sortedReviewTrades;
+    }
+    return sortedReviewTrades.filter((trade) => {
+      const haystack = [
+        trade?.pair,
+        trade?.session,
+        trade?.setupType,
+        trade?.tradeType,
+        trade?.result,
+        trade?.ruleBreakReason,
+        trade?.notes?.emotionalState,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [sortedReviewTrades, tradeSearch]);
   const activeReviewNetRR = round(activeReviewTrades.reduce((sum, trade) => sum + toNumber(trade?.rrAchieved), 0), 2);
   const activeBestTrade = [...activeReviewTrades].sort((a, b) => toNumber(b?.rrAchieved) - toNumber(a?.rrAchieved))[0] || null;
   const activeWorstTrade = [...activeReviewTrades].sort((a, b) => toNumber(a?.rrAchieved) - toNumber(b?.rrAchieved))[0] || null;
@@ -367,6 +422,8 @@ const SaasWorkspace = ({
   };
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [newProfileName, setNewProfileName] = useState("");
+  const [selectedTrade, setSelectedTrade] = useState(null);
+  const [tradeSearch, setTradeSearch] = useState("");
   const [settingsDraft, setSettingsDraft] = useState({
     pairs: "",
     sessions: "",
@@ -377,6 +434,11 @@ const SaasWorkspace = ({
     stopForDayLossRR: 3,
     strictChecklistGate: false,
   });
+  const [bridgeBusy, setBridgeBusy] = useState(false);
+  const [bridgeKey, setBridgeKey] = useState("");
+  const [bridgeLabel, setBridgeLabel] = useState(() => user?.integrations?.mt5?.label || "MT5 Bridge");
+  const [bridgeMessage, setBridgeMessage] = useState("");
+  const [bridgeError, setBridgeError] = useState("");
 
   useEffect(() => {
     const toCsv = (value = []) => (Array.isArray(value) ? value.join(", ") : "");
@@ -391,6 +453,19 @@ const SaasWorkspace = ({
       strictChecklistGate: Boolean(user?.settings?.riskControls?.strictChecklistGate),
     });
   }, [user]);
+
+  useEffect(() => {
+    setBridgeLabel(user?.integrations?.mt5?.label || "MT5 Bridge");
+  }, [user?.integrations?.mt5?.label]);
+
+  const backendBase = useMemo(() => {
+    const raw = String(import.meta.env.VITE_API_URL || "").trim();
+    const base = raw || window.location.origin;
+    return base.replace(/\/+$/, "").replace(/\/api$/i, "");
+  }, []);
+  const mt5BridgeEndpoint = `${backendBase}/api/trades/bridge/mt5`;
+  const mt5BridgeDownloadUrl = `${backendBase}/api/trades/bridge/mt5/download`;
+  const mt5BridgeGuideUrl = `${backendBase}/api/trades/bridge/mt5/guide`;
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -441,6 +516,88 @@ const SaasWorkspace = ({
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    if (!selectedTrade) {
+      return undefined;
+    }
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setSelectedTrade(null);
+      }
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [selectedTrade]);
+
+  const copyText = async (value, successMessage) => {
+    if (!value) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(value);
+      setBridgeMessage(successMessage);
+      setBridgeError("");
+    } catch {
+      setBridgeError("Clipboard copy failed. Please copy manually.");
+    }
+  };
+
+  const handleRotateBridgeKey = async () => {
+    if (typeof handleGenerateMt5BridgeKey !== "function") {
+      return;
+    }
+
+    setBridgeBusy(true);
+    setBridgeError("");
+    setBridgeMessage("");
+    setBridgeKey("");
+
+    const response = await handleGenerateMt5BridgeKey({ label: bridgeLabel });
+    if (!response) {
+      setBridgeBusy(false);
+      setBridgeError("Could not generate a bridge key.");
+      return;
+    }
+
+    setBridgeKey(response.apiKey || "");
+    setBridgeMessage(response.apiKey ? "Bridge key generated. Copy it now (shown once)." : "Bridge key updated.");
+    setBridgeBusy(false);
+  };
+
+  const handleDisableBridge = async () => {
+    if (typeof handleDisableMt5Bridge !== "function") {
+      return;
+    }
+
+    const shouldDisable = window.confirm("Disable MT5 auto-journal sync and revoke its key?");
+    if (!shouldDisable) {
+      return;
+    }
+
+    setBridgeBusy(true);
+    setBridgeError("");
+    setBridgeMessage("");
+    setBridgeKey("");
+
+    const response = await handleDisableMt5Bridge();
+    if (!response) {
+      setBridgeBusy(false);
+      setBridgeError("Could not disable the bridge.");
+      return;
+    }
+
+    setBridgeMessage("MT5 bridge disabled.");
+    setBridgeBusy(false);
+  };
 
   return (
   <section className="saas-shell app-journal">
@@ -763,7 +920,18 @@ const SaasWorkspace = ({
                 </thead>
                 <tbody>
                   {recentTrades.map((trade) => (
-                    <tr key={trade._id || `${trade.tradeDate}-${trade.pair}-${trade.setupType}`}>
+                    <tr
+                      key={trade._id || `${trade.tradeDate}-${trade.pair}-${trade.setupType}`}
+                      className="saas-clickable-row"
+                      tabIndex={0}
+                      onClick={() => setSelectedTrade(trade)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSelectedTrade(trade);
+                        }
+                      }}
+                    >
                       <th scope="row">{formatTradeDate(trade.tradeDate)}</th>
                       <td data-label="Pair">{trade.pair || "-"}</td>
                       <td data-label="Setup">{trade.setupType || "-"}</td>
@@ -1402,6 +1570,79 @@ const SaasWorkspace = ({
               </div>
             </div>
           </article>
+
+          <article className="panel saas-card">
+            <div className="saas-card-head">
+              <h3 className="saas-card-title">Past Trades</h3>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+                <input
+                  className="input !py-2 text-sm sm:w-[240px]"
+                  value={tradeSearch}
+                  onChange={(event) => setTradeSearch(event.target.value)}
+                  placeholder="Search (pair, setup, session...)"
+                />
+                <span className="chip text-textMain">{filteredReviewTrades.length}/{activeReviewTrades.length}</span>
+              </div>
+            </div>
+            <p className="saas-stat-label mt-2">Tap a row to revisit the full trade details.</p>
+            {!filteredReviewTrades.length ? (
+              <p className="saas-stat-label mt-3">No trades match this search.</p>
+            ) : (
+              <div className="saas-table-wrap mt-3">
+                <table className="saas-table" aria-describedby="review-trades-caption">
+                  <caption id="review-trades-caption" className="saas-sr-only">
+                    Trade history table for the selected review range.
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Date</th>
+                      <th scope="col">Pair</th>
+                      <th scope="col">Session</th>
+                      <th scope="col">Setup</th>
+                      <th scope="col">Outcome</th>
+                      <th scope="col">R</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredReviewTrades.map((trade) => (
+                      <tr
+                        key={trade._id || trade.clientTradeId || `${trade.tradeDate}-${trade.pair}-${trade.setupType}`}
+                        className="saas-clickable-row"
+                        tabIndex={0}
+                        onClick={() => setSelectedTrade(trade)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setSelectedTrade(trade);
+                          }
+                        }}
+                      >
+                        <th scope="row">{formatTradeDate(trade.tradeDate)}</th>
+                        <td data-label="Pair">{trade.pair || "-"}</td>
+                        <td data-label="Session">{trade.session || "-"}</td>
+                        <td data-label="Setup">{trade.setupType || "-"}</td>
+                        <td data-label="Outcome">
+                          <TradeOutcome result={trade.result} />
+                        </td>
+                        <td
+                          data-label="R"
+                          className={toNumber(trade.rrAchieved) >= 0 ? "saas-table-pnl-positive" : "saas-table-pnl-negative"}
+                        >
+                          {toNumber(trade.rrAchieved) >= 0 ? "+" : "-"}
+                          {Math.abs(toNumber(trade.rrAchieved)).toFixed(2)}R
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {reviewRange === "all" && activeReviewTrades.length >= 500 ? (
+              <p className="saas-stat-label mt-3">
+                Showing the latest 500 trades. Use Export CSV for full history.
+              </p>
+            ) : null}
+          </article>
         </section>
       ) : null}
 
@@ -1593,6 +1834,132 @@ const SaasWorkspace = ({
             </button>
             {!isOnline ? <p className="saas-stat-label mt-2">Go online to save settings changes.</p> : null}
           </article>
+
+          <article className="panel saas-card">
+            <div className="saas-card-head">
+              <h3 className="saas-card-title">MT5 Auto Journal Bridge</h3>
+              <span className="chip text-textMain">{user?.integrations?.mt5?.enabled ? "Enabled" : "Disabled"}</span>
+            </div>
+            <p className="saas-stat-label mt-2">
+              Download the bridge script to auto-import trades and screenshots from MT5.
+            </p>
+
+            <div className="saas-settings-grid mt-3">
+              <label>
+                <span className="label">Bridge label</span>
+                <input
+                  className="input"
+                  value={bridgeLabel}
+                  onChange={(event) => setBridgeLabel(event.target.value)}
+                  placeholder="MT5 Bridge"
+                  maxLength={80}
+                  disabled={!isOnline || bridgeBusy}
+                />
+              </label>
+
+              <div className="saas-settings-theme-row">
+                <span className="label">Bridge endpoint</span>
+                <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                  <input className="input w-full sm:w-[360px]" value={mt5BridgeEndpoint} readOnly />
+                  <button
+                    type="button"
+                    className="chip text-textMain transition hover:border-accent"
+                    onClick={() => copyText(mt5BridgeEndpoint, "Bridge endpoint copied.")}
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+
+              <div className="saas-settings-theme-row">
+                <span className="label">Key hint</span>
+                <span className="chip text-textMain">
+                  {user?.integrations?.mt5?.keyHint ? `****${user.integrations.mt5.keyHint}` : "Not set"}
+                </span>
+              </div>
+
+              {bridgeKey ? (
+                <div className="saas-settings-theme-row">
+                  <span className="label">New API key</span>
+                  <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                    <input className="input w-full sm:w-[360px]" value={bridgeKey} readOnly />
+                    <button
+                      type="button"
+                      className="chip text-textMain transition hover:border-accent"
+                      onClick={() => copyText(bridgeKey, "Bridge key copied.")}
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {user?.integrations?.mt5?.createdAt ? (
+                <div className="saas-settings-theme-row">
+                  <span className="label">Created</span>
+                  <span className="saas-stat-label">{formatDateTime(user.integrations.mt5.createdAt) || "—"}</span>
+                </div>
+              ) : null}
+              {user?.integrations?.mt5?.lastUsedAt ? (
+                <div className="saas-settings-theme-row">
+                  <span className="label">Last used</span>
+                  <span className="saas-stat-label">{formatDateTime(user.integrations.mt5.lastUsedAt) || "—"}</span>
+                </div>
+              ) : null}
+              {user?.integrations?.mt5?.lastEventAt ? (
+                <div className="saas-settings-theme-row">
+                  <span className="label">Last event</span>
+                  <span className="saas-stat-label">
+                    {formatDateTime(user.integrations.mt5.lastEventAt) || "—"}
+                    {user?.integrations?.mt5?.lastEventType ? ` • ${user.integrations.mt5.lastEventType}` : ""}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+
+            {bridgeError ? (
+              <p className="saas-alert saas-alert-error mt-3" role="alert">
+                {bridgeError}
+              </p>
+            ) : null}
+            {bridgeMessage ? (
+              <p className="saas-alert mt-3" role="status" aria-live="polite">
+                {bridgeMessage}
+              </p>
+            ) : null}
+
+            <div className="saas-settings-actions mt-3">
+              <a className="btn-primary" href={mt5BridgeDownloadUrl} download>
+                Download EA
+              </a>
+              <a className="landing-cta-secondary" href={mt5BridgeGuideUrl} target="_blank" rel="noreferrer">
+                Setup guide
+              </a>
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={!isOnline || bridgeBusy || typeof handleGenerateMt5BridgeKey !== "function"}
+                onClick={handleRotateBridgeKey}
+              >
+                {bridgeBusy
+                  ? "Working..."
+                  : user?.integrations?.mt5?.enabled
+                    ? "Rotate key"
+                    : "Enable bridge"}
+              </button>
+              {user?.integrations?.mt5?.enabled ? (
+                <button
+                  type="button"
+                  className="landing-cta-secondary"
+                  disabled={!isOnline || bridgeBusy || typeof handleDisableMt5Bridge !== "function"}
+                  onClick={handleDisableBridge}
+                >
+                  Disable
+                </button>
+              ) : null}
+            </div>
+          </article>
+
           <article className="panel saas-card">
             <h3 className="saas-card-title">Queue & Session</h3>
             <div className="saas-settings-theme-row mb-3">
@@ -1619,6 +1986,185 @@ const SaasWorkspace = ({
         </section>
       ) : null}
     </section>
+
+    {selectedTrade ? (
+      <div
+        className="modal-backdrop"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Trade details"
+        onClick={() => setSelectedTrade(null)}
+      >
+        <aside
+          className="modal-card saas-trade-modal animate-riseIn"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="saas-trade-modal-head">
+            <div className="min-w-0">
+              <p className="saas-stat-label">
+                {formatTradeDate(selectedTrade.tradeDate)} - {selectedTrade.pair || "-"}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="saas-trade-modal-title">{selectedTrade.setupType || "Trade Details"}</h3>
+                <TradeOutcome result={selectedTrade.result} />
+              </div>
+            </div>
+            <button
+              type="button"
+              className="saas-trade-modal-close"
+              onClick={() => setSelectedTrade(null)}
+              aria-label="Close trade details"
+            >
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path
+                  d="M6 6l8 8M14 6l-8 8"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <div className="saas-trade-modal-body">
+            <ul className="saas-detail-list">
+              <li>
+                <span>Session</span>
+                <strong>{selectedTrade.session || "-"}</strong>
+              </li>
+              <li>
+                <span>Trade type</span>
+                <strong>{selectedTrade.tradeType || "-"}</strong>
+              </li>
+              <li>
+                <span>Entry</span>
+                <strong>{Number.isFinite(selectedTrade.entryPrice) ? selectedTrade.entryPrice : "-"}</strong>
+              </li>
+              <li>
+                <span>Stop</span>
+                <strong>{Number.isFinite(selectedTrade.stopLoss) ? selectedTrade.stopLoss : "-"}</strong>
+              </li>
+              <li>
+                <span>Take profit</span>
+                <strong>{Number.isFinite(selectedTrade.takeProfit) ? selectedTrade.takeProfit : "-"}</strong>
+              </li>
+              <li>
+                <span>Planned R:R</span>
+                <strong>{Number.isFinite(selectedTrade.plannedRR) ? Number(selectedTrade.plannedRR).toFixed(2) : "-"}</strong>
+              </li>
+              <li>
+                <span>Net R</span>
+                <strong>{Number.isFinite(selectedTrade.rrAchieved) ? Number(selectedTrade.rrAchieved).toFixed(2) : "-"}R</strong>
+              </li>
+              <li>
+                <span>Risk %</span>
+                <strong>{Number.isFinite(selectedTrade.riskPercent) ? `${Number(selectedTrade.riskPercent).toFixed(2)}%` : "-"}</strong>
+              </li>
+              <li>
+                <span>Lot size</span>
+                <strong>{selectedTrade.lotSize === null || selectedTrade.lotSize === undefined ? "-" : selectedTrade.lotSize}</strong>
+              </li>
+              <li>
+                <span>Source</span>
+                <strong>{selectedTrade.automation?.source || selectedTrade.importSource || "manual"}</strong>
+              </li>
+              <li>
+                <span>Status</span>
+                <strong>{selectedTrade.automation?.status || "closed"}</strong>
+              </li>
+            </ul>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {selectedTrade.tags?.asiaHighLowUsed ? <span className="chip">Asia HL</span> : null}
+              {selectedTrade.tags?.pocInteraction ? <span className="chip">POC</span> : null}
+              {selectedTrade.tags?.cleanSetup ? <span className="chip">Clean</span> : null}
+              {selectedTrade.tags?.pocOutcome ? <span className="chip">{selectedTrade.tags.pocOutcome}</span> : null}
+              {Array.isArray(selectedTrade.qualityFlags)
+                ? selectedTrade.qualityFlags.slice(0, 6).map((flag) => (
+                    <span key={`qf-${flag}`} className="chip">
+                      {flag}
+                    </span>
+                  ))
+                : null}
+            </div>
+
+            {selectedTrade.ruleBreakReason ? (
+              <div className="saas-note-card mt-3">
+                <p className="text-xs uppercase tracking-wide text-textMuted">Rule Break Reason</p>
+                <p className="mt-2 text-sm text-textMain whitespace-pre-wrap">{selectedTrade.ruleBreakReason}</p>
+              </div>
+            ) : null}
+
+            {selectedTrade.notes?.priceAction || selectedTrade.notes?.executionReview || selectedTrade.notes?.emotionalState ? (
+              <div className="saas-note-card mt-3">
+                <p className="text-xs uppercase tracking-wide text-textMuted">Notes</p>
+                {selectedTrade.notes?.priceAction ? (
+                  <p className="mt-2 text-sm text-textMain whitespace-pre-wrap">{selectedTrade.notes.priceAction}</p>
+                ) : null}
+                {selectedTrade.notes?.executionReview ? (
+                  <p className="mt-2 text-sm text-textMain whitespace-pre-wrap">{selectedTrade.notes.executionReview}</p>
+                ) : null}
+                {selectedTrade.notes?.emotionalState ? (
+                  <p className="mt-2 text-sm text-textMain">Emotion: {selectedTrade.notes.emotionalState}</p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {selectedTrade.automation?.screenRecordingUrl ? (
+              <div className="saas-note-card mt-3">
+                <p className="text-xs uppercase tracking-wide text-textMuted">Recording</p>
+                <a
+                  className="mt-2 inline-flex text-sm font-semibold text-accent hover:underline"
+                  href={selectedTrade.automation.screenRecordingUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open recording
+                </a>
+              </div>
+            ) : null}
+
+            {selectedTrade.screenshots?.before || selectedTrade.screenshots?.after ? (
+              <div className="saas-note-card mt-3">
+                <p className="text-xs uppercase tracking-wide text-textMuted">Screenshots</p>
+                <div className="saas-trade-media mt-3">
+                  {selectedTrade.screenshots?.before ? (
+                    <figure className="saas-trade-media-item">
+                      <img src={selectedTrade.screenshots.before} alt="Entry screenshot" loading="lazy" />
+                      <figcaption className="saas-stat-label mt-2">Entry</figcaption>
+                    </figure>
+                  ) : null}
+                  {selectedTrade.screenshots?.after ? (
+                    <figure className="saas-trade-media-item">
+                      <img src={selectedTrade.screenshots.after} alt="Exit screenshot" loading="lazy" />
+                      <figcaption className="saas-stat-label mt-2">Exit</figcaption>
+                    </figure>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="saas-settings-actions mt-4">
+              <button type="button" className="btn-primary" onClick={() => setSelectedTrade(null)}>
+                Close
+              </button>
+              <button
+                type="button"
+                className="landing-cta-secondary"
+                onClick={() => {
+                  setSelectedTrade(null);
+                  setReviewRange("all");
+                  setActivePage("review");
+                }}
+              >
+                View in Review
+              </button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    ) : null}
   </section>
   );
 };

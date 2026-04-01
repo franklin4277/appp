@@ -5,10 +5,12 @@ import {
   clearOfflineQueue,
   createProfile,
   createTrade,
+  disableMt5Bridge,
   ensureLocalDeviceId,
   fetchAnalytics,
   fetchMe,
   fetchTrades,
+  generateMt5BridgeKey,
   getOfflineQueue,
   isNetworkError,
   logoutSession,
@@ -913,6 +915,60 @@ const App = () => {
     }
   };
 
+  const handleGenerateMt5BridgeKey = async ({ label } = {}) => {
+    if (!token) {
+      setError("You must be signed in to generate a bridge key.");
+      return null;
+    }
+
+    if (!isOnline) {
+      setError("You're offline. Connect to the internet to generate a bridge key.");
+      return null;
+    }
+
+    setError("");
+    setStatusMessage("");
+
+    try {
+      const response = await generateMt5BridgeKey(token, { label });
+      if (response?.user) {
+        setUser(response.user);
+      }
+      setStatusMessage("Bridge key generated. Copy it now (shown once).");
+      return response;
+    } catch (bridgeError) {
+      setError(bridgeError.message || "Could not generate MT5 bridge key.");
+      return null;
+    }
+  };
+
+  const handleDisableMt5Bridge = async () => {
+    if (!token) {
+      setError("You must be signed in to disable the bridge.");
+      return null;
+    }
+
+    if (!isOnline) {
+      setError("You're offline. Connect to the internet to disable the bridge.");
+      return null;
+    }
+
+    setError("");
+    setStatusMessage("");
+
+    try {
+      const response = await disableMt5Bridge(token);
+      if (response?.user) {
+        setUser(response.user);
+      }
+      setStatusMessage("MT5 bridge disabled.");
+      return response;
+    } catch (bridgeError) {
+      setError(bridgeError.message || "Could not disable MT5 bridge.");
+      return null;
+    }
+  };
+
   const sessionOptions = useMemo(() => {
     const source = user?.settings?.options?.sessions;
     if (Array.isArray(source) && source.length) {
@@ -1313,6 +1369,8 @@ const App = () => {
         creatingProfile={creatingProfile}
         handleUpdateUserSettings={handleUpdateUserSettings}
         savingUserSettings={savingUserSettings}
+        handleGenerateMt5BridgeKey={handleGenerateMt5BridgeKey}
+        handleDisableMt5Bridge={handleDisableMt5Bridge}
         onLogout={onLogout}
         loading={loading}
         syncingQueue={syncingQueue}
@@ -1361,6 +1419,7 @@ const App = () => {
         quarterlyAvgRR={quarterlyAvgRR}
         quarterLabel={quarterLabel}
         monthLabel={monthLabel}
+        allTrades={closedTrades}
         reviewRange={reviewRange}
         setReviewRange={setReviewRange}
       />

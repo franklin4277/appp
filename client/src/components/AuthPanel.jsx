@@ -169,7 +169,7 @@ const AuthPanel = ({ onAuthenticated }) => {
             </div>
           </header>
 
-          <section className="mt-4 space-y-4">
+          <section className="landing-body">
             <div className="panel animate-riseIn landing-hero">
               <h2 className="landing-hero-title">Trading journal, analytics, and review.</h2>
               <p className="landing-hero-copy mt-3">Sign in to continue.</p>

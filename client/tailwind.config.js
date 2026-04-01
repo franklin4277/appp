@@ -4,14 +4,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: "#0b1220",
-        panel: "#101a2b",
-        panelMuted: "#17253d",
-        border: "#2b3c5b",
-        textMain: "#e8eef9",
-        textMuted: "#9fb0ca",
-        accent: "#6d88af",
-        danger: "#d07e85",
+        // Theme-driven colors (support Tailwind opacity modifiers via <alpha-value>).
+        background: "rgb(var(--tw-background) / <alpha-value>)",
+        panel: "rgb(var(--tw-panel) / <alpha-value>)",
+        panelMuted: "rgb(var(--tw-panel-muted) / <alpha-value>)",
+        border: "rgb(var(--tw-border) / <alpha-value>)",
+        textMain: "rgb(var(--tw-text-main) / <alpha-value>)",
+        textMuted: "rgb(var(--tw-text-muted) / <alpha-value>)",
+        accent: "rgb(var(--tw-accent) / <alpha-value>)",
+        danger: "rgb(var(--tw-danger) / <alpha-value>)",
       },
       boxShadow: {
         panel: "0 16px 34px rgba(6, 12, 25, 0.42)",

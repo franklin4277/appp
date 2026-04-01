@@ -1419,7 +1419,7 @@ const App = () => {
   }
 
   return (
-    <main className="app-shell mx-auto w-full max-w-[1600px] p-0 sm:p-3 md:p-5 md:pb-5">
+    <main className="app-shell w-full min-h-screen p-0">
       <SaasWorkspace
         activePage={activePage}
         setActivePage={setActivePage}

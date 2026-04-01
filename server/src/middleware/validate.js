@@ -160,8 +160,15 @@ export const validateTradeCreatePayload = (req, _res, next) => {
   }
 
   if (!session || session.length > 40) {
-    next(createValidationError("session is required and should be under 40 characters."));
-    return;
+    const fallbackRaw =
+      req.user?.settings?.options?.sessions?.[0] || DEFAULT_STRATEGY_OPTIONS.sessions?.[0] || "";
+    const fallback = toText(fallbackRaw);
+    if (fallback && fallback.length <= 40) {
+      req.body = { ...req.body, session: fallback };
+    } else {
+      next(createValidationError("session is required and should be under 40 characters."));
+      return;
+    }
   }
 
   if (!setupType || setupType.length > 80) {

@@ -1199,11 +1199,15 @@ const App = () => {
         ? round((Math.abs(exitPrice - entryPrice) / Math.max(Math.abs(entryPrice - stopLoss), 0.00001)) * (isWinning ? 1 : -1), 2)
         : 0;
 
+      const safeSession = String(quickTradeForm.session || "").trim() || sessionOptions[0] || "London";
+      if (!String(quickTradeForm.session || "").trim() && sessionOptions[0]) {
+        setQuickTradeForm((prev) => ({ ...prev, session: sessionOptions[0] }));
+      }
       const data = new FormData();
       data.append("profileId", filters.profileId || user?.activeProfileId || "");
       data.append("pair", pair);
       data.append("tradeDate", quickTradeForm.tradeDate || new Date().toISOString().slice(0, 10));
-      data.append("session", quickTradeForm.session || sessionOptions[0] || "London");
+      data.append("session", safeSession);
       data.append("tradeType", "Buy");
       data.append("setupType", quickTradeForm.setupType || setupOptions[0] || "Breakout");
       data.append("entryPrice", String(entryPrice));

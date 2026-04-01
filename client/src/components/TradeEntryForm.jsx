@@ -947,13 +947,22 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
   const submitTrade = async (acceptGuardrailOverride = false) => {
     const normalizedPair = String(form.pair || "")
       .toUpperCase()
-      .replace(/\s+/g, "");
+      .replace(/[^A-Z0-9]/g, "");
     const fallbackPair = optionLists.pairs[0] || "EURUSD";
+    const normalizedSession = String(form.session || "").trim();
+    const fallbackSession = optionLists.sessions[0] || "London";
     if (!normalizedPair) {
       setForm((prev) => ({ ...prev, pair: fallbackPair }));
     }
+    if (!normalizedSession) {
+      setForm((prev) => ({ ...prev, session: fallbackSession }));
+    }
     if ((!normalizedPair && !fallbackPair) || normalizedPair.length < 3 || normalizedPair.length > 15) {
       setError("Pair is required and should be 3-15 characters.");
+      return;
+    }
+    if ((!normalizedSession && !fallbackSession) || normalizedSession.length > 40) {
+      setError("Session is required and should be under 40 characters.");
       return;
     }
 

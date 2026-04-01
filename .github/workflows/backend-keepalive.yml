@@ -1,0 +1,29 @@
+name: Backend Keepalive
+
+on:
+  schedule:
+    # GitHub schedules are best-effort and can drift; 5 minutes is the minimum interval.
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: Ping /api/health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Warm backend
+        env:
+          # Optional: set a repo variable named BACKEND_HEALTH_URL to override.
+          # Example: https://your-backend.onrender.com/api/health
+          HEALTH_URL: ${{ vars.BACKEND_HEALTH_URL || 'https://appp-ki1l.onrender.com/api/health' }}
+        run: |
+          set -euo pipefail
+          echo "Pinging: $HEALTH_URL"
+          # Avoid CDN caching by adding a nonce query.
+          curl -fsSL --max-time 25 --retry 3 --retry-delay 5 -H "Cache-Control: no-cache" \
+            "${HEALTH_URL}?keepalive=$(date +%s)"
+

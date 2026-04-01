@@ -15,7 +15,7 @@ export default {
         danger: "rgb(var(--tw-danger) / <alpha-value>)",
       },
       boxShadow: {
-        panel: "0 16px 34px rgba(6, 12, 25, 0.42)",
+        panel: "var(--shadow-panel)",
       },
       keyframes: {
         riseIn: {

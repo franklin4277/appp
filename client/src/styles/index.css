@@ -27,6 +27,7 @@
   --tw-text-muted: 148 163 184;
   --tw-accent: 96 165 250;
   --tw-danger: 208 126 133;
+  --shadow-panel: 0 16px 34px rgba(6, 12, 25, 0.42);
 }
 
 :root[data-theme="light"] {
@@ -52,6 +53,7 @@
   --tw-text-muted: 71 85 105;
   --tw-accent: 37 99 235;
   --tw-danger: 208 126 133;
+  --shadow-panel: 0 18px 38px rgba(15, 23, 42, 0.12);
 }
 
 * {
@@ -966,11 +968,11 @@ body::before {
   width: 100%;
   height: 260px;
   border-radius: 10px;
-  border: 1px solid rgba(96, 165, 250, 0.16);
+  border: 1px solid rgb(var(--tw-accent) / 0.16);
   background:
-    linear-gradient(rgba(56, 84, 128, 0.22) 1px, transparent 1px) 0 0 / 100% 25%,
-    linear-gradient(90deg, rgba(56, 84, 128, 0.2) 1px, transparent 1px) 0 0 / 20% 100%,
-    rgba(15, 23, 42, 0.52);
+    linear-gradient(rgb(var(--tw-border) / 0.16) 1px, transparent 1px) 0 0 / 100% 25%,
+    linear-gradient(90deg, rgb(var(--tw-border) / 0.14) 1px, transparent 1px) 0 0 / 20% 100%,
+    rgb(var(--tw-panel) / 0.52);
 }
 
 .saas-metric-list {
@@ -1115,14 +1117,14 @@ body::before {
   gap: 0.3rem;
   border: 0;
   background: transparent;
-  color: #89a0c5;
+  color: var(--text-muted);
   font-size: 0.85rem;
   font-weight: 600;
   padding: 0.1rem 0.05rem;
 }
 
 .saas-back-link:hover {
-  color: #dbeafe;
+  color: var(--text-main);
 }
 
 .saas-add-trade {
@@ -1194,13 +1196,13 @@ body::before {
   gap: 0.45rem;
   align-items: end;
   min-height: 210px;
-  border: 1px solid rgba(100, 116, 139, 0.16);
+  border: 1px solid rgb(var(--tw-border) / 0.2);
   border-radius: 10px;
   padding: 0.6rem 0.5rem 0.45rem;
   background:
-    linear-gradient(rgba(56, 84, 128, 0.22) 1px, transparent 1px) 0 0 / 100% 25%,
-    linear-gradient(90deg, rgba(56, 84, 128, 0.2) 1px, transparent 1px) 0 0 / 20% 100%,
-    rgba(12, 24, 45, 0.58);
+    linear-gradient(rgb(var(--tw-border) / 0.16) 1px, transparent 1px) 0 0 / 100% 25%,
+    linear-gradient(90deg, rgb(var(--tw-border) / 0.14) 1px, transparent 1px) 0 0 / 20% 100%,
+    rgb(var(--tw-panel) / 0.58);
 }
 
 .saas-bar-item {
@@ -1210,7 +1212,7 @@ body::before {
 }
 
 .saas-bar-item span {
-  color: #879bc0;
+  color: var(--text-muted);
   font-size: 0.65rem;
   text-align: center;
 }
@@ -1231,14 +1233,14 @@ body::before {
   aspect-ratio: 1 / 1;
   margin: 0 auto;
   border-radius: 999px;
-  border: 1px solid rgba(100, 116, 139, 0.3);
+  border: 1px solid rgb(var(--tw-border) / 0.32);
 }
 
 .saas-pie-legend {
   margin-top: 0.58rem;
   display: grid;
   gap: 0.26rem;
-  color: #8ca1c5;
+  color: var(--text-muted);
   font-size: 0.76rem;
 }
 
@@ -1248,11 +1250,11 @@ body::before {
   align-items: flex-end;
   justify-content: center;
   border-radius: 10px;
-  border: 1px solid rgba(100, 116, 139, 0.18);
+  border: 1px solid rgb(var(--tw-border) / 0.22);
   background:
-    linear-gradient(rgba(56, 84, 128, 0.22) 1px, transparent 1px) 0 0 / 100% 25%,
-    linear-gradient(90deg, rgba(56, 84, 128, 0.2) 1px, transparent 1px) 0 0 / 20% 100%,
-    rgba(12, 24, 45, 0.58);
+    linear-gradient(rgb(var(--tw-border) / 0.16) 1px, transparent 1px) 0 0 / 100% 25%,
+    linear-gradient(90deg, rgb(var(--tw-border) / 0.14) 1px, transparent 1px) 0 0 / 20% 100%,
+    rgb(var(--tw-panel) / 0.58);
   padding: 0.5rem;
 }
 
@@ -1330,14 +1332,14 @@ body::before {
 
 .saas-ranking-item p {
   margin: 0.24rem 0 0.34rem;
-  color: #8ca1c5;
+  color: var(--text-muted);
   font-size: 0.74rem;
 }
 
 .saas-progress {
   height: 6px;
   border-radius: 999px;
-  background: rgba(51, 65, 85, 0.86);
+  background: rgb(var(--tw-border) / 0.32);
   overflow: hidden;
 }
 
@@ -1366,7 +1368,7 @@ body::before {
 
 .saas-behavior-banner {
   border-color: rgba(217, 119, 6, 0.35);
-  background: linear-gradient(90deg, rgba(120, 53, 15, 0.62), rgba(127, 29, 29, 0.62), rgba(15, 23, 42, 0.8));
+  background: linear-gradient(90deg, rgba(120, 53, 15, 0.62), rgba(127, 29, 29, 0.62), rgb(var(--tw-panel) / 0.86));
 }
 
 .saas-behavior-banner h3 {
@@ -1460,7 +1462,7 @@ body::before {
 }
 
 .saas-impact-bar-item span {
-  color: #8ca1c5;
+  color: var(--text-muted);
   font-size: 0.7rem;
   text-align: center;
 }
@@ -1494,32 +1496,32 @@ body::before {
 }
 
 .saas-emotion-item {
-  border: 1px solid rgba(100, 116, 139, 0.15);
+  border: 1px solid rgb(var(--tw-border) / 0.22);
   border-radius: 10px;
   padding: 0.54rem 0.62rem;
-  background: rgba(15, 23, 42, 0.5);
+  background: rgb(var(--tw-panel) / 0.55);
 }
 
 .saas-emotion-item strong {
-  color: #dbe7fb;
+  color: var(--text-main);
   font-size: 0.8rem;
 }
 
 .saas-emotion-item span,
 .saas-emotion-item p {
   margin: 0.18rem 0;
-  color: #8ca1c5;
+  color: var(--text-muted);
   font-size: 0.73rem;
 }
 
 .saas-emotion-item-good {
   border-color: rgba(16, 185, 129, 0.24);
-  background: linear-gradient(180deg, rgba(4, 120, 87, 0.2), rgba(15, 23, 42, 0.58));
+  background: linear-gradient(180deg, rgba(4, 120, 87, 0.2), rgb(var(--tw-panel) / 0.86));
 }
 
 .saas-emotion-item-bad {
   border-color: rgba(244, 63, 94, 0.22);
-  background: linear-gradient(180deg, rgba(136, 19, 55, 0.22), rgba(15, 23, 42, 0.58));
+  background: linear-gradient(180deg, rgba(136, 19, 55, 0.22), rgb(var(--tw-panel) / 0.86));
 }
 
 .saas-tabs {
@@ -1616,12 +1618,12 @@ body::before {
 }
 
 .saas-note-list strong {
-  color: #dbe7fb;
+  color: var(--text-main);
   font-size: 0.84rem;
 }
 
 .saas-note-list small {
-  color: #8ca1c5;
+  color: var(--text-muted);
   font-size: 0.74rem;
   line-height: 1.4;
 }
@@ -1678,12 +1680,12 @@ body::before {
   align-items: center;
   justify-content: space-between;
   gap: 0.7rem;
-  border-bottom: 1px solid rgba(100, 116, 139, 0.18);
+  border-bottom: 1px solid rgb(var(--tw-border) / 0.22);
   padding-bottom: 0.26rem;
 }
 
 .saas-detail-list span {
-  color: #8ca1c5;
+  color: var(--text-muted);
   font-size: 0.74rem;
 }
 
@@ -1694,12 +1696,12 @@ body::before {
 
 .saas-best-trade {
   border-color: rgba(16, 185, 129, 0.35);
-  background: linear-gradient(180deg, rgba(6, 78, 59, 0.42), rgba(15, 23, 42, 0.62));
+  background: linear-gradient(180deg, rgba(6, 78, 59, 0.42), rgb(var(--tw-panel) / 0.86));
 }
 
 .saas-worst-trade {
   border-color: rgba(236, 72, 153, 0.3);
-  background: linear-gradient(180deg, rgba(80, 7, 36, 0.42), rgba(15, 23, 42, 0.62));
+  background: linear-gradient(180deg, rgba(80, 7, 36, 0.42), rgb(var(--tw-panel) / 0.86));
 }
 
 .saas-mobile-nav {
@@ -1825,22 +1827,22 @@ body::before {
 .dashboard-frame {
   border-radius: 20px;
   border: 1px solid var(--line);
-  background: rgba(10, 18, 31, 0.93);
+  background: rgb(var(--tw-panel) / 0.93);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   padding: 1.05rem;
 }
 
 .strategy-badge {
   border-radius: 12px;
-  border: 1px solid rgba(96, 165, 250, 0.46);
-  background: linear-gradient(180deg, rgba(30, 64, 175, 0.4), rgba(124, 58, 237, 0.24), rgba(15, 23, 42, 0.9));
-  color: #dbeafe;
+  border: 1px solid rgb(var(--tw-accent) / 0.46);
+  background: linear-gradient(180deg, rgb(var(--tw-accent) / 0.32), rgba(124, 58, 237, 0.24), rgb(var(--tw-panel) / 0.9));
+  color: var(--text-main);
 }
 
 .soft-frame {
   border: 1px solid var(--line-soft);
   border-radius: 14px;
-  background: rgba(15, 23, 42, 0.64);
+  background: rgb(var(--tw-panel) / 0.64);
   padding: 0.72rem 0.85rem;
 }
 
@@ -1865,7 +1867,7 @@ body::before {
   width: 100%;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(116, 139, 177, 0.16);
+  background: rgb(var(--tw-border) / 0.18);
 }
 
 .metric-fill {
@@ -2108,7 +2110,7 @@ body::before {
 
 .saas-trade-modal-title {
   margin: 0;
-  color: #f1f5f9;
+  color: var(--text-main);
   font-size: 1.15rem;
   line-height: 1.1;
   letter-spacing: -0.01em;
@@ -2120,10 +2122,10 @@ body::before {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(100, 116, 139, 0.28);
+  border: 1px solid rgb(var(--tw-border) / 0.32);
   border-radius: 12px;
-  background: rgba(15, 23, 42, 0.74);
-  color: #8da3c8;
+  background: rgb(var(--tw-panel) / 0.74);
+  color: var(--text-muted);
 }
 
 .saas-trade-modal-close svg {
@@ -2228,13 +2230,13 @@ body::before {
   }
 
   .brand-logo {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
   }
 
   .brand-title {
-    font-size: 1.2rem;
+    font-size: 1.28rem;
   }
 
   .hero-sub {
@@ -2394,21 +2396,21 @@ body::before {
   }
 
   .saas-mobile-menu-btn {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border: 1px solid rgb(var(--tw-border) / 0.3);
-    border-radius: 10px;
+    border-radius: 12px;
     background: rgb(var(--tw-panel) / 0.74);
     color: var(--text-muted);
     flex-shrink: 0;
   }
 
   .saas-mobile-menu-btn svg {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     display: block;
   }
 

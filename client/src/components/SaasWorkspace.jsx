@@ -365,6 +365,7 @@ const SaasWorkspace = ({
   };
   const activeReview = reviewConfig[reviewRange] || reviewConfig.week;
   const activeReviewTrades = activeReview.trades || [];
+  const [tradeSearch, setTradeSearch] = useState("");
   const sortedReviewTrades = useMemo(() => {
     return [...activeReviewTrades].sort(
       (a, b) => new Date(b?.tradeDate || 0).getTime() - new Date(a?.tradeDate || 0).getTime()
@@ -436,7 +437,6 @@ const SaasWorkspace = ({
   const [selectedTrade, setSelectedTrade] = useState(null);
   const [tradeDetailsBusy, setTradeDetailsBusy] = useState(false);
   const [tradeDetailsError, setTradeDetailsError] = useState("");
-  const [tradeSearch, setTradeSearch] = useState("");
   const [settingsDraft, setSettingsDraft] = useState({
     pairs: "",
     sessions: "",

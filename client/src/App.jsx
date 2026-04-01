@@ -130,6 +130,10 @@ const pageMeta = {
     title: "Performance Review",
     subtitle: "Weekly and monthly performance breakdown",
   },
+  settings: {
+    title: "Settings",
+    subtitle: "Manage workspace preferences and account actions",
+  },
 };
 
 const toNumber = (value, fallback = 0) => {

@@ -148,6 +148,20 @@ const IconGlyph = ({ name = "dot" }) => {
       </svg>
     );
   }
+  if (name === "settings") {
+    return (
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <circle cx="10" cy="10" r="2.3" fill="none" stroke="currentColor" strokeWidth="1.6" />
+        <path
+          d="M10 4.2v1.4M10 14.4v1.4M4.2 10h1.4M14.4 10h1.4M5.8 5.8l1 1M13.2 13.2l1 1M14.2 5.8l-1 1M6.8 13.2l-1 1"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
   if (name === "pulse") {
     return (
       <svg viewBox="0 0 20 20" aria-hidden="true">
@@ -210,6 +224,7 @@ const navIconMap = {
   edge: "edge",
   behavior: "behavior",
   review: "review",
+  settings: "settings",
 };
 
 const SaasWorkspace = ({
@@ -329,9 +344,22 @@ const SaasWorkspace = ({
   const reviewExpectancy = activeReviewTrades.length
     ? round(activeReviewTrades.reduce((sum, trade) => sum + toNumber(trade?.rrAchieved) * 100, 0) / activeReviewTrades.length, 2)
     : 0;
+  const setupChartItems = setupTop.slice(0, 6);
+  const sessionChartItems = sessionTop.slice(0, 6);
   const netRR = round(derivedPnL / 100, 2);
   const winShareLabel = totalTrades ? `${totalWins}/${totalTrades} wins` : "No trades yet";
-  const mobilePrimaryPages = pages.filter((page) => ["dashboard", "journal", "analytics", "review"].includes(page.key));
+  const mobilePrimaryPages = pages.filter((page) =>
+    ["dashboard", "journal", "analytics", "edge", "behavior", "review", "settings"].includes(page.key)
+  );
+  const mobileLabelMap = {
+    dashboard: "Dashboard",
+    journal: "Add Trade",
+    analytics: "Analytics",
+    edge: "Edge",
+    behavior: "Behavior",
+    review: "Review",
+    settings: "Settings",
+  };
 
   return (
   <section className="saas-shell app-journal">
@@ -396,6 +424,23 @@ const SaasWorkspace = ({
         </div>
       </header>
 
+      <nav className="saas-mobile-nav" aria-label="Mobile workspace navigation">
+        {mobilePrimaryPages.map((page) => (
+          <button
+            key={`mobile-${page.key}`}
+            type="button"
+            className={`saas-mobile-nav-item ${activePage === page.key ? "saas-mobile-nav-item-active" : ""}`}
+            onClick={() => setActivePage(page.key)}
+            aria-current={activePage === page.key ? "page" : undefined}
+          >
+            <span className="saas-mobile-nav-icon" aria-hidden="true">
+              <IconGlyph name={navIconMap[page.key] || "dot"} />
+            </span>
+            <span>{mobileLabelMap[page.key] || page.label}</span>
+          </button>
+        ))}
+      </nav>
+
       {error ? (
         <p className="saas-alert saas-alert-error" role="alert" aria-live="assertive">
           {error}
@@ -433,8 +478,8 @@ const SaasWorkspace = ({
       ) : null}
 
       {activePage === "dashboard" ? (
-        <section className="space-y-4">
-          <div className="saas-stats-grid">
+        <section className="space-y-4 saas-page-section saas-page-dashboard">
+          <div className="saas-stats-grid saas-stats-grid-primary">
             <article className="panel saas-card">
               <div className="saas-stat-head">
                 <span className="saas-stat-icon saas-stat-icon-blue">
@@ -723,8 +768,8 @@ const SaasWorkspace = ({
       ) : null}
 
       {activePage === "analytics" ? (
-        <section className="space-y-4">
-          <div className="saas-stats-grid">
+        <section className="space-y-4 saas-page-section saas-page-analytics">
+          <div className="saas-stats-grid saas-stats-grid-primary">
             <article className="panel saas-card">
               <div className="saas-stat-head">
                 <span className="saas-stat-icon saas-stat-icon-green">
@@ -770,8 +815,8 @@ const SaasWorkspace = ({
           <div className="saas-main-grid">
             <article className="panel saas-card">
               <h3 className="saas-card-title">Performance by Setup</h3>
-              <div className="saas-bars">
-                {setupTop.slice(0, 6).map((item) => (
+              <div className="saas-bars" style={{ "--saas-bars-columns": String(Math.max(setupChartItems.length, 1)) }}>
+                {setupChartItems.map((item) => (
                   <div key={item.label} className="saas-bar-item">
                     <div className="saas-bar" style={{ height: `${Math.max(item.winRate, 4)}%` }} />
                     <span>{item.label}</span>
@@ -781,8 +826,8 @@ const SaasWorkspace = ({
             </article>
             <article className="panel saas-card">
               <h3 className="saas-card-title">Performance by Session</h3>
-              <div className="saas-bars">
-                {sessionTop.map((item) => (
+              <div className="saas-bars" style={{ "--saas-bars-columns": String(Math.max(sessionChartItems.length, 1)) }}>
+                {sessionChartItems.map((item) => (
                   <div key={item.label} className="saas-bar-item">
                     <div className="saas-bar saas-bar-purple" style={{ height: `${Math.max(item.winRate, 4)}%` }} />
                     <span>{item.label}</span>
@@ -1122,24 +1167,54 @@ const SaasWorkspace = ({
           </article>
         </section>
       ) : null}
-    </section>
 
-    <nav className="saas-mobile-nav" aria-label="Mobile workspace navigation">
-      {mobilePrimaryPages.map((page) => (
-        <button
-          key={`mobile-${page.key}`}
-          type="button"
-          className={`saas-mobile-nav-item ${activePage === page.key ? "saas-mobile-nav-item-active" : ""}`}
-          onClick={() => setActivePage(page.key)}
-          aria-current={activePage === page.key ? "page" : undefined}
-        >
-          <span className="saas-mobile-nav-icon" aria-hidden="true">
-            <IconGlyph name={navIconMap[page.key] || "dot"} />
-          </span>
-          <span>{page.label}</span>
-        </button>
-      ))}
-    </nav>
+      {activePage === "settings" ? (
+        <section className="space-y-4 saas-page-section saas-page-settings">
+          <article className="panel saas-card">
+            <h3 className="saas-card-title">Workspace Settings</h3>
+            <div className="saas-settings-grid">
+              <label>
+                <span className="label">Active Profile</span>
+                <select
+                  className="input"
+                  value={filters.profileId || user.activeProfileId || ""}
+                  onChange={(event) => handleProfileSwitch(event.target.value)}
+                >
+                  {(user.profiles || []).map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="saas-settings-theme-row">
+                <span className="label">Theme</span>
+                <ThemeToggle
+                  theme={theme}
+                  onToggle={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+                />
+              </div>
+            </div>
+          </article>
+          <article className="panel saas-card">
+            <h3 className="saas-card-title">Queue & Session</h3>
+            <div className="saas-settings-actions">
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => syncQueuedData(true)}
+                disabled={!isOnline || syncingQueue}
+              >
+                {syncingQueue ? "Syncing..." : "Sync Queue"}
+              </button>
+              <button type="button" className="landing-cta-secondary" onClick={onLogout}>
+                Sign Out
+              </button>
+            </div>
+          </article>
+        </section>
+      ) : null}
+    </section>
   </section>
   );
 };

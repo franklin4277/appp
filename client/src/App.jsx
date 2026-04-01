@@ -28,8 +28,10 @@ import {
   unlockTrustedDevice,
 } from "./api/tradesApi";
 import AuthPanel from "./components/AuthPanel";
+import ResetPasswordView from "./components/ResetPasswordView";
 import SharedWeeklyView from "./components/SharedWeeklyView";
 import SaasWorkspace from "./components/SaasWorkspace";
+import VerifyEmailView from "./components/VerifyEmailView";
 import { buildLocalDashboardAnalytics } from "./utils/offlineAnalytics";
 import { buildEdgeInsights } from "./utils/insights";
 import {
@@ -215,8 +217,18 @@ const buildQuickTradeForm = ({ setupOptions = [], sessionOptions = [] } = {}) =>
 });
 
 const App = () => {
+  const urlRoute = useMemo(() => {
+    const rawPath = String(window.location.pathname || "");
+    const path = rawPath.replace(/\/+$/, "") || "/";
+    const params = new URLSearchParams(window.location.search || "");
+    return {
+      path,
+      urlToken: String(params.get("token") || ""),
+    };
+  }, []);
+
   const sharedToken = useMemo(() => {
-    const currentPath = String(window.location.pathname || "");
+    const currentPath = String(window.location.pathname || "").replace(/\/+$/, "");
     const marker = "/shared/";
     if (!currentPath.startsWith(marker)) {
       return "";
@@ -1402,16 +1414,24 @@ const App = () => {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  if (sharedToken) {
+    return <SharedWeeklyView shareToken={sharedToken} />;
+  }
+
+  if (urlRoute.path === "/verify-email") {
+    return <VerifyEmailView token={urlRoute.urlToken} />;
+  }
+
+  if (urlRoute.path === "/reset-password") {
+    return <ResetPasswordView initialToken={urlRoute.urlToken} />;
+  }
+
   if (authLoading) {
     return (
       <main className="mx-auto flex min-h-screen w-full max-w-[560px] items-center justify-center p-4">
         <section className="panel text-sm text-textMuted">Loading session...</section>
       </main>
     );
-  }
-
-  if (sharedToken) {
-    return <SharedWeeklyView shareToken={sharedToken} />;
   }
 
   if (!token || !user) {

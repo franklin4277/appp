@@ -65,10 +65,22 @@ const EMAIL_VERIFY_TTL_MS = envDurationToMs(process.env.EMAIL_VERIFY_EXPIRES_IN 
 const TWO_FACTOR_TTL_MS = envDurationToMs(process.env.TWO_FACTOR_EXPIRES_IN || "10m", 10 * 60_000);
 
 const includeDebugSecrets = () => !isProd && process.env.ALLOW_DEBUG_AUTH_SECRETS !== "false";
-const appLabel = "The Trading Journal";
+const appLabel = "Journex";
 const supportFooter = "If you did not request this, you can ignore this message.";
 const antiPhishingNotice = "Security notice: never share codes or tokens. Support will never ask for them.";
 const minutesLabel = (milliseconds) => Math.max(1, Math.round(milliseconds / 60_000));
+
+const resolvePublicBaseUrl = () => {
+  const explicit = String(process.env.PUBLIC_SHARE_BASE_URL || "").trim();
+  const rawCandidates = explicit ? [explicit] : String(process.env.CLIENT_URL || "").split(",");
+  const candidates = rawCandidates
+    .map((item) => String(item || "").trim())
+    .filter((item) => /^https?:\/\//i.test(item) && item !== "*" && !item.startsWith("*."));
+
+  const isLocal = (origin) => /\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:|\/|$)/i.test(origin);
+  const candidate = candidates.find((item) => !isLocal(item)) || candidates[0] || "";
+  return candidate ? candidate.replace(/\/$/, "") : "";
+};
 
 const slugify = (value = "") =>
   String(value || "")
@@ -261,7 +273,7 @@ const queueTwoFactorCodeDispatch = ({ user, code }) => {
 };
 
 const sendEmailVerificationTokenEmail = async ({ user, token }) => {
-  const verifyUrlBase = String(process.env.PUBLIC_SHARE_BASE_URL || "").trim().replace(/\/$/, "");
+  const verifyUrlBase = resolvePublicBaseUrl();
   const verifyUrl = verifyUrlBase ? `${verifyUrlBase}/verify-email?token=${encodeURIComponent(token)}` : "";
   return sendEmail({
     to: user.email,
@@ -320,7 +332,7 @@ const queueEmailVerificationDispatch = ({ user, token, reason = "verification.re
 };
 
 const sendPasswordResetTokenEmail = async ({ user, token }) => {
-  const resetUrlBase = String(process.env.PUBLIC_SHARE_BASE_URL || "").trim().replace(/\/$/, "");
+  const resetUrlBase = resolvePublicBaseUrl();
   const resetUrl = resetUrlBase ? `${resetUrlBase}/reset-password?token=${encodeURIComponent(token)}` : "";
   const ttlMinutes = minutesLabel(PASSWORD_RESET_TTL_MS);
   return sendEmail({

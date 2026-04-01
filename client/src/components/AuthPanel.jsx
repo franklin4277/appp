@@ -94,7 +94,8 @@ const AuthPanel = ({ onAuthenticated }) => {
   };
 
   const handleResetRequest = async () => {
-    if (!email) {
+    const normalizedEmail = String(email || "").trim();
+    if (!normalizedEmail) {
       setError("Enter your email to request reset.");
       return;
     }
@@ -104,7 +105,7 @@ const AuthPanel = ({ onAuthenticated }) => {
     setMessage("");
     setDebugSecret("");
     try {
-      const payload = await requestPasswordReset({ email });
+      const payload = await requestPasswordReset({ email: normalizedEmail });
       setMessage(payload.message || "Reset instructions generated.");
       setDebugSecret(showDebugSecrets ? payload.debugToken || "" : "");
       setMode("reset");
@@ -122,7 +123,7 @@ const AuthPanel = ({ onAuthenticated }) => {
     setMessage("");
     try {
       const payload = await confirmPasswordReset({
-        token: resetToken,
+        token: String(resetToken || "").trim(),
         newPassword: resetPassword,
       });
       setMessage(payload.message || "Password updated. You can now log in.");

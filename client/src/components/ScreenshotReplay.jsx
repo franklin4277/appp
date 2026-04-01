@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import SectionEmptyState from "./SectionEmptyState";
 
 const hasImage = (trade) =>
@@ -13,6 +13,13 @@ const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade } =
   const imageTrades = useMemo(() => trades.filter(hasImage), [trades]);
   const [index, setIndex] = useState(0);
   const [lightbox, setLightbox] = useState(null);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const lastPoint = useRef({ x: 0, y: 0 });
+  const closeButtonRef = useRef(null);
+  const overlayRef = useRef(null);
+  const lastFocused = useRef(null);
 
   useEffect(() => {
     if (!selectedTradeId) {
@@ -23,6 +30,105 @@ const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade } =
       setIndex(nextIndex);
     }
   }, [imageTrades, selectedTradeId]);
+
+  useEffect(() => {
+    if (!lightbox) {
+      return;
+    }
+    lastFocused.current = document.activeElement;
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    setIsDragging(false);
+    window.setTimeout(() => closeButtonRef.current?.focus(), 0);
+  }, [lightbox]);
+
+  useEffect(() => {
+    if (!lightbox) {
+      return;
+    }
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setLightbox(null);
+      } else if (event.key === "+" || event.key === "=") {
+        event.preventDefault();
+        setZoom((prev) => Math.min(prev + 0.25, 4));
+      } else if (event.key === "-" || event.key === "_") {
+        event.preventDefault();
+        setZoom((prev) => Math.max(prev - 0.25, 1));
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        setIndex((prev) => Math.min(prev + 1, imageTrades.length - 1));
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        setIndex((prev) => Math.max(prev - 1, 0));
+      } else if (event.key === "Tab") {
+        const focusable = overlayRef.current?.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (!focusable || !focusable.length) {
+          return;
+        }
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      if (lastFocused.current && typeof lastFocused.current.focus === "function") {
+        lastFocused.current.focus();
+      }
+    };
+  }, [imageTrades.length, lightbox]);
+
+  const handleZoom = (delta) => {
+    setZoom((prev) => {
+      const next = Math.min(Math.max(prev + delta, 1), 4);
+      if (next === 1) {
+        setPan({ x: 0, y: 0 });
+      }
+      return next;
+    });
+  };
+
+  const handleWheel = (event) => {
+    if (!lightbox) {
+      return;
+    }
+    event.preventDefault();
+    const delta = event.deltaY > 0 ? -0.2 : 0.2;
+    handleZoom(delta);
+  };
+
+  const handlePointerDown = (event) => {
+    if (zoom <= 1) {
+      return;
+    }
+    setIsDragging(true);
+    lastPoint.current = { x: event.clientX, y: event.clientY };
+  };
+
+  const handlePointerMove = (event) => {
+    if (!isDragging) {
+      return;
+    }
+    const dx = event.clientX - lastPoint.current.x;
+    const dy = event.clientY - lastPoint.current.y;
+    lastPoint.current = { x: event.clientX, y: event.clientY };
+    setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+  };
+
+  const handlePointerUp = () => {
+    setIsDragging(false);
+  };
 
   const trade = imageTrades[index] || null;
   if (!trade) {
@@ -157,25 +263,77 @@ const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade } =
           role="dialog"
           aria-modal="true"
           onClick={() => setLightbox(null)}
+          ref={overlayRef}
         >
           <div
-            className="relative max-h-[92vh] w-full max-w-6xl overflow-auto rounded-lg bg-black/40 p-2"
+            className="relative max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-lg bg-black/40 p-2"
             onClick={(event) => event.stopPropagation()}
           >
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-white/80">
+              <span>{lightbox.label || "Screenshot preview"}</span>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="rounded-full border border-white/30 bg-black/60 px-3 py-1 text-xs text-white"
+                  onClick={() => handleZoom(-0.25)}
+                >
+                  Zoom -
+                </button>
+                <button
+                  type="button"
+                  className="rounded-full border border-white/30 bg-black/60 px-3 py-1 text-xs text-white"
+                  onClick={() => {
+                    setZoom(1);
+                    setPan({ x: 0, y: 0 });
+                  }}
+                >
+                  Reset
+                </button>
+                <button
+                  type="button"
+                  className="rounded-full border border-white/30 bg-black/60 px-3 py-1 text-xs text-white"
+                  onClick={() => handleZoom(0.25)}
+                >
+                  Zoom +
+                </button>
+              </div>
+            </div>
             <button
               type="button"
               className="sticky left-full top-2 z-10 mb-2 -mr-2 inline-flex rounded-full border border-white/30 bg-black/70 px-3 py-1 text-xs text-white"
               onClick={() => setLightbox(null)}
+              ref={closeButtonRef}
             >
               Close
             </button>
-            <img
-              src={lightbox.src}
-              alt={lightbox.label || "Screenshot preview"}
-              className="h-auto w-full max-w-none rounded-lg object-contain"
-              decoding="async"
-              fetchPriority="high"
-            />
+            <div
+              className={`relative flex max-h-[78vh] items-center justify-center overflow-hidden rounded-lg bg-black/60 ${
+                zoom > 1 ? "cursor-grab" : "cursor-zoom-in"
+              } ${isDragging ? "cursor-grabbing" : ""}`}
+              onWheel={handleWheel}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerLeave={handlePointerUp}
+              onDoubleClick={() => {
+                if (zoom === 1) {
+                  setZoom(2);
+                } else {
+                  setZoom(1);
+                  setPan({ x: 0, y: 0 });
+                }
+              }}
+            >
+              <img
+                src={lightbox.src}
+                alt={lightbox.label || "Screenshot preview"}
+                className="max-h-[78vh] w-auto max-w-none select-none object-contain"
+                style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
+                decoding="async"
+                fetchPriority="high"
+                draggable="false"
+              />
+            </div>
             {lightbox.label ? (
               <p className="mt-2 text-center text-xs text-white/80">{lightbox.label}</p>
             ) : null}

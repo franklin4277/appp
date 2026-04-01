@@ -1166,6 +1166,33 @@ const SaasWorkspace = ({
               />
             </label>
 
+            <div className="saas-form-grid">
+              <label>
+                <span className="label">Screenshot (Before)</span>
+                <input
+                  className="input"
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/webp"
+                  onChange={(event) => handleQuickTradeChange("screenshotBefore", event.target.files?.[0] || null)}
+                />
+                {quickTradeForm.screenshotBefore ? (
+                  <small className="text-xs text-textMuted">{quickTradeForm.screenshotBefore.name}</small>
+                ) : null}
+              </label>
+              <label>
+                <span className="label">Screenshot (After)</span>
+                <input
+                  className="input"
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/webp"
+                  onChange={(event) => handleQuickTradeChange("screenshotAfter", event.target.files?.[0] || null)}
+                />
+                {quickTradeForm.screenshotAfter ? (
+                  <small className="text-xs text-textMuted">{quickTradeForm.screenshotAfter.name}</small>
+                ) : null}
+              </label>
+            </div>
+
             <div className="saas-form-actions">
               <button className="btn-primary" type="submit" disabled={savingQuickTrade}>
                 {savingQuickTrade ? "Saving..." : "Save Trade"}

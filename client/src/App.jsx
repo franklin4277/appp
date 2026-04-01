@@ -224,6 +224,8 @@ const buildQuickTradeForm = ({ setupOptions = [], sessionOptions = [], pairOptio
   emotion: "",
   followedPlan: true,
   notes: "",
+  screenshotBefore: null,
+  screenshotAfter: null,
 });
 
 const App = () => {
@@ -1248,6 +1250,12 @@ const App = () => {
       data.append("priceAction", "");
       data.append("executionReview", quickTradeForm.notes || "");
       data.append("emotionalState", quickTradeForm.emotion || "");
+      if (quickTradeForm.screenshotBefore) {
+        data.append("screenshotBefore", quickTradeForm.screenshotBefore);
+      }
+      if (quickTradeForm.screenshotAfter) {
+        data.append("screenshotAfter", quickTradeForm.screenshotAfter);
+      }
 
       setSavingQuickTrade(true);
       setError("");

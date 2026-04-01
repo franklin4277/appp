@@ -627,7 +627,7 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
     setForm((prev) => ({
       ...prev,
       profileId: activeProfileId || prev.profileId,
-      pair: prev.pair || optionLists.pairs[0] || "",
+      pair: optionLists.pairs.includes(prev.pair) ? prev.pair : optionLists.pairs[0] || "",
       session: prev.session || optionLists.sessions[0] || "",
       tradeType: prev.tradeType || optionLists.tradeTypes[0] || "",
       setupType: prev.setupType || optionLists.setupTypes[0] || "",
@@ -788,9 +788,10 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
     setMediaOptimizationMessage("");
     let normalizedValue = value;
     if (field === "pair") {
-      normalizedValue = String(value || "")
+      const normalizedPair = String(value || "")
         .toUpperCase()
         .replace(/\s+/g, "");
+      normalizedValue = normalizedPair || optionLists.pairs[0] || "EURUSD";
     }
     setForm((prev) => ({
       ...prev,
@@ -869,11 +870,14 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
 
   const buildTradePayload = (acceptGuardrailOverride = false) => {
     const lotSizeToSave = autoLotSize ? computedLotSize : Number(form.lotSize || 0);
+    const normalizedPair = String(form.pair || "")
+      .toUpperCase()
+      .replace(/\s+/g, "");
 
     return {
       profileId: form.profileId || activeProfileId || "",
       clientTradeId: form.clientTradeId || generateClientTradeId(),
-      pair: form.pair,
+      pair: normalizedPair || optionLists.pairs[0] || "EURUSD",
       tradeDate: form.tradeDate ? new Date(form.tradeDate).toISOString() : new Date().toISOString(),
       exitTime: form.exitTime ? new Date(form.exitTime).toISOString() : "",
       session: form.session,
@@ -1208,18 +1212,17 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
       <form ref={formRef} onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <Field label="Pair">
           <div>
-            <input
+            <select
               className="input"
-              list="pair-options"
               value={form.pair}
               onChange={(event) => handleChange("pair", event.target.value)}
-              placeholder="Type or pick a pair"
-            />
-            <datalist id="pair-options">
+            >
               {optionLists.pairs.map((pair) => (
-                <option key={pair} value={pair} />
+                <option key={pair} value={pair}>
+                  {pair}
+                </option>
               ))}
-            </datalist>
+            </select>
           </div>
         </Field>
 

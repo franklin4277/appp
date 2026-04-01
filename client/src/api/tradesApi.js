@@ -1104,7 +1104,7 @@ export const readOfflineSnapshot = () => {
 };
 
 const normalizeQueuedDraft = (draft = {}) => {
-  const pair = String(draft.pair || "").trim().toUpperCase();
+  const pair = String(draft.pair || "").trim().toUpperCase() || "EURUSD";
   return {
     profileId: String(draft.profileId || "").trim(),
     clientTradeId: String(draft.clientTradeId || "").trim(),
@@ -1215,7 +1215,16 @@ const normalizeQueueItem = (item = {}) => {
 export const getOfflineQueue = () => {
   const raw = readJsonStorage(OFFLINE_QUEUE_KEY, []);
   const source = Array.isArray(raw) ? raw : Array.isArray(raw?.items) ? raw.items : [];
-  return source.map((item) => normalizeQueueItem(item)).filter(Boolean);
+  return source
+    .map((item) => normalizeQueueItem(item))
+    .filter(Boolean)
+    .map((item) => ({
+      ...item,
+      payload: {
+        ...item.payload,
+        pair: String(item.payload?.pair || "").trim().toUpperCase() || "EURUSD",
+      },
+    }));
 };
 
 const writeOfflineQueue = (items = []) => {
@@ -1276,6 +1285,7 @@ export const clearOfflineQueue = async () => {
 
 const buildQueuedFormData = (payload = {}) => {
   const data = new FormData();
+  const safePair = String(payload.pair || "").trim().toUpperCase() || "EURUSD";
   const fields = [
     "profileId",
     "clientTradeId",
@@ -1308,6 +1318,10 @@ const buildQueuedFormData = (payload = {}) => {
 
   fields.forEach((field) => {
     if (payload[field] === undefined || payload[field] === null) {
+      return;
+    }
+    if (field === "pair") {
+      data.append(field, safePair);
       return;
     }
     data.append(field, String(payload[field]));

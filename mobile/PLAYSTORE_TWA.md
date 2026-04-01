@@ -1,4 +1,4 @@
-# The Trading Journal - Play Store (TWA) Guide
+# Journex - Play Store (TWA) Guide
 
 This project is a web app (PWA). To publish on Google Play, wrap it as an Android app using a Trusted Web Activity (TWA).
 
@@ -9,6 +9,25 @@ This project is a web app (PWA). To publish on Google Play, wrap it as an Androi
 - Java JDK 17+
 - Android SDK command-line tools (or Android Studio)
 - Google Play Console account
+
+## 1.5) App Icon / Branding (Important)
+
+The Android app icon used by the TWA wrapper is taken from your deployed PWA manifest icons.
+
+In this repo, the PWA/TWA icons are generated from `client/public/favicon.svg` and written to:
+
+- `client/public/pwa-192x192.png`
+- `client/public/pwa-512x512.png`
+- `client/public/apple-touch-icon.png`
+
+To regenerate icons after changing the logo:
+
+```powershell
+cd client
+npm.cmd run generate:icons
+```
+
+Then rebuild + redeploy the frontend so your manifest at `https://YOUR_DOMAIN/manifest.webmanifest` is updated.
 
 ## 2) Install Bubblewrap
 
@@ -29,13 +48,21 @@ bubblewrap init --manifest https://YOUR_DOMAIN/manifest.webmanifest
 
 Bubblewrap will ask for:
 - Android package id (example: `com.tradecircle.tradingjournal`)
-- App name (`The Trading Journal`)
+- App name (`Journex`)
 - Signing key setup
 
 ## 4) Build Android App Bundle (AAB)
 
 ```powershell
 cd mobile\twa
+bubblewrap build
+```
+
+If you already created a TWA project before updating the manifest/icons, run:
+
+```powershell
+cd mobile\\twa
+bubblewrap update
 bubblewrap build
 ```
 

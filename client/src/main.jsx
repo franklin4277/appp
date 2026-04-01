@@ -11,8 +11,12 @@ applyTheme(resolveInitialTheme());
 
 if ("serviceWorker" in navigator) {
   if (shouldEnablePwa) {
-    registerSW({
+    const updateSW = registerSW({
       immediate: true,
+      onNeedRefresh() {
+        updateSW(true);
+        window.location.reload();
+      },
     });
   } else {
     // Prevent stale service worker caches from causing blank screens after deploys.

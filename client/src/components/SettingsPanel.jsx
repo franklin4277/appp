@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { disableMt5Bridge, generateMt5BridgeKey, updateUserSettings } from "../api/tradesApi";
-import { PAIRS } from "../utils/options";
+import { PAIRS, SESSIONS, SETUP_TYPES, TRADE_TYPES } from "../utils/options";
 
 const toCsv = (value = []) => value.join(", ");
 const fromCsv = (value = "") =>
@@ -18,6 +18,25 @@ const normalizePairs = (value = "") => {
   );
   const filtered = raw.filter((pair) => pair.length >= 3 && pair.length <= 15);
   return filtered.length ? filtered : PAIRS;
+};
+
+const normalizeNamedList = (value = "", maxLength, fallback = []) => {
+  const raw = fromCsv(value).map((item) => String(item || "").trim());
+  const filtered = raw.filter((item) => item.length > 0 && item.length <= maxLength);
+  return filtered.length ? filtered : fallback;
+};
+
+const normalizeTradeTypes = (value = "") => {
+  const raw = fromCsv(value)
+    .map((item) => String(item || "").trim().toLowerCase())
+    .map((item) => {
+      if (item.startsWith("buy")) return "Buy";
+      if (item.startsWith("sell")) return "Sell";
+      return "";
+    })
+    .filter(Boolean);
+  const unique = [...new Set(raw)];
+  return unique.length ? unique : TRADE_TYPES;
 };
 
 const formatDateTime = (value = "") => {
@@ -105,12 +124,27 @@ const SettingsPanel = ({ user, token, onUserUpdate, onSaved }) => {
       if (state.pairs !== nextPairsCsv) {
         setState((prev) => ({ ...prev, pairs: nextPairsCsv }));
       }
+      const nextSessions = normalizeNamedList(state.sessions, 40, SESSIONS);
+      const nextSessionsCsv = nextSessions.join(", ");
+      if (state.sessions !== nextSessionsCsv) {
+        setState((prev) => ({ ...prev, sessions: nextSessionsCsv }));
+      }
+      const nextSetupTypes = normalizeNamedList(state.setupTypes, 80, SETUP_TYPES);
+      const nextSetupTypesCsv = nextSetupTypes.join(", ");
+      if (state.setupTypes !== nextSetupTypesCsv) {
+        setState((prev) => ({ ...prev, setupTypes: nextSetupTypesCsv }));
+      }
+      const nextTradeTypes = normalizeTradeTypes(state.tradeTypes);
+      const nextTradeTypesCsv = nextTradeTypes.join(", ");
+      if (state.tradeTypes !== nextTradeTypesCsv) {
+        setState((prev) => ({ ...prev, tradeTypes: nextTradeTypesCsv }));
+      }
       const payload = {
         options: {
           pairs: nextPairs,
-          sessions: fromCsv(state.sessions),
-          setupTypes: fromCsv(state.setupTypes),
-          tradeTypes: fromCsv(state.tradeTypes),
+          sessions: nextSessions,
+          setupTypes: nextSetupTypes,
+          tradeTypes: nextTradeTypes,
           results: fromCsv(state.results),
           pocOutcomes: fromCsv(state.pocOutcomes),
           emotionTags: fromCsv(state.emotionTags),

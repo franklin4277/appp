@@ -44,6 +44,39 @@ const normalizePairList = (value = []) => {
   return DEFAULT_STRATEGY_OPTIONS.pairs;
 };
 
+const normalizeTradeTypeList = (value = []) => {
+  const normalized = (Array.isArray(value) ? value : [])
+    .map((item) => String(item || "").trim().toLowerCase())
+    .map((item) => {
+      if (item.startsWith("buy")) {
+        return "Buy";
+      }
+      if (item.startsWith("sell")) {
+        return "Sell";
+      }
+      return "";
+    })
+    .filter(Boolean);
+
+  if (normalized.length) {
+    return [...new Set(normalized)].slice(0, 2);
+  }
+
+  return DEFAULT_STRATEGY_OPTIONS.tradeTypes;
+};
+
+const normalizeNamedList = (value = [], maxLength, fallback = []) => {
+  const normalized = (Array.isArray(value) ? value : [])
+    .map((item) => String(item || "").trim())
+    .filter((item) => item.length > 0 && item.length <= maxLength);
+
+  if (normalized.length) {
+    return [...new Set(normalized)].slice(0, 64);
+  }
+
+  return fallback;
+};
+
 const toNumber = (value, fallback) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -161,14 +194,18 @@ const mergeSettings = (current = {}, next = {}) => {
       pairs: normalizePairList(
         asStringArray(optionsPayload.pairs ?? current.options?.pairs ?? DEFAULT_STRATEGY_OPTIONS.pairs)
       ),
-      sessions: asStringArray(
-        optionsPayload.sessions ?? current.options?.sessions ?? DEFAULT_STRATEGY_OPTIONS.sessions
+      sessions: normalizeNamedList(
+        asStringArray(optionsPayload.sessions ?? current.options?.sessions ?? DEFAULT_STRATEGY_OPTIONS.sessions),
+        40,
+        DEFAULT_STRATEGY_OPTIONS.sessions
       ),
-      setupTypes: asStringArray(
-        optionsPayload.setupTypes ?? current.options?.setupTypes ?? DEFAULT_STRATEGY_OPTIONS.setupTypes
+      setupTypes: normalizeNamedList(
+        asStringArray(optionsPayload.setupTypes ?? current.options?.setupTypes ?? DEFAULT_STRATEGY_OPTIONS.setupTypes),
+        80,
+        DEFAULT_STRATEGY_OPTIONS.setupTypes
       ),
-      tradeTypes: asStringArray(
-        optionsPayload.tradeTypes ?? current.options?.tradeTypes ?? DEFAULT_STRATEGY_OPTIONS.tradeTypes
+      tradeTypes: normalizeTradeTypeList(
+        asStringArray(optionsPayload.tradeTypes ?? current.options?.tradeTypes ?? DEFAULT_STRATEGY_OPTIONS.tradeTypes)
       ),
       results: asStringArray(optionsPayload.results ?? current.options?.results ?? DEFAULT_STRATEGY_OPTIONS.results),
       pocOutcomes: asStringArray(

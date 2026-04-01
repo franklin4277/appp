@@ -9,10 +9,13 @@ const toNumberValue = (value, fallback = Number.NaN) => {
   if (value === undefined || value === null) {
     return fallback;
   }
-  const cleaned = String(value).replace(/,/g, "").trim();
-  if (!cleaned) {
+  const raw = String(value).trim();
+  if (!raw) {
     return fallback;
   }
+  const cleaned = raw.includes(",") && !raw.includes(".")
+    ? raw.replace(/,/g, ".").replace(/\s+/g, "")
+    : raw.replace(/,/g, "").replace(/\s+/g, "");
   const parsed = Number(cleaned);
   return Number.isFinite(parsed) ? parsed : fallback;
 };

@@ -37,7 +37,14 @@ const normalizePriceInput = (value) => {
   if (value === undefined || value === null) {
     return "";
   }
-  return String(value).replace(/,/g, "").trim();
+  const raw = String(value).trim();
+  if (!raw) {
+    return "";
+  }
+  if (raw.includes(",") && !raw.includes(".")) {
+    return raw.replace(/,/g, ".").replace(/\s+/g, "");
+  }
+  return raw.replace(/,/g, "").replace(/\s+/g, "");
 };
 
   const buildOptionLists = (settings = {}) => ({
@@ -1394,7 +1401,9 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
         <Field label="Entry Price">
           <input
             className="input"
-            type="number"
+            type="text"
+            inputMode="decimal"
+            pattern="[0-9]*[.,]?[0-9]*"
             required
             step="0.00001"
             value={form.entryPrice}
@@ -1405,7 +1414,9 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
         <Field label="Exit Price (Optional)">
           <input
             className="input"
-            type="number"
+            type="text"
+            inputMode="decimal"
+            pattern="[0-9]*[.,]?[0-9]*"
             step="0.00001"
             value={form.exitPrice}
             onChange={(event) => handleChange("exitPrice", event.target.value)}
@@ -1415,7 +1426,9 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
         <Field label="Stop Loss">
           <input
             className="input"
-            type="number"
+            type="text"
+            inputMode="decimal"
+            pattern="[0-9]*[.,]?[0-9]*"
             required
             step="0.00001"
             value={form.stopLoss}
@@ -1426,7 +1439,9 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
         <Field label="Take Profit">
           <input
             className="input"
-            type="number"
+            type="text"
+            inputMode="decimal"
+            pattern="[0-9]*[.,]?[0-9]*"
             required
             step="0.00001"
             value={form.takeProfit}

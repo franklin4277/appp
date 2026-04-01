@@ -948,7 +948,11 @@ const TradeEntryForm = ({ onTradeSaved, token, settings, trades = [], activeProf
     const normalizedPair = String(form.pair || "")
       .toUpperCase()
       .replace(/\s+/g, "");
-    if (!normalizedPair || normalizedPair.length < 3 || normalizedPair.length > 15) {
+    const fallbackPair = optionLists.pairs[0] || "EURUSD";
+    if (!normalizedPair) {
+      setForm((prev) => ({ ...prev, pair: fallbackPair }));
+    }
+    if ((!normalizedPair && !fallbackPair) || normalizedPair.length < 3 || normalizedPair.length > 15) {
       setError("Pair is required and should be 3-15 characters.");
       return;
     }

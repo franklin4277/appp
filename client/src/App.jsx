@@ -1100,11 +1100,17 @@ const App = () => {
   }, [user?.settings?.options?.sessions]);
 
   const pairOptions = useMemo(() => {
-    const source = user?.settings?.options?.pairs;
-    if (Array.isArray(source) && source.length) {
-      return source;
-    }
-    return PAIRS;
+    const source = Array.isArray(user?.settings?.options?.pairs) && user?.settings?.options?.pairs.length
+      ? user.settings.options.pairs
+      : PAIRS;
+    const normalized = source
+      .map((pair) =>
+        String(pair || "")
+          .toUpperCase()
+          .replace(/\s+/g, "")
+      )
+      .filter((pair) => pair.length >= 3 && pair.length <= 15);
+    return normalized.length ? normalized : PAIRS;
   }, [user?.settings?.options?.pairs]);
 
   const setupOptions = useMemo(() => {

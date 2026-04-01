@@ -238,6 +238,8 @@ const SaasWorkspace = ({
   handleProfileSwitch,
   handleProfileCreate,
   creatingProfile,
+  handleUpdateUserSettings,
+  savingUserSettings,
   onLogout,
   loading,
   syncingQueue,
@@ -365,6 +367,30 @@ const SaasWorkspace = ({
   };
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [newProfileName, setNewProfileName] = useState("");
+  const [settingsDraft, setSettingsDraft] = useState({
+    pairs: "",
+    sessions: "",
+    setupTypes: "",
+    requireRuleAlignment: true,
+    maxTradesPerSession: 4,
+    cooldownMinutesAfterLoss: 30,
+    stopForDayLossRR: 3,
+    strictChecklistGate: false,
+  });
+
+  useEffect(() => {
+    const toCsv = (value = []) => (Array.isArray(value) ? value.join(", ") : "");
+    setSettingsDraft({
+      pairs: toCsv(user?.settings?.options?.pairs || []),
+      sessions: toCsv(user?.settings?.options?.sessions || []),
+      setupTypes: toCsv(user?.settings?.options?.setupTypes || []),
+      requireRuleAlignment: Boolean(user?.settings?.riskControls?.requireRuleAlignment ?? true),
+      maxTradesPerSession: user?.settings?.riskControls?.maxTradesPerSession ?? 4,
+      cooldownMinutesAfterLoss: user?.settings?.riskControls?.cooldownMinutesAfterLoss ?? 30,
+      stopForDayLossRR: user?.settings?.riskControls?.stopForDayLossRR ?? 3,
+      strictChecklistGate: Boolean(user?.settings?.riskControls?.strictChecklistGate),
+    });
+  }, [user]);
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -1008,6 +1034,89 @@ const SaasWorkspace = ({
             </p>
           </article>
 
+          {!totalTrades ? (
+            <article className="saas-alert">
+              Log a few closed trades to unlock edge rankings and signals.
+            </article>
+          ) : null}
+
+          <div className="saas-stats-grid saas-stats-grid-primary">
+            <article className="panel saas-card">
+              <div className="saas-stat-head">
+                <span className="saas-stat-icon saas-stat-icon-violet">
+                  <IconGlyph name="rr" />
+                </span>
+                <p className="saas-stat-kicker">RR per trade</p>
+              </div>
+              <p className="saas-stat-value">
+                {expectancyValue >= 0 ? "+" : "-"}
+                {Math.abs(toNumber(expectancyValue)).toFixed(2)}R
+              </p>
+              <p className="saas-stat-label">Expectancy</p>
+            </article>
+            <article className="panel saas-card">
+              <div className="saas-stat-head">
+                <span className="saas-stat-icon saas-stat-icon-green">
+                  <IconGlyph name="money" />
+                </span>
+                <p className="saas-stat-kicker">Cumulative</p>
+              </div>
+              <p className="saas-stat-value">
+                {toNumber(edgeInsights?.equityNow) >= 0 ? "+" : "-"}
+                {Math.abs(toNumber(edgeInsights?.equityNow)).toFixed(2)}R
+              </p>
+              <p className="saas-stat-label">Equity</p>
+            </article>
+            <article className="panel saas-card">
+              <div className="saas-stat-head">
+                <span className="saas-stat-icon saas-stat-icon-red">
+                  <IconGlyph name="warn" />
+                </span>
+                <p className="saas-stat-kicker">Peak to trough</p>
+              </div>
+              <p className="saas-stat-value">
+                {Math.abs(toNumber(edgeInsights?.maxDrawdown)) > 0
+                  ? `-${Math.abs(toNumber(edgeInsights?.maxDrawdown)).toFixed(2)}R`
+                  : "0.00R"}
+              </p>
+              <p className="saas-stat-label">Max drawdown</p>
+            </article>
+            <article className="panel saas-card">
+              <div className="saas-stat-head">
+                <span className="saas-stat-icon saas-stat-icon-blue">
+                  <IconGlyph name="calendar" />
+                </span>
+                <p className="saas-stat-kicker">Last 7 days</p>
+              </div>
+              <p className="saas-stat-value">{weeklyTrades?.length || 0}</p>
+              <p className="saas-stat-label">Trades this week</p>
+            </article>
+          </div>
+
+          {edgeInsights?.worstHabit ? (
+            <article className="panel saas-card">
+              <h3 className="saas-card-title">Leak To Fix</h3>
+              <p className="text-sm font-semibold text-textMain">{edgeInsights.worstHabit.title}</p>
+              <p className="saas-stat-label mt-2">{edgeInsights.worstHabit.detail}</p>
+            </article>
+          ) : null}
+
+          {edgeInsights?.notifications?.length ? (
+            <article className="panel saas-card">
+              <h3 className="saas-card-title">Signals</h3>
+              <ul className="saas-signal-list">
+                {edgeInsights.notifications.map((note) => (
+                  <li
+                    key={note.id}
+                    className={`saas-signal ${note.level === "warn" ? "saas-signal-warn" : "saas-signal-info"}`}
+                  >
+                    {note.message}
+                  </li>
+                ))}
+              </ul>
+            </article>
+          ) : null}
+
           <div className="saas-main-grid">
             <article className="panel saas-card">
               <h3 className="saas-card-title">Setup Rankings</h3>
@@ -1353,6 +1462,136 @@ const SaasWorkspace = ({
                 />
               </div>
             </div>
+          </article>
+
+          <article className="panel saas-card">
+            <h3 className="saas-card-title">Trade Options</h3>
+            <div className="saas-settings-grid">
+              <label>
+                <span className="label">Pairs</span>
+                <textarea
+                  className="input"
+                  rows={2}
+                  value={settingsDraft.pairs}
+                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, pairs: event.target.value }))}
+                  placeholder="EURUSD, GBPUSD, XAUUSD"
+                  disabled={!isOnline || savingUserSettings}
+                />
+              </label>
+              <label>
+                <span className="label">Sessions</span>
+                <textarea
+                  className="input"
+                  rows={2}
+                  value={settingsDraft.sessions}
+                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, sessions: event.target.value }))}
+                  placeholder="London, New York, Asia"
+                  disabled={!isOnline || savingUserSettings}
+                />
+              </label>
+              <label>
+                <span className="label">Setup Types</span>
+                <textarea
+                  className="input"
+                  rows={2}
+                  value={settingsDraft.setupTypes}
+                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, setupTypes: event.target.value }))}
+                  placeholder="Breakout, Pullback, Reversal"
+                  disabled={!isOnline || savingUserSettings}
+                />
+              </label>
+            </div>
+          </article>
+
+          <article className="panel saas-card">
+            <h3 className="saas-card-title">Risk Controls</h3>
+            <div className="saas-settings-grid">
+              <label className="flex items-center gap-2 text-sm text-textMain">
+                <input
+                  type="checkbox"
+                  checked={Boolean(settingsDraft.requireRuleAlignment)}
+                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, requireRuleAlignment: event.target.checked }))}
+                  disabled={!isOnline || savingUserSettings}
+                />
+                Require rule-alignment reason when breaking rules
+              </label>
+              <label className="flex items-center gap-2 text-sm text-textMain">
+                <input
+                  type="checkbox"
+                  checked={Boolean(settingsDraft.strictChecklistGate)}
+                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, strictChecklistGate: event.target.checked }))}
+                  disabled={!isOnline || savingUserSettings}
+                />
+                Enforce checklist gate before saving trades
+              </label>
+              <label>
+                <span className="label">Max trades per session</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  value={settingsDraft.maxTradesPerSession}
+                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, maxTradesPerSession: event.target.value }))}
+                  disabled={!isOnline || savingUserSettings}
+                />
+              </label>
+              <label>
+                <span className="label">Cooldown after loss (minutes)</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  value={settingsDraft.cooldownMinutesAfterLoss}
+                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, cooldownMinutesAfterLoss: event.target.value }))}
+                  disabled={!isOnline || savingUserSettings}
+                />
+              </label>
+              <label>
+                <span className="label">Stop for day loss (RR)</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={settingsDraft.stopForDayLossRR}
+                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, stopForDayLossRR: event.target.value }))}
+                  disabled={!isOnline || savingUserSettings}
+                />
+              </label>
+            </div>
+            <button
+              type="button"
+              className="btn-primary mt-3"
+              disabled={!isOnline || savingUserSettings || typeof handleUpdateUserSettings !== "function"}
+              onClick={() => {
+                if (typeof handleUpdateUserSettings !== "function") {
+                  return;
+                }
+                const fromCsv = (value = "") =>
+                  String(value || "")
+                    .split(/[\n,]/g)
+                    .map((item) => item.trim())
+                    .filter(Boolean);
+
+                void handleUpdateUserSettings({
+                  options: {
+                    pairs: fromCsv(settingsDraft.pairs),
+                    sessions: fromCsv(settingsDraft.sessions),
+                    setupTypes: fromCsv(settingsDraft.setupTypes),
+                  },
+                  riskControls: {
+                    requireRuleAlignment: Boolean(settingsDraft.requireRuleAlignment),
+                    strictChecklistGate: Boolean(settingsDraft.strictChecklistGate),
+                    maxTradesPerSession: Number(settingsDraft.maxTradesPerSession) || 0,
+                    cooldownMinutesAfterLoss: Number(settingsDraft.cooldownMinutesAfterLoss) || 0,
+                    stopForDayLossRR: Number(settingsDraft.stopForDayLossRR) || 0,
+                  },
+                });
+              }}
+            >
+              {savingUserSettings ? "Saving..." : "Save settings"}
+            </button>
+            {!isOnline ? <p className="saas-stat-label mt-2">Go online to save settings changes.</p> : null}
           </article>
           <article className="panel saas-card">
             <h3 className="saas-card-title">Queue & Session</h3>

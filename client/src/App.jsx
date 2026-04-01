@@ -20,6 +20,7 @@ import {
   saveOfflineSnapshot,
   setActiveProfile,
   syncOfflineQueue,
+  updateUserSettings,
   unlockTrustedDevice,
 } from "./api/tradesApi";
 import AuthPanel from "./components/AuthPanel";
@@ -256,6 +257,7 @@ const App = () => {
   const [quickTradeForm, setQuickTradeForm] = useState(() => buildQuickTradeForm());
   const [savingQuickTrade, setSavingQuickTrade] = useState(false);
   const [creatingProfile, setCreatingProfile] = useState(false);
+  const [savingUserSettings, setSavingUserSettings] = useState(false);
   const syncInFlightRef = useRef(false);
   const loadRequestSeqRef = useRef(0);
   const toastCounterRef = useRef(0);
@@ -881,6 +883,36 @@ const App = () => {
     }
   };
 
+  const handleUpdateUserSettings = async (payload = {}) => {
+    if (!token) {
+      setError("You must be signed in to update settings.");
+      return null;
+    }
+
+    if (!isOnline) {
+      setError("You're offline. Connect to the internet to update settings.");
+      return null;
+    }
+
+    setSavingUserSettings(true);
+    setError("");
+    setStatusMessage("");
+
+    try {
+      const response = await updateUserSettings(token, payload);
+      if (response?.user) {
+        setUser(response.user);
+      }
+      setStatusMessage("Settings updated.");
+      return response?.user || null;
+    } catch (updateError) {
+      setError(updateError.message || "Could not update settings.");
+      return null;
+    } finally {
+      setSavingUserSettings(false);
+    }
+  };
+
   const sessionOptions = useMemo(() => {
     const source = user?.settings?.options?.sessions;
     if (Array.isArray(source) && source.length) {
@@ -1279,6 +1311,8 @@ const App = () => {
         handleProfileSwitch={handleProfileSwitch}
         handleProfileCreate={handleProfileCreate}
         creatingProfile={creatingProfile}
+        handleUpdateUserSettings={handleUpdateUserSettings}
+        savingUserSettings={savingUserSettings}
         onLogout={onLogout}
         loading={loading}
         syncingQueue={syncingQueue}

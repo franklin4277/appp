@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   confirmPasswordReset,
+  fetchApiHealth,
   loginUser,
   registerUser,
   requestPasswordReset,
@@ -24,6 +25,60 @@ const AuthPanel = ({ onAuthenticated }) => {
   const [resetPassword, setResetPassword] = useState("");
   const [debugSecret, setDebugSecret] = useState("");
   const [deliveryHint, setDeliveryHint] = useState("");
+  const [healthStatus, setHealthStatus] = useState({ state: "idle", attempt: 0, error: "" });
+  const wakeSeqRef = useRef(0);
+
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const wakeBackend = async ({ maxMs = 45_000 } = {}) => {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setHealthStatus({ state: "offline", attempt: 0, error: "" });
+      return false;
+    }
+
+    const seq = wakeSeqRef.current + 1;
+    wakeSeqRef.current = seq;
+
+    const deadline = Date.now() + Math.max(8000, maxMs);
+    let attempt = 0;
+    let lastError = "";
+
+    while (Date.now() < deadline) {
+      attempt += 1;
+      setHealthStatus({ state: "checking", attempt, error: "" });
+
+      try {
+        const payload = await fetchApiHealth({ timeoutMs: 12_000 });
+        if (wakeSeqRef.current !== seq) {
+          return false;
+        }
+        if (payload?.ok) {
+          setHealthStatus({ state: "ok", attempt, error: "" });
+          return true;
+        }
+        lastError = "Health check returned an unexpected response.";
+      } catch (error) {
+        lastError = error?.message || "Cannot reach the server.";
+      }
+
+      if (wakeSeqRef.current !== seq) {
+        return false;
+      }
+      setHealthStatus({ state: "checking", attempt, error: lastError });
+      await sleep(2500);
+    }
+
+    if (wakeSeqRef.current !== seq) {
+      return false;
+    }
+    setHealthStatus({ state: "error", attempt, error: lastError || "Cannot reach the server." });
+    return false;
+  };
+
+  useEffect(() => {
+    // Best-effort warmup so the auth request doesn't feel like it hangs on cold starts.
+    void fetchApiHealth({ timeoutMs: 8000 }).catch(() => {});
+  }, []);
 
   const authTitle = useMemo(() => {
     if (twoFactorPending) {
@@ -93,6 +148,12 @@ const AuthPanel = ({ onAuthenticated }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleOpenAuth = () => {
+    setMode("login");
+    setAuthModalOpen(true);
+    void wakeBackend();
   };
 
   const handleResetRequest = async () => {
@@ -166,10 +227,7 @@ const AuthPanel = ({ onAuthenticated }) => {
                 <button
                   type="button"
                   className="btn-primary landing-cta-primary"
-                  onClick={() => {
-                    setMode("login");
-                    setAuthModalOpen(true);
-                  }}
+                  onClick={handleOpenAuth}
                 >
                   Continue
                 </button>
@@ -200,12 +258,32 @@ const AuthPanel = ({ onAuthenticated }) => {
                   <button
                     type="button"
                     className="chip text-textMain transition hover:border-accent"
-                    onClick={() => setAuthModalOpen(false)}
+                    onClick={() => {
+                      wakeSeqRef.current += 1;
+                      setAuthModalOpen(false);
+                    }}
                   >
                     Close
                   </button>
                 </div>
               </div>
+
+              {healthStatus.state === "checking" ? (
+                <div className="mb-3 rounded-md border border-border/70 bg-panelMuted p-2 text-xs text-textMuted">
+                  Waking up server... (attempt {healthStatus.attempt}){healthStatus.error ? `: ${healthStatus.error}` : ""}
+                </div>
+              ) : healthStatus.state === "error" ? (
+                <div className="mb-3 flex items-center justify-between gap-2 rounded-md border border-danger/30 bg-danger/10 p-2 text-xs text-danger">
+                  <span>Backend unreachable: {healthStatus.error || "Check VITE_API_URL and backend status."}</span>
+                  <button
+                    type="button"
+                    className="chip text-textMain transition hover:border-accent"
+                    onClick={() => void wakeBackend()}
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : null}
 
             {twoFactorPending ? (
               <form onSubmit={handleTwoFactorSubmit} className="space-y-3">

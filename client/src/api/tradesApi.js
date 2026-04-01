@@ -722,6 +722,19 @@ export const verifyTwoFactorLogin = async ({ email, challengeId, code }) => {
   return payload;
 };
 
+export const fetchApiHealth = async ({ timeoutMs = 12000 } = {}) => {
+  if (!API_BASE) {
+    const error = new Error(
+      "Backend URL is not configured. Set VITE_API_URL to your backend service URL and redeploy."
+    );
+    error.code = "API_BASE_MISSING";
+    throw error;
+  }
+
+  const response = await fetchWithDiagnostics(`${API_BASE}/api/health`, {}, timeoutMs);
+  return parseResponse(response);
+};
+
 export const requestPasswordReset = async ({ email }) => {
   const response = await fetchWithDiagnostics(
     `${API_BASE}/api/auth/password-reset/request`,

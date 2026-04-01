@@ -365,6 +365,8 @@ const SaasWorkspace = ({
 
   useEffect(() => {
     setMobileMenuOpen(false);
+    // Ensure each page starts from the top when switching views.
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [activePage]);
 
   useEffect(() => {

@@ -16,6 +16,7 @@ const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade } =
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [fillMode, setFillMode] = useState("fit");
   const lastPoint = useRef({ x: 0, y: 0 });
   const closeButtonRef = useRef(null);
   const overlayRef = useRef(null);
@@ -39,6 +40,7 @@ const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade } =
     setZoom(1);
     setPan({ x: 0, y: 0 });
     setIsDragging(false);
+    setFillMode("fit");
     window.setTimeout(() => closeButtonRef.current?.focus(), 0);
   }, [lightbox]);
 
@@ -274,6 +276,13 @@ const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade } =
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
+                  className="rounded-full border border-white/40 bg-black/60 px-3 py-1 text-xs text-white"
+                  onClick={() => setFillMode((prev) => (prev === "fit" ? "fill" : "fit"))}
+                >
+                  {fillMode === "fit" ? "Fill screen" : "Fit screen"}
+                </button>
+                <button
+                  type="button"
                   className="rounded-full border border-white/30 bg-black/60 px-3 py-1 text-xs text-white"
                   onClick={() => handleZoom(-0.25)}
                 >
@@ -334,7 +343,7 @@ const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade } =
               <img
                 src={lightbox.src}
                 alt={lightbox.label || "Screenshot preview"}
-                className="h-full w-full max-w-none select-none object-contain"
+                className={`h-full w-full max-w-none select-none ${fillMode === "fill" ? "object-cover" : "object-contain"}`}
                 style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
                 decoding="async"
                 fetchPriority="high"

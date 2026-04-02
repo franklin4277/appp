@@ -9,7 +9,7 @@ const hasImage = (trade) =>
       trade?.offlineMeta?.screenshotAfterName
   );
 
-const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade } = {}) => {
+const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade, onOpenInspect } = {}) => {
   const imageTrades = useMemo(() => trades.filter(hasImage), [trades]);
   const [index, setIndex] = useState(0);
   const [lightbox, setLightbox] = useState(null);
@@ -193,10 +193,12 @@ const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade } =
               type="button"
               className="group relative h-52 w-full overflow-hidden rounded-md"
               onClick={() =>
-                setLightbox({
-                  src: trade.screenshots.before,
-                  label: beforeLabel,
-                })
+                typeof onOpenInspect === "function"
+                  ? onOpenInspect(trade, "before")
+                  : setLightbox({
+                      src: trade.screenshots.before,
+                      label: beforeLabel,
+                    })
               }
             >
               <img
@@ -229,10 +231,12 @@ const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade } =
               type="button"
               className="group relative h-52 w-full overflow-hidden rounded-md"
               onClick={() =>
-                setLightbox({
-                  src: trade.screenshots.after,
-                  label: afterLabel,
-                })
+                typeof onOpenInspect === "function"
+                  ? onOpenInspect(trade, "after")
+                  : setLightbox({
+                      src: trade.screenshots.after,
+                      label: afterLabel,
+                    })
               }
             >
               <img

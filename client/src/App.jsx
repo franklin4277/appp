@@ -33,6 +33,7 @@ import ResetPasswordView from "./components/ResetPasswordView";
 import SharedWeeklyView from "./components/SharedWeeklyView";
 import SaasWorkspace from "./components/SaasWorkspace";
 import VerifyEmailView from "./components/VerifyEmailView";
+import ScreenshotInspectView from "./components/ScreenshotInspectView";
 import { buildLocalDashboardAnalytics } from "./utils/offlineAnalytics";
 import { buildEdgeInsights } from "./utils/insights";
 import {
@@ -1550,6 +1551,11 @@ const App = () => {
 
   if (!token || !user) {
     return <AuthPanel onAuthenticated={onAuthenticated} />;
+  }
+
+  if (urlRoute.path.startsWith("/screenshot/")) {
+    const tradeId = urlRoute.path.replace("/screenshot/", "").trim();
+    return <ScreenshotInspectView tradeId={tradeId} token={token} />;
   }
 
   return (

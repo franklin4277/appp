@@ -611,6 +611,19 @@ const SaasWorkspace = ({
     [openTrade]
   );
 
+  const openInspectView = useCallback((trade, slot = "before") => {
+    if (!trade?._id) {
+      return;
+    }
+    try {
+      localStorage.setItem("trading-journal-active-page", "review");
+    } catch {
+      // ignore storage failures
+    }
+    const target = `/screenshot/${encodeURIComponent(trade._id)}?slot=${slot === "after" ? "after" : "before"}`;
+    window.location.href = target;
+  }, []);
+
   const copyText = async (value, successMessage) => {
     if (!value) {
       return;
@@ -1708,7 +1721,12 @@ const SaasWorkspace = ({
           </article>
 
           <div id="review-screenshot-replay">
-            <ScreenshotReplay trades={activeReviewTrades} selectedTradeId={reviewReplayTarget} onSelectTrade={openTradeFromReview} />
+            <ScreenshotReplay
+              trades={activeReviewTrades}
+              selectedTradeId={reviewReplayTarget}
+              onSelectTrade={openTradeFromReview}
+              onOpenInspect={openInspectView}
+            />
           </div>
 
           <article className="panel saas-card">

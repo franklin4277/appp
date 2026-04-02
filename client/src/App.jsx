@@ -230,15 +230,31 @@ const buildQuickTradeForm = ({ setupOptions = [], sessionOptions = [], pairOptio
 });
 
 const App = () => {
+  const [locationPath, setLocationPath] = useState(() => ({
+    pathname: String(window.location.pathname || ""),
+    search: String(window.location.search || ""),
+  }));
+
+  useEffect(() => {
+    const handlePop = () => {
+      setLocationPath({
+        pathname: String(window.location.pathname || ""),
+        search: String(window.location.search || ""),
+      });
+    };
+    window.addEventListener("popstate", handlePop);
+    return () => window.removeEventListener("popstate", handlePop);
+  }, []);
+
   const urlRoute = useMemo(() => {
-    const rawPath = String(window.location.pathname || "");
+    const rawPath = String(locationPath.pathname || "");
     const path = rawPath.replace(/\/+$/, "") || "/";
-    const params = new URLSearchParams(window.location.search || "");
+    const params = new URLSearchParams(locationPath.search || "");
     return {
       path,
       urlToken: String(params.get("token") || ""),
     };
-  }, []);
+  }, [locationPath]);
 
   const sharedToken = useMemo(() => {
     const currentPath = String(window.location.pathname || "").replace(/\/+$/, "");

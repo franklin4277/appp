@@ -622,6 +622,7 @@ const SaasWorkspace = ({
     }
     const target = `/screenshot/${encodeURIComponent(trade._id)}?slot=${slot === "after" ? "after" : "before"}`;
     window.history.pushState({}, "", target);
+    window.dispatchEvent(new PopStateEvent("popstate"));
     window.scrollTo(0, 0);
     setActivePage("review");
   }, []);

@@ -102,6 +102,7 @@ const ScreenshotInspectView = ({ tradeId = "", token = "" }) => {
   const goBack = () => {
     localStorage.setItem(PAGE_STORAGE_KEY, "review");
     window.history.pushState({}, "", "/");
+    window.dispatchEvent(new PopStateEvent("popstate"));
     window.scrollTo(0, 0);
   };
 

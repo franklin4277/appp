@@ -101,7 +101,8 @@ const ScreenshotInspectView = ({ tradeId = "", token = "" }) => {
 
   const goBack = () => {
     localStorage.setItem(PAGE_STORAGE_KEY, "review");
-    window.location.href = "/";
+    window.history.pushState({}, "", "/");
+    window.scrollTo(0, 0);
   };
 
   if (loading) {
@@ -154,6 +155,28 @@ const ScreenshotInspectView = ({ tradeId = "", token = "" }) => {
               disabled={!hasAfter}
             >
               After
+            </button>
+          </div>
+          <div className="flex gap-2 text-xs">
+            <button
+              type="button"
+              className="rounded-full border border-border bg-panelMuted px-3 py-1 text-xs text-textMain"
+              onClick={() => {
+                if (hasBefore) setSelectedSlot("before");
+              }}
+              disabled={!hasBefore}
+            >
+              Prev
+            </button>
+            <button
+              type="button"
+              className="rounded-full border border-border bg-panelMuted px-3 py-1 text-xs text-textMain"
+              onClick={() => {
+                if (hasAfter) setSelectedSlot("after");
+              }}
+              disabled={!hasAfter}
+            >
+              Next
             </button>
           </div>
           <div className="flex flex-wrap gap-2 text-xs">

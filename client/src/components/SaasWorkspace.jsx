@@ -621,7 +621,9 @@ const SaasWorkspace = ({
       // ignore storage failures
     }
     const target = `/screenshot/${encodeURIComponent(trade._id)}?slot=${slot === "after" ? "after" : "before"}`;
-    window.location.href = target;
+    window.history.pushState({}, "", target);
+    window.scrollTo(0, 0);
+    setActivePage("review");
   }, []);
 
   const copyText = async (value, successMessage) => {

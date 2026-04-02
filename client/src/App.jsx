@@ -1569,11 +1569,12 @@ const App = () => {
     return <AuthPanel onAuthenticated={onAuthenticated} />;
   }
 
+  if (urlRoute.path.startsWith("/screenshot/")) {
+    return <ScreenshotInspectView tradeId={urlRoute.path.replace("/screenshot/", "").trim()} token={token} />;
+  }
+
   return (
     <main className="app-shell w-full min-h-screen p-0">
-      {urlRoute.path.startsWith("/screenshot/") ? (
-        <ScreenshotInspectView tradeId={urlRoute.path.replace("/screenshot/", "").trim()} token={token} />
-      ) : null}
       <SaasWorkspace
         activePage={activePage}
         setActivePage={setActivePage}

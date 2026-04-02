@@ -296,6 +296,13 @@ const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade } =
                 >
                   Zoom +
                 </button>
+                <button
+                  type="button"
+                  className="rounded-full border border-white/30 bg-black/60 px-3 py-1 text-xs text-white"
+                  onClick={() => setLightbox(null)}
+                >
+                  Exit
+                </button>
               </div>
             </div>
             <button

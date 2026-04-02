@@ -145,24 +145,6 @@ const ScreenshotInspectView = ({ tradeId = "", token = "" }) => {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className={`chip ${selectedSlot === "before" ? "border-accent text-textMain" : "text-textMuted"}`}
-              onClick={() => setSelectedSlot("before")}
-              disabled={!hasBefore}
-            >
-              Before
-            </button>
-            <button
-              type="button"
-              className={`chip ${selectedSlot === "after" ? "border-accent text-textMain" : "text-textMuted"}`}
-              onClick={() => setSelectedSlot("after")}
-              disabled={!hasAfter}
-            >
-              After
-            </button>
-          </div>
           <div className="flex gap-2 text-xs">
             <button
               type="button"
@@ -218,7 +200,7 @@ const ScreenshotInspectView = ({ tradeId = "", token = "" }) => {
         </div>
 
         <div
-          className={`relative flex h-[82vh] w-full items-center justify-center overflow-hidden rounded-xl border border-border bg-panelMuted ${
+          className={`relative flex h-[88vh] w-full items-center justify-center overflow-hidden rounded-xl border border-border bg-panelMuted ${
             zoom > 1 ? "cursor-grab" : "cursor-zoom-in"
           } ${isDragging ? "cursor-grabbing" : ""}`}
           onWheel={handleWheel}

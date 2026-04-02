@@ -314,7 +314,7 @@ const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade } =
               Close
             </button>
             <div
-              className={`relative flex min-h-[68vh] max-h-[82vh] items-center justify-center overflow-hidden rounded-lg bg-black/60 ${
+              className={`relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg bg-black/60 ${
                 zoom > 1 ? "cursor-grab" : "cursor-zoom-in"
               } ${isDragging ? "cursor-grabbing" : ""}`}
               onWheel={handleWheel}

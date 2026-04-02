@@ -269,7 +269,7 @@ const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade } =
             className="relative max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-lg bg-black/40 p-2"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-white/80">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-white/90">
               <span>{lightbox.label || "Screenshot preview"}</span>
               <div className="flex flex-wrap gap-2">
                 <button
@@ -298,7 +298,7 @@ const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade } =
                 </button>
                 <button
                   type="button"
-                  className="rounded-full border border-white/30 bg-black/60 px-3 py-1 text-xs text-white"
+                  className="rounded-full border border-white/70 bg-white text-xs font-semibold text-black"
                   onClick={() => setLightbox(null)}
                 >
                   Exit
@@ -307,14 +307,14 @@ const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade } =
             </div>
             <button
               type="button"
-              className="sticky left-full top-2 z-10 mb-2 -mr-2 inline-flex rounded-full border border-white/30 bg-black/70 px-3 py-1 text-xs text-white"
+              className="sticky left-full top-2 z-10 mb-2 -mr-2 inline-flex rounded-full border border-white/40 bg-black/80 px-3 py-1 text-xs text-white"
               onClick={() => setLightbox(null)}
               ref={closeButtonRef}
             >
               Close
             </button>
             <div
-              className={`relative flex max-h-[78vh] items-center justify-center overflow-hidden rounded-lg bg-black/60 ${
+              className={`relative flex min-h-[68vh] max-h-[82vh] items-center justify-center overflow-hidden rounded-lg bg-black/60 ${
                 zoom > 1 ? "cursor-grab" : "cursor-zoom-in"
               } ${isDragging ? "cursor-grabbing" : ""}`}
               onWheel={handleWheel}

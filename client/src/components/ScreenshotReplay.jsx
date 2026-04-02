@@ -334,7 +334,7 @@ const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade } =
               <img
                 src={lightbox.src}
                 alt={lightbox.label || "Screenshot preview"}
-                className="max-h-[78vh] w-auto max-w-none select-none object-contain"
+                className="h-full w-full max-w-none select-none object-contain"
                 style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
                 decoding="async"
                 fetchPriority="high"

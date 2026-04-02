@@ -130,16 +130,16 @@ const ScreenshotInspectView = ({ tradeId = "", token = "" }) => {
     <div className="fixed inset-0 z-[60] bg-background overflow-auto">
       <main className="min-h-screen w-full p-4">
         <section className="mx-auto flex w-full max-w-6xl flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 className="text-base font-semibold">Screenshot Inspect</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-base font-semibold">Screenshot Inspect</h2>
             <p className="text-xs text-textMuted">
               {trade?.pair} | {trade?.session} | {trade?.setupType}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className="chip text-textMain" onClick={goBack}>
-              Back to Review
+            <button type="button" className="btn-primary !px-4 !py-2 text-sm" onClick={goBack}>
+              Return to Review
             </button>
           </div>
         </div>
@@ -218,7 +218,7 @@ const ScreenshotInspectView = ({ tradeId = "", token = "" }) => {
         </div>
 
         <div
-          className={`relative flex aspect-square w-full max-w-[90vh] items-center justify-center overflow-hidden rounded-xl border border-border bg-panelMuted ${
+          className={`relative flex h-[82vh] w-full items-center justify-center overflow-hidden rounded-xl border border-border bg-panelMuted ${
             zoom > 1 ? "cursor-grab" : "cursor-zoom-in"
           } ${isDragging ? "cursor-grabbing" : ""}`}
           onWheel={handleWheel}

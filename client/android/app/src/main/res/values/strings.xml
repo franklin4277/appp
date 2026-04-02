@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Journex</string>
+    <string name="title_activity_main">Journex</string>
+    <string name="package_name">com.journex.app</string>
+    <string name="custom_url_scheme">com.journex.app</string>
+</resources>

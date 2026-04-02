@@ -1,5 +1,9 @@
 {
   "appId": "com.journex.app",
   "appName": "Journex",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "url": "https://journex.dpdns.org",
+    "cleartext": false
+  }
 }

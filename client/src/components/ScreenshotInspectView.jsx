@@ -108,26 +108,31 @@ const ScreenshotInspectView = ({ tradeId = "", token = "" }) => {
 
   if (loading) {
     return (
-      <main className="mx-auto flex min-h-screen w-full max-w-[720px] items-center justify-center p-4">
-        <section className="panel text-sm text-textMuted">Loading screenshot...</section>
-      </main>
+      <div className="fixed inset-0 z-[60] bg-background">
+        <main className="mx-auto flex min-h-screen w-full max-w-[720px] items-center justify-center p-4">
+          <section className="panel text-sm text-textMuted">Loading screenshot...</section>
+        </main>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <main className="mx-auto flex min-h-screen w-full max-w-[720px] items-center justify-center p-4">
-        <section className="panel text-sm text-danger">{error}</section>
-      </main>
+      <div className="fixed inset-0 z-[60] bg-background">
+        <main className="mx-auto flex min-h-screen w-full max-w-[720px] items-center justify-center p-4">
+          <section className="panel text-sm text-danger">{error}</section>
+        </main>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen w-full p-4">
-      <section className="mx-auto flex w-full max-w-6xl flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-base font-semibold">Screenshot Inspect</h2>
+    <div className="fixed inset-0 z-[60] bg-background overflow-auto">
+      <main className="min-h-screen w-full p-4">
+        <section className="mx-auto flex w-full max-w-6xl flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-base font-semibold">Screenshot Inspect</h2>
             <p className="text-xs text-textMuted">
               {trade?.pair} | {trade?.session} | {trade?.setupType}
             </p>
@@ -247,6 +252,7 @@ const ScreenshotInspectView = ({ tradeId = "", token = "" }) => {
         </div>
       </section>
     </main>
+    </div>
   );
 };
 

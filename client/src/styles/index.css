@@ -771,7 +771,6 @@ body::before {
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
-  position: relative;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -779,6 +778,23 @@ body::before {
   backdrop-filter: blur(12px);
   background: rgba(15, 23, 42, 0.4);
   border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  transition:
+    transform 220ms ease,
+    padding 220ms ease,
+    background-color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.landing-header.is-scrolled {
+  padding: 0.7rem 0;
+  background: rgba(15, 23, 42, 0.72);
+  border-bottom-color: rgba(148, 163, 184, 0.18);
+  box-shadow: 0 16px 40px rgba(2, 6, 23, 0.18);
+}
+
+.landing-header.is-hidden {
+  transform: translateY(-115%);
 }
 
 .landing-brand {
@@ -901,6 +917,48 @@ body::before {
   height: 1px;
   background: rgba(148, 163, 184, 0.14);
   margin: 0.15rem 0;
+}
+
+.landing-legal-section,
+.landing-contact-section {
+  padding-top: 0.5rem;
+}
+
+.landing-legal-grid,
+.landing-contact-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.landing-contact-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.landing-legal-card,
+.landing-contact-card {
+  padding: 1.1rem;
+}
+
+.landing-legal-card h4,
+.landing-contact-card h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-main);
+}
+
+.landing-legal-card p,
+.landing-contact-card p {
+  margin: 0.7rem 0 0;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.landing-contact-card small {
+  display: block;
+  margin-top: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.5;
 }
 
 .landing-hero {
@@ -3270,6 +3328,10 @@ body::before {
     backdrop-filter: blur(18px);
   }
 
+  .landing-header.is-hidden {
+    transform: translateY(0);
+  }
+
   .landing-menu {
     width: 100%;
   }
@@ -3310,7 +3372,9 @@ body::before {
   .landing-preview-grid,
   .landing-testimonial-grid,
   .landing-proof-grid,
-  .landing-pricing-grid {
+  .landing-pricing-grid,
+  .landing-legal-grid,
+  .landing-contact-grid {
     grid-template-columns: 1fr;
   }
 

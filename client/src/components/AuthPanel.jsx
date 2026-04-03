@@ -13,6 +13,8 @@ const AuthPanel = ({ onAuthenticated }) => {
   const showDebugSecrets = Boolean(import.meta.env.DEV || import.meta.env.VITE_SHOW_DEBUG_AUTH_SECRETS === "true");
   const [publicPath, setPublicPath] = useState(() => String(window.location.pathname || "").replace(/\/+$/, "") || "/");
   const [landingMenuOpen, setLandingMenuOpen] = useState(false);
+  const [headerScrolled, setHeaderScrolled] = useState(false);
+  const [headerHidden, setHeaderHidden] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [mode, setMode] = useState("login");
   const [name, setName] = useState("");
@@ -31,6 +33,7 @@ const AuthPanel = ({ onAuthenticated }) => {
   const [healthStatus, setHealthStatus] = useState({ state: "idle", attempt: 0, error: "" });
   const wakeSeqRef = useRef(0);
   const landingMenuRef = useRef(null);
+  const lastScrollYRef = useRef(0);
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -92,6 +95,28 @@ const AuthPanel = ({ onAuthenticated }) => {
 
     window.addEventListener("popstate", syncPath);
     return () => window.removeEventListener("popstate", syncPath);
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentY = window.scrollY || 0;
+      const previousY = lastScrollYRef.current;
+      setHeaderScrolled(currentY > 18);
+
+      if (currentY <= 24) {
+        setHeaderHidden(false);
+      } else if (currentY > previousY && currentY - previousY > 6) {
+        setHeaderHidden(true);
+      } else if (currentY < previousY) {
+        setHeaderHidden(false);
+      }
+
+      lastScrollYRef.current = currentY;
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   useEffect(() => {
@@ -291,14 +316,10 @@ const AuthPanel = ({ onAuthenticated }) => {
   };
 
   const isFeaturesPage = publicPath === "/features";
-  const menuPrimaryLabel = isFeaturesPage ? "Back Home" : "Login";
-  const menuPrimaryAction = () => {
-    if (isFeaturesPage) {
-      navigatePublic("/");
-      return;
-    }
-    openAuth("login");
-  };
+  const isPrivacyPage = publicPath === "/privacy";
+  const isTermsPage = publicPath === "/terms";
+  const isContactPage = publicPath === "/contact";
+  const isHomePage = !isFeaturesPage && !isPrivacyPage && !isTermsPage && !isContactPage;
 
   const landingHomeSections = (
     <>
@@ -504,10 +525,90 @@ const AuthPanel = ({ onAuthenticated }) => {
     </>
   );
 
+  const privacyPageSections = (
+    <section className="landing-section landing-legal-section reveal">
+      <div className="landing-section-title">
+        <p className="landing-kicker">Privacy</p>
+        <h3>How Journex handles your data</h3>
+        <p>Journex stores account details, trade records, screenshots, and review notes only to deliver your journal experience and keep your workspace synced.</p>
+      </div>
+      <div className="landing-legal-grid">
+        <article className="panel landing-legal-card">
+          <h4>What we store</h4>
+          <p>Account information, journal entries, screenshots, settings, and activity required to power analytics and review workflows.</p>
+        </article>
+        <article className="panel landing-legal-card">
+          <h4>Why we store it</h4>
+          <p>Your data is used to authenticate your workspace, sync trades, generate insights, and preserve your trading history across sessions.</p>
+        </article>
+        <article className="panel landing-legal-card">
+          <h4>Your control</h4>
+          <p>You can manage account preferences inside the app, and you can contact support if you need help with account access or data questions.</p>
+        </article>
+      </div>
+    </section>
+  );
+
+  const termsPageSections = (
+    <section className="landing-section landing-legal-section reveal">
+      <div className="landing-section-title">
+        <p className="landing-kicker">Terms</p>
+        <h3>Using Journex responsibly</h3>
+        <p>Journex is a journaling and analysis tool for traders. It does not provide financial advice, guarantees, or trade execution outcomes.</p>
+      </div>
+      <div className="landing-legal-grid">
+        <article className="panel landing-legal-card">
+          <h4>Platform use</h4>
+          <p>Use the platform lawfully, keep your login secure, and avoid uploading content you do not have permission to store.</p>
+        </article>
+        <article className="panel landing-legal-card">
+          <h4>Analytics and insights</h4>
+          <p>Insights are informational and based on the journal data you provide. They are designed to support review, not replace decision-making.</p>
+        </article>
+        <article className="panel landing-legal-card">
+          <h4>Availability</h4>
+          <p>We aim to keep the service available and stable, but access may occasionally be interrupted by maintenance, updates, or infrastructure issues.</p>
+        </article>
+      </div>
+    </section>
+  );
+
+  const contactPageSections = (
+    <section className="landing-section landing-contact-section reveal">
+      <div className="landing-section-title">
+        <p className="landing-kicker">Contact</p>
+        <h3>Get in touch with Journex</h3>
+        <p>If you need help with access, product feedback, or setup questions, use the details below and we will point you in the right direction.</p>
+      </div>
+      <div className="landing-contact-grid">
+        <article className="panel landing-contact-card">
+          <h4>Email support</h4>
+          <p>support@journex.app</p>
+          <small>Best for login help, account questions, and product support.</small>
+        </article>
+        <article className="panel landing-contact-card">
+          <h4>Product feedback</h4>
+          <p>feedback@journex.app</p>
+          <small>Share feature ideas, workflow issues, and suggestions for future releases.</small>
+        </article>
+      </div>
+    </section>
+  );
+
+  const publicSections = isFeaturesPage
+    ? featuresPageSections
+    : isPrivacyPage
+      ? privacyPageSections
+      : isTermsPage
+        ? termsPageSections
+        : isContactPage
+          ? contactPageSections
+          : landingHomeSections;
+
   return (
-    <main className={`landing-page ${!isFeaturesPage ? "landing-page-home" : "landing-page-features"}`}>
-      <div className={`landing-wrap ${!isFeaturesPage ? "landing-wrap-home" : "landing-wrap-features"}`}>
-        <header className="landing-header">
+    <main className={`landing-page ${isHomePage ? "landing-page-home" : "landing-page-secondary"}`}>
+      <div className={`landing-wrap ${isHomePage ? "landing-wrap-home" : "landing-wrap-features"}`}>
+        <header className={`landing-header ${headerScrolled ? "is-scrolled" : ""} ${headerHidden ? "is-hidden" : ""}`}>
           <button type="button" className="landing-brand landing-link-button" onClick={() => navigatePublic("/")}>
             <BrandLogo className="brand-logo brand-logo-landing" />
             <span className="landing-brand-title">Journex</span>
@@ -520,7 +621,7 @@ const AuthPanel = ({ onAuthenticated }) => {
               aria-haspopup="menu"
               onClick={() => setLandingMenuOpen((open) => !open)}
             >
-              <span className="landing-menu-trigger-label">Menu</span>
+              <span className="landing-menu-trigger-label">Get Started</span>
               <span className="landing-menu-trigger-icon" aria-hidden="true">
                 <span />
                 <span />
@@ -534,9 +635,9 @@ const AuthPanel = ({ onAuthenticated }) => {
                     type="button"
                     role="menuitem"
                     className="landing-menu-item"
-                    onClick={menuPrimaryAction}
+                    onClick={() => openAuth("login")}
                   >
-                    {menuPrimaryLabel}
+                    Login
                   </button>
                 </div>
                 <div className="landing-menu-divider" />
@@ -547,14 +648,14 @@ const AuthPanel = ({ onAuthenticated }) => {
                     className="landing-menu-item landing-menu-item-primary"
                     onClick={() => openAuth("register")}
                   >
-                    Get Started
+                    Register
                   </button>
                 </div>
               </div>
             ) : null}
           </div>
         </header>
-        {!isFeaturesPage ? landingHomeSections : featuresPageSections}
+        {publicSections}
 
         <footer className="landing-footer">
           <div>
@@ -562,14 +663,17 @@ const AuthPanel = ({ onAuthenticated }) => {
             <p>Trading journal built for clarity.</p>
           </div>
           <div className="landing-footer-links">
-            <button type="button" className="landing-link-button" onClick={() => navigatePublic("/")}>
-              Home
-            </button>
             <button type="button" className="landing-link-button" onClick={() => navigatePublic("/features")}>
               Features
             </button>
-            <button type="button" className="landing-link-button" onClick={() => openAuth("login")}>
-              Login
+            <button type="button" className="landing-link-button" onClick={() => navigatePublic("/privacy")}>
+              Privacy
+            </button>
+            <button type="button" className="landing-link-button" onClick={() => navigatePublic("/terms")}>
+              Terms
+            </button>
+            <button type="button" className="landing-link-button" onClick={() => navigatePublic("/contact")}>
+              Contact
             </button>
           </div>
           <p className="landing-footer-copy">(c) {new Date().getFullYear()} Journex. All rights reserved.</p>

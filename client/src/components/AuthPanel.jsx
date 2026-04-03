@@ -481,122 +481,162 @@ const AuthPanel = ({ onAuthenticated }) => {
 
   const featuresPageSections = (
     <>
-      <section className="landing-section landing-features-hero reveal">
-        <div className="landing-section-title">
-          <p className="landing-kicker">Feature overview</p>
-          <h3>Everything Journex gives you to review better and grow faster</h3>
-          <p>
-            A focused workflow for logging trades, analyzing behavior, and reviewing screenshot context without clutter
-            on the landing page.
-          </p>
-        </div>
-        <div className="landing-features-actions">
-          <button type="button" className="btn-primary" onClick={() => openAuth("register")}>
-            Get Started
-          </button>
-          <button type="button" className="btn-secondary" onClick={() => navigatePublic("/")}>
-            Back Home
-          </button>
+      <section className="landing-features-page-hero reveal">
+        <div className="landing-features-page-grid">
+          <div className="landing-features-page-copy">
+            <p className="landing-kicker">Product tour</p>
+            <h3 className="landing-features-page-title">A complete review workflow built for traders who want more than a spreadsheet.</h3>
+            <p className="landing-features-page-text">
+              Journex is designed to capture the full trade story: the numbers, the screenshots, the behavior, and the
+              patterns that matter when you sit down to review seriously.
+            </p>
+
+            <div className="landing-features-page-actions">
+              <button type="button" className="btn-primary" onClick={() => openAuth("register")}>
+                Get Started
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => navigatePublic("/")}>
+                Back Home
+              </button>
+            </div>
+
+            <div className="landing-features-page-highlights">
+              <div>
+                <span>Log clearly</span>
+                <strong>Trade details stay connected.</strong>
+              </div>
+              <div>
+                <span>Review visually</span>
+                <strong>Screenshots and notes stay attached.</strong>
+              </div>
+              <div>
+                <span>See patterns</span>
+                <strong>Sessions and setups become easier to compare.</strong>
+              </div>
+            </div>
+          </div>
+
+          <div className="panel landing-features-page-surface">
+            <div className="landing-features-page-surface-head">
+              <div>
+                <p className="landing-card-kicker">Inside the workspace</p>
+                <h4>Built around review, not clutter</h4>
+              </div>
+              <span>Journex</span>
+            </div>
+
+            <div className="landing-features-page-surface-grid">
+              <article className="landing-features-page-surface-card">
+                <p className="landing-card-kicker">Trade capture</p>
+                <strong>Entry, stop, target, exit, session, setup</strong>
+              </article>
+              <article className="landing-features-page-surface-card">
+                <p className="landing-card-kicker">Visual replay</p>
+                <strong>Before and after screenshots on the same trade</strong>
+              </article>
+              <article className="landing-features-page-surface-card">
+                <p className="landing-card-kicker">Insight layer</p>
+                <strong>Behavior notes and analytics in the same flow</strong>
+              </article>
+            </div>
+
+            <div className="landing-features-page-trace">
+              <span />
+              <span />
+              <span />
+              <span />
+              <span />
+            </div>
+          </div>
         </div>
       </section>
 
       <section className="landing-section reveal">
-        <div className="landing-section-title">
-          <h3>Everything you need to journal better</h3>
-          <p>Stay consistent with structured workflows designed for traders.</p>
+        <div className="landing-section-title landing-features-page-titleblock">
+          <p className="landing-kicker">Core features</p>
+          <h3>The essentials you need to journal well without unnecessary complexity.</h3>
+          <p>Everything here supports one job: making your trades easier to review honestly.</p>
         </div>
-        <div className="landing-feature-grid">
-          <article className="panel landing-feature-card">
-            <h4>Trade logging</h4>
-            <p>Capture entries, exits, session, setup type, and screenshots in seconds.</p>
+
+        <div className="landing-features-page-capability-grid">
+          <article className="panel landing-features-page-capability">
+            <span className="landing-features-page-capability-index">01</span>
+            <h4>Structured trade entry</h4>
+            <p>Capture pair, pricing, session, setup, notes, and screenshots in one place.</p>
           </article>
-          <article className="panel landing-feature-card">
-            <h4>Performance analytics</h4>
-            <p>Visualize win rate, expectancy, and risk metrics across sessions and setups.</p>
+          <article className="panel landing-features-page-capability">
+            <span className="landing-features-page-capability-index">02</span>
+            <h4>Replay and review</h4>
+            <p>Open past trades with their screenshots and notes still attached.</p>
           </article>
-          <article className="panel landing-feature-card">
-            <h4>Risk management insights</h4>
-            <p>Track discipline, guardrails, and behavioral patterns to protect your edge.</p>
+          <article className="panel landing-features-page-capability">
+            <span className="landing-features-page-capability-index">03</span>
+            <h4>Analytics and patterns</h4>
+            <p>Track outcomes across setups, sessions, and behavior so useful patterns are easier to spot.</p>
           </article>
         </div>
       </section>
 
-      <section className="landing-section landing-preview reveal">
-        <div className="landing-section-title">
-          <h3>Preview your workflow</h3>
-          <p>From quick trade entry to full replay in one smooth flow.</p>
-        </div>
-        <div className="landing-preview-grid">
-          <div className="panel landing-preview-card">
-            <p className="landing-card-kicker">Recent trades</p>
-            <ul className="landing-preview-list">
-              <li>
-                <span>EURUSD - Breakout</span>
-                <strong className="landing-tag-win">+1.8R</strong>
-              </li>
-              <li>
-                <span>GBPUSD - Pullback</span>
-                <strong className="landing-tag-loss">-0.7R</strong>
-              </li>
-              <li>
-                <span>XAUUSD - Reversal</span>
-                <strong className="landing-tag-win">+2.4R</strong>
-              </li>
-            </ul>
+      <section className="landing-section reveal">
+        <div className="landing-features-page-sequence">
+          <div className="landing-features-page-sequence-copy">
+            <p className="landing-kicker">Simple workflow</p>
+            <h3>Log the trade, keep the context, come back and learn from it.</h3>
+            <p>
+              Journex is designed to stay out of the way while preserving the details you need later.
+            </p>
           </div>
-          <div className="panel landing-preview-card">
-            <p className="landing-card-kicker">Screenshot review</p>
-            <div className="landing-preview-shot">
-              <span>Before</span>
-              <span>After</span>
+
+          <div className="landing-features-page-sequence-steps">
+            <article className="panel landing-features-page-step">
+              <span>1</span>
+              <div>
+                <h4>Record the trade</h4>
+                <p>Save the numbers while the trade is still fresh.</p>
+              </div>
+            </article>
+            <article className="panel landing-features-page-step">
+              <span>2</span>
+              <div>
+                <h4>Attach the context</h4>
+                <p>Add screenshots and notes that explain the decision.</p>
+              </div>
+            </article>
+            <article className="panel landing-features-page-step">
+              <span>3</span>
+              <div>
+                <h4>Review later</h4>
+                <p>See what happened and what deserves repeating.</p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-section reveal">
+        <div className="panel landing-features-page-proof">
+          <div className="landing-features-page-proof-copy">
+            <p className="landing-kicker">Why it matters</p>
+            <h3>Journex helps you turn stored trades into useful review habits.</h3>
+            <p>
+              The product is simple on purpose: enough structure to stay consistent, enough context to actually learn.
+            </p>
+          </div>
+
+          <div className="landing-features-page-proof-points">
+            <div>
+              <span>Clarity</span>
+              <strong>The important information stays together.</strong>
             </div>
-            <p className="landing-preview-note">Open any trade to review full context.</p>
+            <div>
+              <span>Consistency</span>
+              <strong>Review becomes easier to maintain.</strong>
+            </div>
+            <div>
+              <span>Focus</span>
+              <strong>You can spend more time learning and less time organizing.</strong>
+            </div>
           </div>
-        </div>
-      </section>
-
-      <section className="landing-section landing-testimonials reveal">
-        <div className="landing-section-title">
-          <h3>Trusted by disciplined traders</h3>
-          <p>Real feedback from traders building repeatable systems.</p>
-        </div>
-        <div className="landing-testimonial-grid">
-          <article className="panel landing-testimonial-card">
-            <p>"My win rate jumped once I tracked session habits. Journex keeps me accountable."</p>
-            <span>- Aisha, FX swing trader</span>
-          </article>
-          <article className="panel landing-testimonial-card">
-            <p>"The screenshot replay is powerful. I can finally review the why, not just the numbers."</p>
-            <span>- Mark, crypto day trader</span>
-          </article>
-          <article className="panel landing-testimonial-card">
-            <p>"Simple, clean, and focused. Exactly what a trading journal should be."</p>
-            <span>- Daniel, funded trader</span>
-          </article>
-        </div>
-      </section>
-
-      <section className="landing-section landing-proof reveal">
-        <div className="landing-section-title">
-          <h3>Designed to hold more than a basic journal</h3>
-          <p>Journex is built with enough structure to support deeper review modules as the product grows.</p>
-        </div>
-        <div className="landing-proof-grid">
-          <article className="panel landing-proof-card">
-            <p className="landing-card-kicker">Review loop</p>
-            <h4>Numbers plus context</h4>
-            <p>Each trade can carry screenshots, notes, and structured fields so decisions stay reviewable later.</p>
-          </article>
-          <article className="panel landing-proof-card">
-            <p className="landing-card-kicker">Behavior layer</p>
-            <h4>Pattern visibility</h4>
-            <p>Sessions, setup types, and discipline checks make it easier to see what habits drive outcomes.</p>
-          </article>
-          <article className="panel landing-proof-card">
-            <p className="landing-card-kicker">Expansion path</p>
-            <h4>Room for more modules</h4>
-            <p>Edge review, automation, coaching, and account-level analytics fit naturally into the same system.</p>
-          </article>
         </div>
       </section>
     </>

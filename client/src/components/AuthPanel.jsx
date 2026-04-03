@@ -12,6 +12,7 @@ import BrandLogo from "./BrandLogo";
 const AuthPanel = ({ onAuthenticated }) => {
   const showDebugSecrets = Boolean(import.meta.env.DEV || import.meta.env.VITE_SHOW_DEBUG_AUTH_SECRETS === "true");
   const [publicPath, setPublicPath] = useState(() => String(window.location.pathname || "").replace(/\/+$/, "") || "/");
+  const [landingMenuOpen, setLandingMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [mode, setMode] = useState("login");
   const [name, setName] = useState("");
@@ -29,6 +30,7 @@ const AuthPanel = ({ onAuthenticated }) => {
   const [deliveryHint, setDeliveryHint] = useState("");
   const [healthStatus, setHealthStatus] = useState({ state: "idle", attempt: 0, error: "" });
   const wakeSeqRef = useRef(0);
+  const landingMenuRef = useRef(null);
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -85,11 +87,37 @@ const AuthPanel = ({ onAuthenticated }) => {
   useEffect(() => {
     const syncPath = () => {
       setPublicPath(String(window.location.pathname || "").replace(/\/+$/, "") || "/");
+      setLandingMenuOpen(false);
     };
 
     window.addEventListener("popstate", syncPath);
     return () => window.removeEventListener("popstate", syncPath);
   }, []);
+
+  useEffect(() => {
+    if (!landingMenuOpen) {
+      return undefined;
+    }
+
+    const handlePointer = (event) => {
+      if (landingMenuRef.current && !landingMenuRef.current.contains(event.target)) {
+        setLandingMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setLandingMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointer);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handlePointer);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [landingMenuOpen]);
 
   useEffect(() => {
     const elements = Array.from(document.querySelectorAll(".reveal"));
@@ -194,6 +222,7 @@ const AuthPanel = ({ onAuthenticated }) => {
   };
 
   const openAuth = (nextMode) => {
+    setLandingMenuOpen(false);
     setMode(nextMode || "login");
     setAuthModalOpen(true);
     void wakeBackend();
@@ -201,6 +230,7 @@ const AuthPanel = ({ onAuthenticated }) => {
 
   const navigatePublic = (nextPath) => {
     const normalizedPath = String(nextPath || "/").replace(/\/+$/, "") || "/";
+    setLandingMenuOpen(false);
     if (normalizedPath !== publicPath) {
       window.history.pushState({}, "", normalizedPath);
       setPublicPath(normalizedPath);
@@ -340,23 +370,6 @@ const AuthPanel = ({ onAuthenticated }) => {
         </div>
       </section>
 
-      <section className="landing-section landing-cta-strip reveal">
-        <div className="panel landing-cta-panel">
-          <div>
-            <p className="landing-card-kicker">Next step</p>
-            <h3>See the full product on the features page</h3>
-            <p>Home stays focused. Features gives you the full workflow, review tools, and product breakdown without cluttering the first screen.</p>
-          </div>
-          <div className="landing-cta landing-cta-row">
-            <button type="button" className="btn-secondary" onClick={() => navigatePublic("/features")}>
-              View Features
-            </button>
-            <button type="button" className="btn-primary" onClick={() => openAuth("register")}>
-              Create Account
-            </button>
-          </div>
-        </div>
-      </section>
     </>
   );
 
@@ -484,36 +497,64 @@ const AuthPanel = ({ onAuthenticated }) => {
   );
 
   return (
-    <main className="landing-page">
-      <div className="landing-wrap">
+    <main className={`landing-page ${!isFeaturesPage ? "landing-page-home" : "landing-page-features"}`}>
+      <div className={`landing-wrap ${!isFeaturesPage ? "landing-wrap-home" : "landing-wrap-features"}`}>
         <header className="landing-header">
           <button type="button" className="landing-brand landing-link-button" onClick={() => navigatePublic("/")}>
             <BrandLogo className="brand-logo brand-logo-landing" />
             <span className="landing-brand-title">Journex</span>
           </button>
-          <nav className="landing-nav">
+          <div className="landing-menu" ref={landingMenuRef}>
             <button
               type="button"
-              className={`landing-link-button ${!isFeaturesPage ? "is-active" : ""}`}
-              onClick={() => navigatePublic("/")}
+              className="landing-menu-trigger"
+              aria-expanded={landingMenuOpen}
+              aria-haspopup="menu"
+              onClick={() => setLandingMenuOpen((open) => !open)}
             >
-              Home
+              <span className="landing-menu-trigger-label">Menu</span>
+              <span className="landing-menu-trigger-icon" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </span>
             </button>
-            <button
-              type="button"
-              className={`landing-link-button ${isFeaturesPage ? "is-active" : ""}`}
-              onClick={() => navigatePublic("/features")}
-            >
-              Features
-            </button>
-          </nav>
-          <div className="landing-header-actions">
-            <button type="button" className="btn-secondary" onClick={() => openAuth("login")}>
-              Login
-            </button>
-            <button type="button" className="btn-primary" onClick={() => openAuth("register")}>
-              Get Started
-            </button>
+            {landingMenuOpen ? (
+              <div className="landing-menu-dropdown panel" role="menu" aria-label="Landing page menu">
+                <div className="landing-menu-group">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={`landing-menu-item ${!isFeaturesPage ? "is-active" : ""}`}
+                    onClick={() => navigatePublic("/")}
+                  >
+                    Home
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={`landing-menu-item ${isFeaturesPage ? "is-active" : ""}`}
+                    onClick={() => navigatePublic("/features")}
+                  >
+                    Features
+                  </button>
+                </div>
+                <div className="landing-menu-divider" />
+                <div className="landing-menu-group">
+                  <button type="button" role="menuitem" className="landing-menu-item" onClick={() => openAuth("login")}>
+                    Login
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="landing-menu-item landing-menu-item-primary"
+                    onClick={() => openAuth("register")}
+                  >
+                    Get Started
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </header>
         {!isFeaturesPage ? landingHomeSections : featuresPageSections}

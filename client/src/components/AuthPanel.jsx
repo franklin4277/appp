@@ -291,6 +291,14 @@ const AuthPanel = ({ onAuthenticated }) => {
   };
 
   const isFeaturesPage = publicPath === "/features";
+  const menuPrimaryLabel = isFeaturesPage ? "Back Home" : "Login";
+  const menuPrimaryAction = () => {
+    if (isFeaturesPage) {
+      navigatePublic("/");
+      return;
+    }
+    openAuth("login");
+  };
 
   const landingHomeSections = (
     <>
@@ -525,25 +533,14 @@ const AuthPanel = ({ onAuthenticated }) => {
                   <button
                     type="button"
                     role="menuitem"
-                    className={`landing-menu-item ${!isFeaturesPage ? "is-active" : ""}`}
-                    onClick={() => navigatePublic("/")}
+                    className="landing-menu-item"
+                    onClick={menuPrimaryAction}
                   >
-                    Home
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className={`landing-menu-item ${isFeaturesPage ? "is-active" : ""}`}
-                    onClick={() => navigatePublic("/features")}
-                  >
-                    Features
+                    {menuPrimaryLabel}
                   </button>
                 </div>
                 <div className="landing-menu-divider" />
                 <div className="landing-menu-group">
-                  <button type="button" role="menuitem" className="landing-menu-item" onClick={() => openAuth("login")}>
-                    Login
-                  </button>
                   <button
                     type="button"
                     role="menuitem"

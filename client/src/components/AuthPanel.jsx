@@ -269,8 +269,8 @@ const AuthPanel = ({ onAuthenticated }) => {
           <p className="landing-kicker">Built for serious traders</p>
           <h2 className="landing-hero-title">Track. Analyze. Improve Your Trades.</h2>
           <p className="landing-hero-text">
-            Log trades fast, uncover what actually drives your results, and review the full story behind every setup
-            with analytics and screenshot replay built for disciplined growth.
+            Journex gives you one focused place to log trades, review screenshots, and measure what is actually working
+            so you can improve with structure instead of guesswork.
           </p>
           <div className="landing-cta">
             <button type="button" className="btn-primary landing-cta-primary" onClick={() => openAuth("register")}>
@@ -340,70 +340,12 @@ const AuthPanel = ({ onAuthenticated }) => {
         </div>
       </section>
 
-      <section className="landing-section landing-preview reveal">
-        <div className="landing-section-title">
-          <h3>Preview your workflow</h3>
-          <p>From quick trade entry to full replay in one smooth flow.</p>
-        </div>
-        <div className="landing-preview-grid">
-          <div className="panel landing-preview-card">
-            <p className="landing-card-kicker">Recent trades</p>
-            <ul className="landing-preview-list">
-              <li>
-                <span>EURUSD - Breakout</span>
-                <strong className="landing-tag-win">+1.8R</strong>
-              </li>
-              <li>
-                <span>GBPUSD - Pullback</span>
-                <strong className="landing-tag-loss">-0.7R</strong>
-              </li>
-              <li>
-                <span>XAUUSD - Reversal</span>
-                <strong className="landing-tag-win">+2.4R</strong>
-              </li>
-            </ul>
-          </div>
-          <div className="panel landing-preview-card">
-            <p className="landing-card-kicker">Screenshot review</p>
-            <div className="landing-preview-shot">
-              <span>Before</span>
-              <span>After</span>
-            </div>
-            <p className="landing-preview-note">Open any trade to review full context.</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="landing-section landing-proof reveal">
-        <div className="landing-section-title">
-          <h3>Built to look credible in front of traders, teams, and investors</h3>
-          <p>Journex is structured like a real operating system for trade review, not just another notes app.</p>
-        </div>
-        <div className="landing-proof-grid">
-          <article className="panel landing-proof-card">
-            <p className="landing-card-kicker">Investor signal</p>
-            <h4>Clear product story</h4>
-            <p>One focused workflow: capture, measure, review, improve. That clarity makes the platform easy to demo and easy to scale.</p>
-          </article>
-          <article className="panel landing-proof-card">
-            <p className="landing-card-kicker">Press angle</p>
-            <h4>Visual review layer</h4>
-            <p>Trade screenshots, replay, and behavior analysis give the product a stronger narrative than a basic journal dashboard.</p>
-          </article>
-          <article className="panel landing-proof-card">
-            <p className="landing-card-kicker">Expansion ready</p>
-            <h4>Designed for more modules</h4>
-            <p>Edge detection, coaching, automation, and account analytics already fit naturally into the product architecture.</p>
-          </article>
-        </div>
-      </section>
-
       <section className="landing-section landing-cta-strip reveal">
         <div className="panel landing-cta-panel">
           <div>
-            <p className="landing-card-kicker">Product tour</p>
-            <h3>Want the full breakdown?</h3>
-            <p>See every core Journex capability on a focused features page, then jump in when you are ready.</p>
+            <p className="landing-card-kicker">Next step</p>
+            <h3>See the full product on the features page</h3>
+            <p>Home stays focused. Features gives you the full workflow, review tools, and product breakdown without cluttering the first screen.</p>
           </div>
           <div className="landing-cta landing-cta-row">
             <button type="button" className="btn-secondary" onClick={() => navigatePublic("/features")}>

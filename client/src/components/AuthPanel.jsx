@@ -28,6 +28,7 @@ const AuthPanel = ({ onAuthenticated }) => {
   const [deliveryHint, setDeliveryHint] = useState("");
   const [healthStatus, setHealthStatus] = useState({ state: "idle", attempt: 0, error: "" });
   const wakeSeqRef = useRef(0);
+  const lastNonAuthPathRef = useRef(String(window.location.pathname || "").replace(/\/+$/, "") || "/");
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -113,6 +114,19 @@ const AuthPanel = ({ onAuthenticated }) => {
     return () => observer.disconnect();
   }, [publicPath]);
 
+  useEffect(() => {
+    const isAuthRoute = publicPath === "/login" || publicPath === "/signup";
+
+    if (!isAuthRoute) {
+      lastNonAuthPathRef.current = publicPath || "/";
+      return;
+    }
+
+    setMode(publicPath === "/signup" ? "register" : "login");
+    setAuthModalOpen(true);
+    void wakeBackend();
+  }, [publicPath]);
+
   const authTitle = useMemo(() => {
     if (twoFactorPending) {
       return "Two-factor verification";
@@ -193,9 +207,27 @@ const AuthPanel = ({ onAuthenticated }) => {
   };
 
   const openAuth = (nextMode) => {
-    setMode(nextMode || "login");
+    const resolvedMode = nextMode === "register" ? "register" : "login";
+    const nextPath = resolvedMode === "register" ? "/signup" : "/login";
+    if (publicPath !== nextPath) {
+      window.history.pushState({}, "", nextPath);
+      setPublicPath(nextPath);
+    }
+    setMode(resolvedMode);
     setAuthModalOpen(true);
     void wakeBackend();
+  };
+
+  const closeAuth = () => {
+    wakeSeqRef.current += 1;
+    setAuthModalOpen(false);
+    if (publicPath === "/login" || publicPath === "/signup") {
+      const fallbackPath = lastNonAuthPathRef.current || "/";
+      if (fallbackPath !== publicPath) {
+        window.history.pushState({}, "", fallbackPath);
+        setPublicPath(fallbackPath);
+      }
+    }
   };
 
   const navigatePublic = (nextPath) => {
@@ -760,7 +792,7 @@ const AuthPanel = ({ onAuthenticated }) => {
           role="dialog"
           aria-modal="true"
           aria-label="Authentication"
-          onClick={() => setAuthModalOpen(false)}
+          onClick={closeAuth}
         >
           <aside className="panel animate-riseIn auth-modal-card" onClick={(event) => event.stopPropagation()}>
             <div className="auth-modal-header">
@@ -771,10 +803,7 @@ const AuthPanel = ({ onAuthenticated }) => {
               <button
                 type="button"
                 className="chip text-textMain transition hover:border-accent"
-                onClick={() => {
-                  wakeSeqRef.current += 1;
-                  setAuthModalOpen(false);
-                }}
+                onClick={closeAuth}
               >
                 Close
               </button>
@@ -929,7 +958,7 @@ const AuthPanel = ({ onAuthenticated }) => {
                   <button
                     type="button"
                     className="auth-switch"
-                    onClick={() => setMode((prev) => (prev === "register" ? "login" : "register"))}
+                    onClick={() => openAuth(mode === "register" ? "login" : "register")}
                   >
                     {mode === "register" ? "Already have an account? Log in" : "New here? Create an account"}
                   </button>

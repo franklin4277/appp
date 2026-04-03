@@ -16,6 +16,7 @@ const AuthPanel = ({ onAuthenticated }) => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -80,6 +81,29 @@ const AuthPanel = ({ onAuthenticated }) => {
     void fetchApiHealth({ timeoutMs: 8000 }).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    const elements = Array.from(document.querySelectorAll(".reveal"));
+    if (!("IntersectionObserver" in window)) {
+      elements.forEach((el) => el.classList.add("is-visible"));
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("is-visible");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.15 }
+    );
+
+    elements.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
   const authTitle = useMemo(() => {
     if (twoFactorPending) {
       return "Two-factor verification";
@@ -90,6 +114,10 @@ const AuthPanel = ({ onAuthenticated }) => {
     return mode === "register" ? "Create account" : "Sign in";
   }, [mode, twoFactorPending]);
 
+  useEffect(() => {
+    setConfirmPassword("");
+  }, [mode]);
+
   const handlePrimarySubmit = async (event) => {
     event.preventDefault();
     setLoading(true);
@@ -99,6 +127,11 @@ const AuthPanel = ({ onAuthenticated }) => {
     setDeliveryHint("");
 
     try {
+      if (mode === "register" && password !== confirmPassword) {
+        setError("Passwords do not match.");
+        return;
+      }
+
       const payload =
         mode === "register"
           ? await registerUser({ name: name || "Trader", email, password })
@@ -150,8 +183,8 @@ const AuthPanel = ({ onAuthenticated }) => {
     }
   };
 
-  const handleOpenAuth = () => {
-    setMode("login");
+  const openAuth = (nextMode) => {
+    setMode(nextMode || "login");
     setAuthModalOpen(true);
     void wakeBackend();
   };
@@ -209,64 +242,276 @@ const AuthPanel = ({ onAuthenticated }) => {
   };
 
   return (
-    <main className="app-shell mx-auto min-h-screen w-full max-w-none p-0">
-      <section className="journal-shell app-journal landing-shell w-full p-0">
-        <div className="landing-inner">
-          <header className="landing-navbar">
-            <div className="brand-block landing-brand-block">
-              <BrandLogo className="brand-logo brand-logo-landing" />
-              <h1 className="landing-brand-title">Journex</h1>
-            </div>
-          </header>
+    <main className="landing-page">
+      <div className="landing-wrap">
+        <header className="landing-header">
+          <div className="landing-brand">
+            <BrandLogo className="brand-logo brand-logo-landing" />
+            <span className="landing-brand-title">Journex</span>
+          </div>
+          <nav className="landing-nav">
+            <a href="#features">Features</a>
+            <a href="#preview">Preview</a>
+            <a href="#pricing">Pricing</a>
+          </nav>
+          <div className="landing-header-actions">
+            <button type="button" className="btn-secondary" onClick={() => openAuth("login")}>
+              Login
+            </button>
+            <button type="button" className="btn-primary" onClick={() => openAuth("register")}>
+              Get Started
+            </button>
+          </div>
+        </header>
 
-          <section className="landing-body">
-            <div className="panel animate-riseIn landing-hero">
-              <h2 className="landing-hero-title">Trading journal, analytics, and review.</h2>
-              <p className="landing-hero-copy mt-3">Sign in to continue.</p>
-              <div className="landing-cta mt-6">
-                <button
-                  type="button"
-                  className="btn-primary landing-cta-primary"
-                  onClick={handleOpenAuth}
-                >
-                  Continue
-                </button>
+        <section className="landing-hero reveal">
+          <div className="landing-hero-copy animate-riseIn">
+            <p className="landing-kicker">Built for serious traders</p>
+            <h2 className="landing-hero-title">Track. Analyze. Improve Your Trades.</h2>
+            <p className="landing-hero-text">
+              Log trades fast, uncover what actually drives your results, and review the full story behind every setup
+              with analytics and screenshot replay built for disciplined growth.
+            </p>
+            <div className="landing-cta">
+              <button type="button" className="btn-primary landing-cta-primary" onClick={() => openAuth("register")}>
+                Get Started
+              </button>
+              <button type="button" className="btn-secondary landing-cta-secondary" onClick={() => openAuth("login")}>
+                Login
+              </button>
+            </div>
+            <div className="landing-stats">
+              <div className="landing-stat-card">
+                <h3>120+</h3>
+                <p>Weekly trades tracked</p>
+              </div>
+              <div className="landing-stat-card">
+                <h3>4.8x</h3>
+                <p>Avg R:R consistency</p>
+              </div>
+              <div className="landing-stat-card">
+                <h3>24/7</h3>
+                <p>Cloud sync</p>
               </div>
             </div>
+            <div className="landing-trust">
+              <span>Trusted by traders at</span>
+              <div className="landing-trust-logos">
+                <span>NovaFX</span>
+                <span>AxisFlow</span>
+                <span>PulseTrades</span>
+                <span>TrendVault</span>
+              </div>
+            </div>
+          </div>
 
-            <footer id="footer" className="panel animate-riseIn landing-footer">
-              <p className="text-sm text-textMuted">(c) {new Date().getFullYear()} Journex</p>
-            </footer>
-          </section>
-        </div>
-
-        {authModalOpen ? (
-          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Authentication" onClick={() => setAuthModalOpen(false)}>
-            <aside className="panel animate-riseIn auth-modal-card" onClick={(event) => event.stopPropagation()}>
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <h3 className="text-base font-semibold">{authTitle}</h3>
-                <div className="flex items-center gap-2">
-                  {!twoFactorPending && mode !== "reset" ? (
-                    <button
-                      type="button"
-                      className="chip text-textMain transition hover:border-accent"
-                      onClick={() => setMode((prev) => (prev === "register" ? "login" : "register"))}
-                    >
-                      {mode === "register" ? "Have account?" : "Create account"}
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    className="chip text-textMain transition hover:border-accent"
-                    onClick={() => {
-                      wakeSeqRef.current += 1;
-                      setAuthModalOpen(false);
-                    }}
-                  >
-                    Close
-                  </button>
+          <div className="landing-hero-visual animate-riseIn">
+            <div className="landing-hero-card panel reveal">
+              <p className="landing-card-kicker">Dashboard</p>
+              <h3 className="landing-card-title">Performance at a glance</h3>
+              <div className="landing-card-grid">
+                <div className="landing-card-chip">
+                  <span>Total Trades</span>
+                  <strong>128</strong>
+                </div>
+                <div className="landing-card-chip">
+                  <span>Win Rate</span>
+                  <strong>58.3%</strong>
+                </div>
+                <div className="landing-card-chip">
+                  <span>Net R</span>
+                  <strong>+12.6R</strong>
                 </div>
               </div>
+              <div className="landing-card-chart">
+                <span />
+                <span />
+                <span />
+                <span />
+                <span />
+              </div>
+            </div>
+            <div className="landing-hero-art reveal">
+              <div className="landing-hero-orb landing-hero-orb-primary" />
+              <div className="landing-hero-orb landing-hero-orb-secondary" />
+              <div className="landing-hero-orb landing-hero-orb-tertiary" />
+              <div className="landing-hero-grid" />
+            </div>
+          </div>
+        </section>
+
+        <section id="features" className="landing-section reveal">
+          <div className="landing-section-title">
+            <h3>Everything you need to journal better</h3>
+            <p>Stay consistent with structured workflows designed for traders.</p>
+          </div>
+          <div className="landing-feature-grid">
+            <article className="panel landing-feature-card">
+              <h4>Trade logging</h4>
+              <p>Capture entries, exits, session, setup type, and screenshots in seconds.</p>
+            </article>
+            <article className="panel landing-feature-card">
+              <h4>Performance analytics</h4>
+              <p>Visualize win rate, expectancy, and risk metrics across sessions and setups.</p>
+            </article>
+            <article className="panel landing-feature-card">
+              <h4>Risk management insights</h4>
+              <p>Track discipline, guardrails, and behavioral patterns to protect your edge.</p>
+            </article>
+          </div>
+        </section>
+
+        <section id="preview" className="landing-section landing-preview reveal">
+          <div className="landing-section-title">
+            <h3>Preview your workflow</h3>
+            <p>From quick trade entry to full replay in one smooth flow.</p>
+          </div>
+          <div className="landing-preview-grid">
+            <div className="panel landing-preview-card">
+              <p className="landing-card-kicker">Recent trades</p>
+              <ul className="landing-preview-list">
+                <li>
+                  <span>EURUSD • Breakout</span>
+                  <strong className="landing-tag-win">+1.8R</strong>
+                </li>
+                <li>
+                  <span>GBPUSD • Pullback</span>
+                  <strong className="landing-tag-loss">-0.7R</strong>
+                </li>
+                <li>
+                  <span>XAUUSD • Reversal</span>
+                  <strong className="landing-tag-win">+2.4R</strong>
+                </li>
+              </ul>
+            </div>
+            <div className="panel landing-preview-card">
+              <p className="landing-card-kicker">Screenshot review</p>
+              <div className="landing-preview-shot">
+                <span>Before</span>
+                <span>After</span>
+              </div>
+              <p className="landing-preview-note">Open any trade to review full context.</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="landing-section landing-testimonials reveal">
+          <div className="landing-section-title">
+            <h3>Trusted by disciplined traders</h3>
+            <p>Real feedback from traders building repeatable systems.</p>
+          </div>
+          <div className="landing-testimonial-grid">
+            <article className="panel landing-testimonial-card">
+              <p>"My win rate jumped once I tracked session habits. Journex keeps me accountable."</p>
+              <span>— Aisha, FX swing trader</span>
+            </article>
+            <article className="panel landing-testimonial-card">
+              <p>"The screenshot replay is powerful. I can finally review the why, not just the numbers."</p>
+              <span>— Mark, crypto day trader</span>
+            </article>
+            <article className="panel landing-testimonial-card">
+              <p>"Simple, clean, and focused. Exactly what a trading journal should be."</p>
+              <span>— Daniel, funded trader</span>
+            </article>
+          </div>
+        </section>
+
+        <section className="landing-section landing-proof reveal">
+          <div className="landing-section-title">
+            <h3>Built to look credible in front of traders, teams, and investors</h3>
+            <p>Journex is structured like a real operating system for trade review, not just another notes app.</p>
+          </div>
+          <div className="landing-proof-grid">
+            <article className="panel landing-proof-card">
+              <p className="landing-card-kicker">Investor signal</p>
+              <h4>Clear product story</h4>
+              <p>One focused workflow: capture, measure, review, improve. That clarity makes the platform easy to demo and easy to scale.</p>
+            </article>
+            <article className="panel landing-proof-card">
+              <p className="landing-card-kicker">Press angle</p>
+              <h4>Visual review layer</h4>
+              <p>Trade screenshots, replay, and behavior analysis give the product a stronger narrative than a basic journal dashboard.</p>
+            </article>
+            <article className="panel landing-proof-card">
+              <p className="landing-card-kicker">Expansion ready</p>
+              <h4>Designed for more modules</h4>
+              <p>Edge detection, coaching, automation, and account analytics already fit naturally into the product architecture.</p>
+            </article>
+          </div>
+        </section>
+
+        <section id="pricing" className="landing-section landing-pricing reveal">
+          <div className="landing-section-title">
+            <h3>Flexible plans</h3>
+            <p>Start free and scale when you need deeper insights.</p>
+          </div>
+          <div className="landing-pricing-grid">
+            <article className="panel pricing-card">
+              <h4>Free</h4>
+              <p className="pricing-price">$0</p>
+              <ul>
+                <li>Core trade journal</li>
+                <li>Basic analytics</li>
+                <li>Screenshot uploads</li>
+              </ul>
+              <button type="button" className="btn-secondary" onClick={() => openAuth("register")}>
+                Get Started
+              </button>
+            </article>
+            <article className="panel pricing-card pricing-card-highlight">
+              <h4>Pro</h4>
+              <p className="pricing-price">$19/mo</p>
+              <ul>
+                <li>Advanced insights & review</li>
+                <li>Edge detection & behavior</li>
+                <li>Priority support</li>
+              </ul>
+              <button type="button" className="btn-primary" onClick={() => openAuth("register")}>
+                Upgrade to Pro
+              </button>
+            </article>
+          </div>
+        </section>
+
+        <footer className="landing-footer">
+          <div>
+            <strong>Journex</strong>
+            <p>Trading journal built for clarity.</p>
+          </div>
+          <div className="landing-footer-links">
+            <a href="#features">Features</a>
+            <a href="#preview">Preview</a>
+            <a href="#pricing">Pricing</a>
+          </div>
+          <p className="landing-footer-copy">(c) {new Date().getFullYear()} Journex. All rights reserved.</p>
+        </footer>
+      </div>
+
+      {authModalOpen ? (
+        <div
+          className="modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Authentication"
+          onClick={() => setAuthModalOpen(false)}
+        >
+          <aside className="panel animate-riseIn auth-modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="auth-modal-header">
+              <div>
+                <h3 className="auth-modal-title">{authTitle}</h3>
+                <p className="auth-modal-subtitle">Secure access to your Journex workspace.</p>
+              </div>
+              <button
+                type="button"
+                className="chip text-textMain transition hover:border-accent"
+                onClick={() => {
+                  wakeSeqRef.current += 1;
+                  setAuthModalOpen(false);
+                }}
+              >
+                Close
+              </button>
+            </div>
 
               {healthStatus.state === "checking" ? (
                 <div className="mb-3 rounded-md border border-border/70 bg-panelMuted p-2 text-xs text-textMuted">
@@ -386,6 +631,20 @@ const AuthPanel = ({ onAuthenticated }) => {
                     required
                   />
                 </label>
+                {mode === "register" ? (
+                  <label>
+                    <span className="label">Confirm password</span>
+                    <input
+                      className="input"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(event) => setConfirmPassword(event.target.value)}
+                      placeholder="Re-enter password"
+                      minLength={8}
+                      required
+                    />
+                  </label>
+                ) : null}
                 <button className="btn-primary w-full" type="submit" disabled={loading}>
                   {loading ? "Please wait..." : mode === "register" ? "Create account" : "Log in"}
                 </button>
@@ -397,6 +656,15 @@ const AuthPanel = ({ onAuthenticated }) => {
                     disabled={loading}
                   >
                     Forgot password
+                  </button>
+                ) : null}
+                {!twoFactorPending && mode !== "reset" ? (
+                  <button
+                    type="button"
+                    className="auth-switch"
+                    onClick={() => setMode((prev) => (prev === "register" ? "login" : "register"))}
+                  >
+                    {mode === "register" ? "Already have an account? Log in" : "New here? Create an account"}
                   </button>
                 ) : null}
               </form>
@@ -414,10 +682,9 @@ const AuthPanel = ({ onAuthenticated }) => {
                 Dev token/code: {debugSecret}
               </p>
             ) : null}
-            </aside>
-          </div>
-        ) : null}
-      </section>
+          </aside>
+        </div>
+      ) : null}
     </main>
   );
 };

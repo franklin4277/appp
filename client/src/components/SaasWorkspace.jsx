@@ -401,6 +401,7 @@ const SaasWorkspace = ({
   const reviewSetupStats = groupedStats(activeReviewTrades, (trade) => trade?.setupType);
   const reviewSessionStats = groupedStats(activeReviewTrades, (trade) => trade?.session);
   const reviewEmotionStats = groupedStats(activeReviewTrades, (trade) => normalizeEmotion(trade?.notes?.emotionalState));
+  const pairRankings = groupedStats(allTrades, (trade) => trade?.pair);
   const reviewBestSetup = reviewSetupStats[0] || null;
   const reviewWorstSetup = reviewSetupStats[reviewSetupStats.length - 1] || null;
   const reviewBestSession = reviewSessionStats[0] || null;
@@ -418,6 +419,12 @@ const SaasWorkspace = ({
       : "Log trades in this period to unlock focused review insights.";
   const reviewExpectancy = activeReviewTrades.length
     ? round(activeReviewTrades.reduce((sum, trade) => sum + toNumber(trade?.rrAchieved), 0) / activeReviewTrades.length, 2)
+    : 0;
+  const reviewTradesWithScreenshots = activeReviewTrades.filter(
+    (trade) => Boolean(trade?.screenshots?.before || trade?.screenshots?.after)
+  ).length;
+  const reviewScreenshotCoverage = activeReviewTrades.length
+    ? round((reviewTradesWithScreenshots / activeReviewTrades.length) * 100, 1)
     : 0;
   const setupChartItems = setupTop.slice(0, 6);
   const sessionChartItems = sessionTop.slice(0, 6);
@@ -456,6 +463,12 @@ const SaasWorkspace = ({
   const [bridgeLabel, setBridgeLabel] = useState(() => user?.integrations?.mt5?.label || "MT5 Bridge");
   const [bridgeMessage, setBridgeMessage] = useState("");
   const [bridgeError, setBridgeError] = useState("");
+  const userInitials = useMemo(() => {
+    const base = String(user?.name || user?.email || "J").trim();
+    const parts = base.split(/\s+/).filter(Boolean);
+    const initials = parts.slice(0, 2).map((part) => part[0]?.toUpperCase()).join("");
+    return initials || "J";
+  }, [user?.email, user?.name]);
 
   useEffect(() => {
     const toCsv = (value = []) => (Array.isArray(value) ? value.join(", ") : "");
@@ -820,6 +833,23 @@ const SaasWorkspace = ({
     <section className="saas-content">
       {loading || syncingQueue ? <div className="top-loader" aria-hidden="true" /> : null}
 
+      <div className="saas-topbar">
+        <div className="saas-topbar-left">
+          <span className={`saas-status-dot ${isOnline ? "" : "saas-status-dot-offline"}`} aria-hidden="true" />
+          <span>{isOnline ? "Online" : "Offline mode"}</span>
+          {offlineQueue.length ? <span className="chip">{offlineQueue.length} queued</span> : null}
+        </div>
+        <div className="saas-topbar-right">
+          <div className="saas-user-card">
+            <div className="saas-user-avatar">{userInitials}</div>
+            <div className="saas-user-meta">
+              <strong>{user?.name || "Trader"}</strong>
+              <span>{user?.email || "Active account"}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <header className="saas-page-header">
         <div>
           <h1>{activeMeta.title}</h1>
@@ -865,6 +895,35 @@ const SaasWorkspace = ({
 
       {activePage === "dashboard" ? (
         <section className="space-y-4 saas-page-section saas-page-dashboard">
+          <div className="saas-insights-row">
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Best setup</p>
+              <h3>{setupRankings[0]?.label || "—"}</h3>
+              <p className="saas-stat-label">
+                {setupRankings[0]
+                  ? `${setupRankings[0].winRate}% win rate`
+                  : "Start logging trades to reveal your edge"}
+              </p>
+            </article>
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Best session</p>
+              <h3>{sessionRankings[0]?.label || "—"}</h3>
+              <p className="saas-stat-label">
+                {sessionRankings[0]
+                  ? `${sessionRankings[0].winRate}% win rate`
+                  : "Session performance appears after more trades"}
+              </p>
+            </article>
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Most consistent</p>
+              <h3>{followedPlanWinRate ? `${followedPlanWinRate}%` : "—"}</h3>
+              <p className="saas-stat-label">
+                {followedPlanTrades.length
+                  ? `${followedPlanTrades.length} clean trades`
+                  : "Track clean setups to measure discipline"}
+              </p>
+            </article>
+          </div>
           <div className="saas-stats-grid saas-stats-grid-primary">
             <article className="panel saas-card">
               <div className="saas-stat-head">
@@ -1071,11 +1130,24 @@ const SaasWorkspace = ({
                   placeholder="Type or pick a pair"
                   required
                 />
+                <p className="input-hint">Pick from your saved pairs or type a custom symbol.</p>
                 <datalist id="quick-pair-options">
                   {(pairOptions || []).map((option) => (
                     <option key={option} value={option} />
                   ))}
                 </datalist>
+                <div className="chip-row">
+                  {(pairOptions || []).slice(0, 4).map((option) => (
+                    <button
+                      key={`pair-${option}`}
+                      type="button"
+                      className={`chip-btn ${quickTradeForm.pair === option ? "chip-btn-active" : ""}`}
+                      onClick={() => handleQuickTradeChange("pair", option)}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
               </label>
               <label>
                 <span className="label">Entry Price</span>
@@ -1089,6 +1161,7 @@ const SaasWorkspace = ({
                   placeholder="1.0850"
                   required
                 />
+                <p className="input-hint">Required. Use the exact fill price if available.</p>
               </label>
               <label>
                 <span className="label">Stop Loss</span>
@@ -1101,6 +1174,7 @@ const SaasWorkspace = ({
                   onChange={(event) => handleQuickTradeChange("stopLoss", event.target.value)}
                   placeholder="1.0820"
                 />
+                <p className="input-hint">Optional. Leave blank to auto-calc.</p>
               </label>
               <label>
                 <span className="label">Take Profit</span>
@@ -1113,6 +1187,7 @@ const SaasWorkspace = ({
                   onChange={(event) => handleQuickTradeChange("takeProfit", event.target.value)}
                   placeholder="1.0920"
                 />
+                <p className="input-hint">Optional. Leave blank to auto-calc.</p>
               </label>
               <label>
                 <span className="label">Exit Price</span>
@@ -1125,6 +1200,7 @@ const SaasWorkspace = ({
                   onChange={(event) => handleQuickTradeChange("exitPrice", event.target.value)}
                   placeholder="1.0920"
                 />
+                <p className="input-hint">Optional. Add when trade closes.</p>
               </label>
               <label>
                 <span className="label">Risk:Reward Ratio</span>
@@ -1134,6 +1210,7 @@ const SaasWorkspace = ({
                   onChange={(event) => handleQuickTradeChange("plannedRR", event.target.value)}
                   placeholder="2.5"
                 />
+                <p className="input-hint">If blank, Journex calculates using stop and take profit.</p>
               </label>
               <label>
                 <span className="label">Setup</span>
@@ -1148,6 +1225,18 @@ const SaasWorkspace = ({
                     </option>
                   ))}
                 </select>
+                <div className="chip-row">
+                  {setupOptions.slice(0, 3).map((option) => (
+                    <button
+                      key={`setup-${option}`}
+                      type="button"
+                      className={`chip-btn ${quickTradeForm.setupType === option ? "chip-btn-active" : ""}`}
+                      onClick={() => handleQuickTradeChange("setupType", option)}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
               </label>
               <label>
                 <span className="label">Trading Session</span>
@@ -1162,6 +1251,18 @@ const SaasWorkspace = ({
                     </option>
                   ))}
                 </select>
+                <div className="chip-row">
+                  {sessionOptions.slice(0, 3).map((option) => (
+                    <button
+                      key={`session-${option}`}
+                      type="button"
+                      className={`chip-btn ${quickTradeForm.session === option ? "chip-btn-active" : ""}`}
+                      onClick={() => handleQuickTradeChange("session", option)}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
               </label>
               <label>
                 <span className="label">Emotion</span>
@@ -1242,6 +1343,35 @@ const SaasWorkspace = ({
 
       {activePage === "analytics" ? (
         <section className="space-y-4 saas-page-section saas-page-analytics">
+          <div className="saas-insights-row saas-insights-row-analytics">
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Best pair</p>
+              <h3>{pairRankings[0]?.label || "—"}</h3>
+              <p className="saas-stat-label">
+                {pairRankings[0]
+                  ? `${pairRankings[0].winRate}% win rate across ${pairRankings[0].trades} trades`
+                  : "Pair rankings unlock after more trade history"}
+              </p>
+            </article>
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Top session</p>
+              <h3>{sessionTop[0]?.label || "—"}</h3>
+              <p className="saas-stat-label">
+                {sessionTop[0]
+                  ? `${sessionTop[0].avgRR.toFixed(2)}x average R:R`
+                  : "Session quality appears once trades are logged"}
+              </p>
+            </article>
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Monthly pace</p>
+              <h3>
+                {monthNetRR >= 0 ? "+" : "-"}
+                {Math.abs(monthNetRR).toFixed(2)}R
+              </h3>
+              <p className="saas-stat-label">{monthLabel}</p>
+            </article>
+          </div>
+
           <div className="saas-stats-grid saas-stats-grid-primary">
             <article className="panel saas-card">
               <div className="saas-stat-head">
@@ -1287,7 +1417,15 @@ const SaasWorkspace = ({
 
           <div className="saas-main-grid">
             <article className="panel saas-card">
-              <h3 className="saas-card-title">Performance by Setup</h3>
+              <div className="saas-section-header">
+                <span className="saas-stat-icon saas-stat-icon-blue">
+                  <IconGlyph name="analytics" />
+                </span>
+                <div>
+                  <h3 className="saas-card-title">Performance by Setup</h3>
+                  <p className="saas-card-subtitle">Compare setup quality using win rate across your top patterns.</p>
+                </div>
+              </div>
               <div className="saas-bars" style={{ "--saas-bars-columns": String(Math.max(setupChartItems.length, 1)) }}>
                 {setupChartItems.map((item) => (
                   <div key={item.label} className="saas-bar-item">
@@ -1298,7 +1436,15 @@ const SaasWorkspace = ({
               </div>
             </article>
             <article className="panel saas-card">
-              <h3 className="saas-card-title">Performance by Session</h3>
+              <div className="saas-section-header">
+                <span className="saas-stat-icon saas-stat-icon-violet">
+                  <IconGlyph name="calendar" />
+                </span>
+                <div>
+                  <h3 className="saas-card-title">Performance by Session</h3>
+                  <p className="saas-card-subtitle">See where your edge shows up with the most consistency.</p>
+                </div>
+              </div>
               <div className="saas-bars" style={{ "--saas-bars-columns": String(Math.max(sessionChartItems.length, 1)) }}>
                 {sessionChartItems.map((item) => (
                   <div key={item.label} className="saas-bar-item">
@@ -1312,7 +1458,15 @@ const SaasWorkspace = ({
 
           <div className="saas-main-grid">
             <article className="panel saas-card">
-              <h3 className="saas-card-title">Trade Outcomes</h3>
+              <div className="saas-section-header">
+                <span className="saas-stat-icon saas-stat-icon-green">
+                  <IconGlyph name="win" />
+                </span>
+                <div>
+                  <h3 className="saas-card-title">Trade Outcomes</h3>
+                  <p className="saas-card-subtitle">Distribution of wins, losses, and break-even trades.</p>
+                </div>
+              </div>
               <div
                 className="saas-pie"
                 style={{
@@ -1328,7 +1482,15 @@ const SaasWorkspace = ({
               </div>
             </article>
             <article className="panel saas-card">
-              <h3 className="saas-card-title">This Month</h3>
+              <div className="saas-section-header">
+                <span className="saas-stat-icon saas-stat-icon-gold">
+                  <IconGlyph name="money" />
+                </span>
+                <div>
+                  <h3 className="saas-card-title">This Month</h3>
+                  <p className="saas-card-subtitle">How the current month is pacing against your recent baseline.</p>
+                </div>
+              </div>
               <p className="saas-stat-value">
                 {monthNetRR >= 0 ? "+" : "-"}
                 {Math.abs(monthNetRR).toFixed(2)}R
@@ -1598,7 +1760,10 @@ const SaasWorkspace = ({
               <span className="saas-stat-icon saas-stat-icon-blue">
                 <IconGlyph name="calendar" />
               </span>
-              <h3 className="saas-card-title">{activeReview.title}</h3>
+              <div>
+                <h3 className="saas-card-title">{activeReview.title}</h3>
+                <p className="saas-card-subtitle">A focused snapshot of what improved, what slipped, and what to revisit.</p>
+              </div>
             </div>
             <div className="saas-stats-grid">
               <article className="saas-mini-stat"><p>Total Trades</p><strong>{activeReviewTrades.length}</strong></article>
@@ -1687,6 +1852,32 @@ const SaasWorkspace = ({
               </div>
             </div>
           </article>
+
+          <div className="saas-insights-row saas-insights-row-review">
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Replay coverage</p>
+              <h3>{reviewScreenshotCoverage}%</h3>
+              <p className="saas-stat-label">{reviewTradesWithScreenshots} trades include screenshots in this range.</p>
+            </article>
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Review focus</p>
+              <h3>{reviewWorstSetup?.label || "Hold steady"}</h3>
+              <p className="saas-stat-label">
+                {reviewWorstSetup
+                  ? `${reviewWorstSetup.winRate}% win rate, ${reviewWorstSetup.trades} trades`
+                  : "No weak setup identified in this period"}
+              </p>
+            </article>
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Best execution</p>
+              <h3>{activeBestTrade?.pair || "—"}</h3>
+              <p className="saas-stat-label">
+                {activeBestTrade
+                  ? `${toNumber(activeBestTrade.rrAchieved).toFixed(2)}R on ${formatTradeDate(activeBestTrade.tradeDate)}`
+                  : "Best trade appears once trades are logged"}
+              </p>
+            </article>
+          </div>
 
           <article className="panel saas-card">
             <h3 className="saas-card-title">Trade Breakdown</h3>
@@ -1822,8 +2013,38 @@ const SaasWorkspace = ({
 
       {activePage === "settings" ? (
         <section className="space-y-4 saas-page-section saas-page-settings">
+          <div className="saas-insights-row saas-insights-row-settings">
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Active profile</p>
+              <h3>{(user.profiles || []).find((profile) => profile.id === (filters.profileId || user.activeProfileId))?.name || "Workspace"}</h3>
+              <p className="saas-stat-label">Your current trading workspace and saved configuration.</p>
+            </article>
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Connection</p>
+              <h3>{loading || syncingQueue ? "Syncing" : isOnline ? "Online" : "Offline"}</h3>
+              <p className="saas-stat-label">
+                {offlineQueue.length ? `${offlineQueue.length} trades waiting to sync.` : "Everything is currently in sync."}
+              </p>
+            </article>
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">MT5 bridge</p>
+              <h3>{user?.integrations?.mt5?.enabled ? "Enabled" : "Inactive"}</h3>
+              <p className="saas-stat-label">
+                {user?.integrations?.mt5?.enabled ? "Bridge is ready to receive automated trade events." : "Enable the bridge to import MT5 trades automatically."}
+              </p>
+            </article>
+          </div>
+
           <article className="panel saas-card">
-            <h3 className="saas-card-title">Workspace Settings</h3>
+            <div className="saas-section-header">
+              <span className="saas-stat-icon saas-stat-icon-blue">
+                <IconGlyph name="settings" />
+              </span>
+              <div>
+                <h3 className="saas-card-title">Workspace Settings</h3>
+                <p className="saas-card-subtitle">Manage profiles, theme, and the workspace this account uses every day.</p>
+              </div>
+            </div>
             <div className="saas-settings-grid">
               <label>
                 <span className="label">Active Profile</span>
@@ -1880,7 +2101,15 @@ const SaasWorkspace = ({
           </article>
 
           <article className="panel saas-card">
-            <h3 className="saas-card-title">Trade Options</h3>
+            <div className="saas-section-header">
+              <span className="saas-stat-icon saas-stat-icon-violet">
+                <IconGlyph name="add-trade" />
+              </span>
+              <div>
+                <h3 className="saas-card-title">Trade Options</h3>
+                <p className="saas-card-subtitle">Define the default pairs, sessions, and setup labels used across the journal.</p>
+              </div>
+            </div>
             <div className="saas-settings-grid">
               <label>
                 <span className="label">Pairs</span>
@@ -1919,7 +2148,15 @@ const SaasWorkspace = ({
           </article>
 
           <article className="panel saas-card">
-            <h3 className="saas-card-title">Risk Controls</h3>
+            <div className="saas-section-header">
+              <span className="saas-stat-icon saas-stat-icon-red">
+                <IconGlyph name="warn" />
+              </span>
+              <div>
+                <h3 className="saas-card-title">Risk Controls</h3>
+                <p className="saas-card-subtitle">Keep execution disciplined with rules, cooldowns, and session-level limits.</p>
+              </div>
+            </div>
             <div className="saas-settings-grid">
               <label className="flex items-center gap-2 text-sm text-textMain">
                 <input
@@ -2027,7 +2264,10 @@ const SaasWorkspace = ({
 
           <article className="panel saas-card">
             <div className="saas-card-head">
-              <h3 className="saas-card-title">MT5 Auto Journal Bridge</h3>
+              <div>
+                <h3 className="saas-card-title">MT5 Auto Journal Bridge</h3>
+                <p className="saas-card-subtitle">Connect the MT5 bridge to auto-record fills, screenshots, and session events.</p>
+              </div>
               <span className="chip text-textMain">{user?.integrations?.mt5?.enabled ? "Enabled" : "Disabled"}</span>
             </div>
             <p className="saas-stat-label mt-2">
@@ -2151,7 +2391,15 @@ const SaasWorkspace = ({
           </article>
 
           <article className="panel saas-card">
-            <h3 className="saas-card-title">Queue & Session</h3>
+            <div className="saas-section-header">
+              <span className="saas-stat-icon saas-stat-icon-green">
+                <IconGlyph name="pulse" />
+              </span>
+              <div>
+                <h3 className="saas-card-title">Queue & Session</h3>
+                <p className="saas-card-subtitle">Monitor sync state, pending actions, and account session controls.</p>
+              </div>
+            </div>
             <div className="saas-settings-theme-row mb-3">
               <span className="label">Connection</span>
               <div className="flex flex-wrap items-center justify-end gap-2">

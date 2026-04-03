@@ -147,8 +147,13 @@ const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade, on
 
   return (
     <section className="panel animate-riseIn">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold">Screenshot Replay</h3>
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold">Screenshot Replay</h3>
+          <p className="mt-1 text-xs text-textMuted">
+            Review visual context before and after execution, then jump into the full trade when needed.
+          </p>
+        </div>
         <div className="flex gap-2 text-xs">
           <button
             type="button"
@@ -172,18 +177,21 @@ const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade, on
         </div>
       </div>
 
-      <p className="mb-3 text-xs text-textMuted">
-        {trade.pair} | {trade.session} | {trade.setupType} | RR {trade.rrAchieved}
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-textMuted">
+        <span className="chip">{trade.pair || "Pair"}</span>
+        <span className="chip">{trade.session || "Session"}</span>
+        <span className="chip">{trade.setupType || "Setup"}</span>
+        <span className="chip text-textMain">RR {trade.rrAchieved}</span>
         {typeof onSelectTrade === "function" ? (
           <button
             type="button"
-            className="ml-2 text-xs text-textMain underline underline-offset-2"
+            className="text-xs text-textMain underline underline-offset-2"
             onClick={() => onSelectTrade(trade)}
           >
             Open trade
           </button>
         ) : null}
-      </p>
+      </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <article className="rounded-md border border-border bg-panelMuted p-2">

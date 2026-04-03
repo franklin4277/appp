@@ -193,7 +193,6 @@ const AuthPanel = ({ onAuthenticated }) => {
   };
 
   const openAuth = (nextMode) => {
-    setLandingMenuOpen(false);
     setMode(nextMode || "login");
     setAuthModalOpen(true);
     void wakeBackend();
@@ -201,7 +200,6 @@ const AuthPanel = ({ onAuthenticated }) => {
 
   const navigatePublic = (nextPath) => {
     const normalizedPath = String(nextPath || "/").replace(/\/+$/, "") || "/";
-    setLandingMenuOpen(false);
     if (normalizedPath !== publicPath) {
       window.history.pushState({}, "", normalizedPath);
       setPublicPath(normalizedPath);

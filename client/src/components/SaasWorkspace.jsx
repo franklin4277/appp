@@ -368,6 +368,33 @@ const SaasWorkspace = ({
   };
   const activeReview = reviewConfig[reviewRange] || reviewConfig.week;
   const activeReviewTrades = activeReview.trades || [];
+  const resolvedEdgeInsights =
+    edgeInsights && typeof edgeInsights === "object"
+      ? {
+          bestSession: null,
+          bestSetup: null,
+          worstHabit: null,
+          notifications: [],
+          equityNow: 0,
+          maxDrawdown: 0,
+          ...edgeInsights,
+        }
+      : {
+          bestSession: null,
+          bestSetup: null,
+          worstHabit: null,
+          notifications: [],
+          equityNow: 0,
+          maxDrawdown: 0,
+        };
+  if (!Array.isArray(resolvedEdgeInsights.notifications)) {
+    resolvedEdgeInsights.notifications = [];
+  }
+  const resolvedSetupTop = Array.isArray(setupTop) ? setupTop : [];
+  const resolvedSessionTop = Array.isArray(sessionTop) ? sessionTop : [];
+  const resolvedEmotionTop = Array.isArray(emotionTop) ? emotionTop : [];
+  const resolvedFollowedPlanTrades = Array.isArray(followedPlanTrades) ? followedPlanTrades : [];
+  const resolvedViolatedPlanTrades = Array.isArray(violatedPlanTrades) ? violatedPlanTrades : [];
   const [tradeSearch, setTradeSearch] = useState("");
   const sortedReviewTrades = useMemo(() => {
     return [...activeReviewTrades].sort(
@@ -410,12 +437,12 @@ const SaasWorkspace = ({
   const reviewWorstHabit = reviewWorstSetup
     ? `${reviewWorstSetup.label} underperforming`
     : activeReviewTrades.length
-      ? edgeInsights.worstHabit?.title || "No major leak detected"
+      ? resolvedEdgeInsights.worstHabit?.title || "No major leak detected"
       : "No closed trades in this period";
   const reviewWorstHabitDetail = reviewWorstSetup
     ? `${reviewWorstSetup.winRate}% win rate across ${reviewWorstSetup.trades} trades in ${activeReview.label.toLowerCase()}.`
     : activeReviewTrades.length
-      ? edgeInsights.worstHabit?.detail || "Keep journaling with discipline."
+      ? resolvedEdgeInsights.worstHabit?.detail || "Keep journaling with discipline."
       : "Log trades in this period to unlock focused review insights.";
   const reviewExpectancy = activeReviewTrades.length
     ? round(activeReviewTrades.reduce((sum, trade) => sum + toNumber(trade?.rrAchieved), 0) / activeReviewTrades.length, 2)
@@ -426,8 +453,8 @@ const SaasWorkspace = ({
   const reviewScreenshotCoverage = activeReviewTrades.length
     ? round((reviewTradesWithScreenshots / activeReviewTrades.length) * 100, 1)
     : 0;
-  const setupChartItems = setupTop.slice(0, 6);
-  const sessionChartItems = sessionTop.slice(0, 6);
+  const setupChartItems = resolvedSetupTop.slice(0, 6);
+  const sessionChartItems = resolvedSessionTop.slice(0, 6);
   const monthNetRR = round((monthlyTrades || []).reduce((sum, trade) => sum + toNumber(trade?.rrAchieved), 0), 2);
   const winShareLabel = totalTrades ? `${totalWins}/${totalTrades} wins` : "No trades yet";
   const mobilePrimaryPages = pages.filter((page) =>
@@ -898,19 +925,19 @@ const SaasWorkspace = ({
           <div className="saas-insights-row">
             <article className="panel saas-card saas-insight-card">
               <p className="saas-stat-kicker">Best setup</p>
-              <h3>{setupRankings[0]?.label || "—"}</h3>
+              <h3>{resolvedSetupTop[0]?.label || "—"}</h3>
               <p className="saas-stat-label">
-                {setupRankings[0]
-                  ? `${setupRankings[0].winRate}% win rate`
+                {resolvedSetupTop[0]
+                  ? `${resolvedSetupTop[0].winRate}% win rate`
                   : "Start logging trades to reveal your edge"}
               </p>
             </article>
             <article className="panel saas-card saas-insight-card">
               <p className="saas-stat-kicker">Best session</p>
-              <h3>{sessionRankings[0]?.label || "—"}</h3>
+              <h3>{resolvedSessionTop[0]?.label || "—"}</h3>
               <p className="saas-stat-label">
-                {sessionRankings[0]
-                  ? `${sessionRankings[0].winRate}% win rate`
+                {resolvedSessionTop[0]
+                  ? `${resolvedSessionTop[0].winRate}% win rate`
                   : "Session performance appears after more trades"}
               </p>
             </article>
@@ -918,8 +945,8 @@ const SaasWorkspace = ({
               <p className="saas-stat-kicker">Most consistent</p>
               <h3>{followedPlanWinRate ? `${followedPlanWinRate}%` : "—"}</h3>
               <p className="saas-stat-label">
-                {followedPlanTrades.length
-                  ? `${followedPlanTrades.length} clean trades`
+                {resolvedFollowedPlanTrades.length
+                  ? `${resolvedFollowedPlanTrades.length} clean trades`
                   : "Track clean setups to measure discipline"}
               </p>
             </article>
@@ -978,13 +1005,13 @@ const SaasWorkspace = ({
             </div>
             {totalTrades ? (
               <p>
-                Best session: <span>{edgeInsights.bestSession?.key || "N/A"}</span>
-                {edgeInsights.bestSession?.winRate !== undefined ? (
-                  <span> ({edgeInsights.bestSession.winRate}% WR)</span>
+                Best session: <span>{resolvedEdgeInsights.bestSession?.key || "N/A"}</span>
+                {resolvedEdgeInsights.bestSession?.winRate !== undefined ? (
+                  <span> ({resolvedEdgeInsights.bestSession.winRate}% WR)</span>
                 ) : null}
-                {edgeInsights.bestSetup?.key ? (
+                {resolvedEdgeInsights.bestSetup?.key ? (
                   <>
-                    . Best setup: <span>{edgeInsights.bestSetup.key}</span>.
+                    . Best setup: <span>{resolvedEdgeInsights.bestSetup.key}</span>.
                   </>
                 ) : (
                   "."
@@ -1025,17 +1052,17 @@ const SaasWorkspace = ({
                 </div>
                 <div className="saas-metric-item">
                   <span>Max Drawdown</span>
-                  <strong>{round(Math.abs(toNumber(edgeInsights.maxDrawdown)), 2)}R</strong>
+                  <strong>{round(Math.abs(toNumber(resolvedEdgeInsights.maxDrawdown)), 2)}R</strong>
                 </div>
                 <div className="saas-progress saas-progress-red">
-                  <span style={{ width: `${Math.min(Math.max(Math.abs(toNumber(edgeInsights.maxDrawdown)) * 30, 0), 100)}%` }} />
+                  <span style={{ width: `${Math.min(Math.max(Math.abs(toNumber(resolvedEdgeInsights.maxDrawdown)) * 30, 0), 100)}%` }} />
                 </div>
                 <div className="saas-metric-item">
                   <span>Worst Habit</span>
-                  <strong>{edgeInsights.worstHabit?.title || "None"}</strong>
+                  <strong>{resolvedEdgeInsights.worstHabit?.title || "None"}</strong>
                 </div>
-                {edgeInsights.worstHabit?.detail ? (
-                  <p className="saas-metric-note">{edgeInsights.worstHabit.detail}</p>
+                {resolvedEdgeInsights.worstHabit?.detail ? (
+                  <p className="saas-metric-note">{resolvedEdgeInsights.worstHabit.detail}</p>
                 ) : null}
               </div>
               <button type="button" className="landing-cta-secondary !w-full" onClick={() => setActivePage("behavior")}>
@@ -1355,10 +1382,10 @@ const SaasWorkspace = ({
             </article>
             <article className="panel saas-card saas-insight-card">
               <p className="saas-stat-kicker">Top session</p>
-              <h3>{sessionTop[0]?.label || "—"}</h3>
+              <h3>{resolvedSessionTop[0]?.label || "—"}</h3>
               <p className="saas-stat-label">
-                {sessionTop[0]
-                  ? `${sessionTop[0].avgRR.toFixed(2)}x average R:R`
+                {resolvedSessionTop[0]
+                  ? `${resolvedSessionTop[0].avgRR.toFixed(2)}x average R:R`
                   : "Session quality appears once trades are logged"}
               </p>
             </article>
@@ -1511,8 +1538,8 @@ const SaasWorkspace = ({
               <h3>Your Trading Edge</h3>
             </div>
             <p>
-              Best Setup: <span>{setupTop[0]?.label || "N/A"}</span> ({setupTop[0]?.winRate ?? 0}% WR)
-              <span className="ml-3">Best Session: {sessionTop[0]?.label || "N/A"} ({sessionTop[0]?.winRate ?? 0}% WR)</span>
+              Best Setup: <span>{resolvedSetupTop[0]?.label || "N/A"}</span> ({resolvedSetupTop[0]?.winRate ?? 0}% WR)
+              <span className="ml-3">Best Session: {resolvedSessionTop[0]?.label || "N/A"} ({resolvedSessionTop[0]?.winRate ?? 0}% WR)</span>
             </p>
           </article>
 
@@ -1544,8 +1571,8 @@ const SaasWorkspace = ({
                 <p className="saas-stat-kicker">Cumulative</p>
               </div>
               <p className="saas-stat-value">
-                {toNumber(edgeInsights?.equityNow) >= 0 ? "+" : "-"}
-                {Math.abs(toNumber(edgeInsights?.equityNow)).toFixed(2)}R
+                {toNumber(resolvedEdgeInsights?.equityNow) >= 0 ? "+" : "-"}
+                {Math.abs(toNumber(resolvedEdgeInsights?.equityNow)).toFixed(2)}R
               </p>
               <p className="saas-stat-label">Equity</p>
             </article>
@@ -1557,8 +1584,8 @@ const SaasWorkspace = ({
                 <p className="saas-stat-kicker">Peak to trough</p>
               </div>
               <p className="saas-stat-value">
-                {Math.abs(toNumber(edgeInsights?.maxDrawdown)) > 0
-                  ? `-${Math.abs(toNumber(edgeInsights?.maxDrawdown)).toFixed(2)}R`
+                {Math.abs(toNumber(resolvedEdgeInsights?.maxDrawdown)) > 0
+                  ? `-${Math.abs(toNumber(resolvedEdgeInsights?.maxDrawdown)).toFixed(2)}R`
                   : "0.00R"}
               </p>
               <p className="saas-stat-label">Max drawdown</p>
@@ -1575,19 +1602,19 @@ const SaasWorkspace = ({
             </article>
           </div>
 
-          {edgeInsights?.worstHabit ? (
+          {resolvedEdgeInsights?.worstHabit ? (
             <article className="panel saas-card">
               <h3 className="saas-card-title">Leak To Fix</h3>
-              <p className="text-sm font-semibold text-textMain">{edgeInsights.worstHabit.title}</p>
-              <p className="saas-stat-label mt-2">{edgeInsights.worstHabit.detail}</p>
+              <p className="text-sm font-semibold text-textMain">{resolvedEdgeInsights.worstHabit.title}</p>
+              <p className="saas-stat-label mt-2">{resolvedEdgeInsights.worstHabit.detail}</p>
             </article>
           ) : null}
 
-          {edgeInsights?.notifications?.length ? (
+          {resolvedEdgeInsights?.notifications?.length ? (
             <article className="panel saas-card">
               <h3 className="saas-card-title">Signals</h3>
               <ul className="saas-signal-list">
-                {edgeInsights.notifications.map((note) => (
+                {resolvedEdgeInsights.notifications.map((note) => (
                   <li
                     key={note.id}
                     className={`saas-signal ${note.level === "warn" ? "saas-signal-warn" : "saas-signal-info"}`}
@@ -1603,7 +1630,7 @@ const SaasWorkspace = ({
             <article className="panel saas-card">
               <h3 className="saas-card-title">Setup Rankings</h3>
               <div className="saas-ranking-list">
-                {setupTop.map((item, index) => (
+                {resolvedSetupTop.map((item, index) => (
                   <div key={item.label} className="saas-ranking-item">
                     <div className="saas-ranking-top">
                       <div className="saas-rank-title">
@@ -1628,7 +1655,7 @@ const SaasWorkspace = ({
             <article className="panel saas-card">
               <h3 className="saas-card-title">Session Rankings</h3>
               <div className="saas-ranking-list">
-                {sessionTop.map((item, index) => (
+                {resolvedSessionTop.map((item, index) => (
                   <div key={item.label} className="saas-ranking-item">
                     <div className="saas-ranking-top">
                       <div className="saas-rank-title">
@@ -1677,18 +1704,18 @@ const SaasWorkspace = ({
                 className="saas-pie"
                 style={{
                   background: `conic-gradient(#10b981 0 ${
-                    totalTrades ? (followedPlanTrades.length / totalTrades) * 100 : 0
+                    totalTrades ? (resolvedFollowedPlanTrades.length / totalTrades) * 100 : 0
                   }%, #ef4444 0 100%)`,
                 }}
               />
               <div className="saas-behavior-summary">
                 <div className="saas-behavior-mini saas-behavior-mini-good">
                   <p>Followed</p>
-                  <strong>{followedPlanTrades.length}</strong>
+                  <strong>{resolvedFollowedPlanTrades.length}</strong>
                 </div>
                 <div className="saas-behavior-mini saas-behavior-mini-bad">
                   <p>Violated</p>
-                  <strong>{violatedPlanTrades.length}</strong>
+                  <strong>{resolvedViolatedPlanTrades.length}</strong>
                 </div>
               </div>
             </article>
@@ -1719,7 +1746,7 @@ const SaasWorkspace = ({
           <article className="panel saas-card">
             <h3 className="saas-card-title">Performance by Emotional State</h3>
             <div className="saas-emotion-grid">
-              {emotionTop.map((item) => (
+              {resolvedEmotionTop.map((item) => (
                 <div
                   key={item.label}
                   className={`saas-emotion-item ${item.winRate >= 50 ? "saas-emotion-item-good" : "saas-emotion-item-bad"}`}
@@ -2646,3 +2673,5 @@ const SaasWorkspace = ({
 };
 
 export default SaasWorkspace;
+
+

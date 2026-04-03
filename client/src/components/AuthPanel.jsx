@@ -11,6 +11,7 @@ import BrandLogo from "./BrandLogo";
 
 const AuthPanel = ({ onAuthenticated }) => {
   const showDebugSecrets = Boolean(import.meta.env.DEV || import.meta.env.VITE_SHOW_DEBUG_AUTH_SECRETS === "true");
+  const [publicPath, setPublicPath] = useState(() => String(window.location.pathname || "").replace(/\/+$/, "") || "/");
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [mode, setMode] = useState("login");
   const [name, setName] = useState("");
@@ -82,6 +83,15 @@ const AuthPanel = ({ onAuthenticated }) => {
   }, []);
 
   useEffect(() => {
+    const syncPath = () => {
+      setPublicPath(String(window.location.pathname || "").replace(/\/+$/, "") || "/");
+    };
+
+    window.addEventListener("popstate", syncPath);
+    return () => window.removeEventListener("popstate", syncPath);
+  }, []);
+
+  useEffect(() => {
     const elements = Array.from(document.querySelectorAll(".reveal"));
     if (!("IntersectionObserver" in window)) {
       elements.forEach((el) => el.classList.add("is-visible"));
@@ -102,7 +112,7 @@ const AuthPanel = ({ onAuthenticated }) => {
 
     elements.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, []);
+  }, [publicPath]);
 
   const authTitle = useMemo(() => {
     if (twoFactorPending) {
@@ -189,6 +199,15 @@ const AuthPanel = ({ onAuthenticated }) => {
     void wakeBackend();
   };
 
+  const navigatePublic = (nextPath) => {
+    const normalizedPath = String(nextPath || "/").replace(/\/+$/, "") || "/";
+    if (normalizedPath !== publicPath) {
+      window.history.pushState({}, "", normalizedPath);
+      setPublicPath(normalizedPath);
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const handleResetRequest = async () => {
     const normalizedEmail = String(email || "").trim();
     if (!normalizedEmail) {
@@ -241,18 +260,310 @@ const AuthPanel = ({ onAuthenticated }) => {
     }
   };
 
+  const isFeaturesPage = publicPath === "/features";
+
+  const landingHomeSections = (
+    <>
+      <section className="landing-hero reveal">
+        <div className="landing-hero-copy animate-riseIn">
+          <p className="landing-kicker">Built for serious traders</p>
+          <h2 className="landing-hero-title">Track. Analyze. Improve Your Trades.</h2>
+          <p className="landing-hero-text">
+            Log trades fast, uncover what actually drives your results, and review the full story behind every setup
+            with analytics and screenshot replay built for disciplined growth.
+          </p>
+          <div className="landing-cta">
+            <button type="button" className="btn-primary landing-cta-primary" onClick={() => openAuth("register")}>
+              Get Started
+            </button>
+            <button type="button" className="btn-secondary landing-cta-secondary" onClick={() => navigatePublic("/features")}>
+              Explore Features
+            </button>
+          </div>
+          <div className="landing-stats">
+            <div className="landing-stat-card">
+              <h3>120+</h3>
+              <p>Weekly trades tracked</p>
+            </div>
+            <div className="landing-stat-card">
+              <h3>4.8x</h3>
+              <p>Avg R:R consistency</p>
+            </div>
+            <div className="landing-stat-card">
+              <h3>24/7</h3>
+              <p>Cloud sync</p>
+            </div>
+          </div>
+          <div className="landing-trust">
+            <span>Trusted by traders at</span>
+            <div className="landing-trust-logos">
+              <span>NovaFX</span>
+              <span>AxisFlow</span>
+              <span>PulseTrades</span>
+              <span>TrendVault</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="landing-hero-visual animate-riseIn">
+          <div className="landing-hero-card panel reveal">
+            <p className="landing-card-kicker">Dashboard</p>
+            <h3 className="landing-card-title">Performance at a glance</h3>
+            <div className="landing-card-grid">
+              <div className="landing-card-chip">
+                <span>Total Trades</span>
+                <strong>128</strong>
+              </div>
+              <div className="landing-card-chip">
+                <span>Win Rate</span>
+                <strong>58.3%</strong>
+              </div>
+              <div className="landing-card-chip">
+                <span>Net R</span>
+                <strong>+12.6R</strong>
+              </div>
+            </div>
+            <div className="landing-card-chart">
+              <span />
+              <span />
+              <span />
+              <span />
+              <span />
+            </div>
+          </div>
+          <div className="landing-hero-art reveal">
+            <div className="landing-hero-orb landing-hero-orb-primary" />
+            <div className="landing-hero-orb landing-hero-orb-secondary" />
+            <div className="landing-hero-orb landing-hero-orb-tertiary" />
+            <div className="landing-hero-grid" />
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-section landing-preview reveal">
+        <div className="landing-section-title">
+          <h3>Preview your workflow</h3>
+          <p>From quick trade entry to full replay in one smooth flow.</p>
+        </div>
+        <div className="landing-preview-grid">
+          <div className="panel landing-preview-card">
+            <p className="landing-card-kicker">Recent trades</p>
+            <ul className="landing-preview-list">
+              <li>
+                <span>EURUSD - Breakout</span>
+                <strong className="landing-tag-win">+1.8R</strong>
+              </li>
+              <li>
+                <span>GBPUSD - Pullback</span>
+                <strong className="landing-tag-loss">-0.7R</strong>
+              </li>
+              <li>
+                <span>XAUUSD - Reversal</span>
+                <strong className="landing-tag-win">+2.4R</strong>
+              </li>
+            </ul>
+          </div>
+          <div className="panel landing-preview-card">
+            <p className="landing-card-kicker">Screenshot review</p>
+            <div className="landing-preview-shot">
+              <span>Before</span>
+              <span>After</span>
+            </div>
+            <p className="landing-preview-note">Open any trade to review full context.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-section landing-proof reveal">
+        <div className="landing-section-title">
+          <h3>Built to look credible in front of traders, teams, and investors</h3>
+          <p>Journex is structured like a real operating system for trade review, not just another notes app.</p>
+        </div>
+        <div className="landing-proof-grid">
+          <article className="panel landing-proof-card">
+            <p className="landing-card-kicker">Investor signal</p>
+            <h4>Clear product story</h4>
+            <p>One focused workflow: capture, measure, review, improve. That clarity makes the platform easy to demo and easy to scale.</p>
+          </article>
+          <article className="panel landing-proof-card">
+            <p className="landing-card-kicker">Press angle</p>
+            <h4>Visual review layer</h4>
+            <p>Trade screenshots, replay, and behavior analysis give the product a stronger narrative than a basic journal dashboard.</p>
+          </article>
+          <article className="panel landing-proof-card">
+            <p className="landing-card-kicker">Expansion ready</p>
+            <h4>Designed for more modules</h4>
+            <p>Edge detection, coaching, automation, and account analytics already fit naturally into the product architecture.</p>
+          </article>
+        </div>
+      </section>
+
+      <section className="landing-section landing-cta-strip reveal">
+        <div className="panel landing-cta-panel">
+          <div>
+            <p className="landing-card-kicker">Product tour</p>
+            <h3>Want the full breakdown?</h3>
+            <p>See every core Journex capability on a focused features page, then jump in when you are ready.</p>
+          </div>
+          <div className="landing-cta landing-cta-row">
+            <button type="button" className="btn-secondary" onClick={() => navigatePublic("/features")}>
+              View Features
+            </button>
+            <button type="button" className="btn-primary" onClick={() => openAuth("register")}>
+              Create Account
+            </button>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+
+  const featuresPageSections = (
+    <>
+      <section className="landing-section landing-features-hero reveal">
+        <div className="landing-section-title">
+          <p className="landing-kicker">Feature overview</p>
+          <h3>Everything Journex gives you to review better and grow faster</h3>
+          <p>
+            A focused workflow for logging trades, analyzing behavior, and reviewing screenshot context without clutter
+            on the landing page.
+          </p>
+        </div>
+        <div className="landing-features-actions">
+          <button type="button" className="btn-primary" onClick={() => openAuth("register")}>
+            Get Started
+          </button>
+          <button type="button" className="btn-secondary" onClick={() => navigatePublic("/")}>
+            Back Home
+          </button>
+        </div>
+      </section>
+
+      <section className="landing-section reveal">
+        <div className="landing-section-title">
+          <h3>Everything you need to journal better</h3>
+          <p>Stay consistent with structured workflows designed for traders.</p>
+        </div>
+        <div className="landing-feature-grid">
+          <article className="panel landing-feature-card">
+            <h4>Trade logging</h4>
+            <p>Capture entries, exits, session, setup type, and screenshots in seconds.</p>
+          </article>
+          <article className="panel landing-feature-card">
+            <h4>Performance analytics</h4>
+            <p>Visualize win rate, expectancy, and risk metrics across sessions and setups.</p>
+          </article>
+          <article className="panel landing-feature-card">
+            <h4>Risk management insights</h4>
+            <p>Track discipline, guardrails, and behavioral patterns to protect your edge.</p>
+          </article>
+        </div>
+      </section>
+
+      <section className="landing-section landing-preview reveal">
+        <div className="landing-section-title">
+          <h3>Preview your workflow</h3>
+          <p>From quick trade entry to full replay in one smooth flow.</p>
+        </div>
+        <div className="landing-preview-grid">
+          <div className="panel landing-preview-card">
+            <p className="landing-card-kicker">Recent trades</p>
+            <ul className="landing-preview-list">
+              <li>
+                <span>EURUSD - Breakout</span>
+                <strong className="landing-tag-win">+1.8R</strong>
+              </li>
+              <li>
+                <span>GBPUSD - Pullback</span>
+                <strong className="landing-tag-loss">-0.7R</strong>
+              </li>
+              <li>
+                <span>XAUUSD - Reversal</span>
+                <strong className="landing-tag-win">+2.4R</strong>
+              </li>
+            </ul>
+          </div>
+          <div className="panel landing-preview-card">
+            <p className="landing-card-kicker">Screenshot review</p>
+            <div className="landing-preview-shot">
+              <span>Before</span>
+              <span>After</span>
+            </div>
+            <p className="landing-preview-note">Open any trade to review full context.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-section landing-testimonials reveal">
+        <div className="landing-section-title">
+          <h3>Trusted by disciplined traders</h3>
+          <p>Real feedback from traders building repeatable systems.</p>
+        </div>
+        <div className="landing-testimonial-grid">
+          <article className="panel landing-testimonial-card">
+            <p>"My win rate jumped once I tracked session habits. Journex keeps me accountable."</p>
+            <span>- Aisha, FX swing trader</span>
+          </article>
+          <article className="panel landing-testimonial-card">
+            <p>"The screenshot replay is powerful. I can finally review the why, not just the numbers."</p>
+            <span>- Mark, crypto day trader</span>
+          </article>
+          <article className="panel landing-testimonial-card">
+            <p>"Simple, clean, and focused. Exactly what a trading journal should be."</p>
+            <span>- Daniel, funded trader</span>
+          </article>
+        </div>
+      </section>
+
+      <section className="landing-section landing-proof reveal">
+        <div className="landing-section-title">
+          <h3>Designed to hold more than a basic journal</h3>
+          <p>Journex is built with enough structure to support deeper review modules as the product grows.</p>
+        </div>
+        <div className="landing-proof-grid">
+          <article className="panel landing-proof-card">
+            <p className="landing-card-kicker">Review loop</p>
+            <h4>Numbers plus context</h4>
+            <p>Each trade can carry screenshots, notes, and structured fields so decisions stay reviewable later.</p>
+          </article>
+          <article className="panel landing-proof-card">
+            <p className="landing-card-kicker">Behavior layer</p>
+            <h4>Pattern visibility</h4>
+            <p>Sessions, setup types, and discipline checks make it easier to see what habits drive outcomes.</p>
+          </article>
+          <article className="panel landing-proof-card">
+            <p className="landing-card-kicker">Expansion path</p>
+            <h4>Room for more modules</h4>
+            <p>Edge review, automation, coaching, and account-level analytics fit naturally into the same system.</p>
+          </article>
+        </div>
+      </section>
+    </>
+  );
+
   return (
     <main className="landing-page">
       <div className="landing-wrap">
         <header className="landing-header">
-          <div className="landing-brand">
+          <button type="button" className="landing-brand landing-link-button" onClick={() => navigatePublic("/")}>
             <BrandLogo className="brand-logo brand-logo-landing" />
             <span className="landing-brand-title">Journex</span>
-          </div>
+          </button>
           <nav className="landing-nav">
-            <a href="#features">Features</a>
-            <a href="#preview">Preview</a>
-            <a href="#pricing">Pricing</a>
+            <button
+              type="button"
+              className={`landing-link-button ${!isFeaturesPage ? "is-active" : ""}`}
+              onClick={() => navigatePublic("/")}
+            >
+              Home
+            </button>
+            <button
+              type="button"
+              className={`landing-link-button ${isFeaturesPage ? "is-active" : ""}`}
+              onClick={() => navigatePublic("/features")}
+            >
+              Features
+            </button>
           </nav>
           <div className="landing-header-actions">
             <button type="button" className="btn-secondary" onClick={() => openAuth("login")}>
@@ -263,215 +574,7 @@ const AuthPanel = ({ onAuthenticated }) => {
             </button>
           </div>
         </header>
-
-        <section className="landing-hero reveal">
-          <div className="landing-hero-copy animate-riseIn">
-            <p className="landing-kicker">Built for serious traders</p>
-            <h2 className="landing-hero-title">Track. Analyze. Improve Your Trades.</h2>
-            <p className="landing-hero-text">
-              Log trades fast, uncover what actually drives your results, and review the full story behind every setup
-              with analytics and screenshot replay built for disciplined growth.
-            </p>
-            <div className="landing-cta">
-              <button type="button" className="btn-primary landing-cta-primary" onClick={() => openAuth("register")}>
-                Get Started
-              </button>
-              <button type="button" className="btn-secondary landing-cta-secondary" onClick={() => openAuth("login")}>
-                Login
-              </button>
-            </div>
-            <div className="landing-stats">
-              <div className="landing-stat-card">
-                <h3>120+</h3>
-                <p>Weekly trades tracked</p>
-              </div>
-              <div className="landing-stat-card">
-                <h3>4.8x</h3>
-                <p>Avg R:R consistency</p>
-              </div>
-              <div className="landing-stat-card">
-                <h3>24/7</h3>
-                <p>Cloud sync</p>
-              </div>
-            </div>
-            <div className="landing-trust">
-              <span>Trusted by traders at</span>
-              <div className="landing-trust-logos">
-                <span>NovaFX</span>
-                <span>AxisFlow</span>
-                <span>PulseTrades</span>
-                <span>TrendVault</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="landing-hero-visual animate-riseIn">
-            <div className="landing-hero-card panel reveal">
-              <p className="landing-card-kicker">Dashboard</p>
-              <h3 className="landing-card-title">Performance at a glance</h3>
-              <div className="landing-card-grid">
-                <div className="landing-card-chip">
-                  <span>Total Trades</span>
-                  <strong>128</strong>
-                </div>
-                <div className="landing-card-chip">
-                  <span>Win Rate</span>
-                  <strong>58.3%</strong>
-                </div>
-                <div className="landing-card-chip">
-                  <span>Net R</span>
-                  <strong>+12.6R</strong>
-                </div>
-              </div>
-              <div className="landing-card-chart">
-                <span />
-                <span />
-                <span />
-                <span />
-                <span />
-              </div>
-            </div>
-            <div className="landing-hero-art reveal">
-              <div className="landing-hero-orb landing-hero-orb-primary" />
-              <div className="landing-hero-orb landing-hero-orb-secondary" />
-              <div className="landing-hero-orb landing-hero-orb-tertiary" />
-              <div className="landing-hero-grid" />
-            </div>
-          </div>
-        </section>
-
-        <section id="features" className="landing-section reveal">
-          <div className="landing-section-title">
-            <h3>Everything you need to journal better</h3>
-            <p>Stay consistent with structured workflows designed for traders.</p>
-          </div>
-          <div className="landing-feature-grid">
-            <article className="panel landing-feature-card">
-              <h4>Trade logging</h4>
-              <p>Capture entries, exits, session, setup type, and screenshots in seconds.</p>
-            </article>
-            <article className="panel landing-feature-card">
-              <h4>Performance analytics</h4>
-              <p>Visualize win rate, expectancy, and risk metrics across sessions and setups.</p>
-            </article>
-            <article className="panel landing-feature-card">
-              <h4>Risk management insights</h4>
-              <p>Track discipline, guardrails, and behavioral patterns to protect your edge.</p>
-            </article>
-          </div>
-        </section>
-
-        <section id="preview" className="landing-section landing-preview reveal">
-          <div className="landing-section-title">
-            <h3>Preview your workflow</h3>
-            <p>From quick trade entry to full replay in one smooth flow.</p>
-          </div>
-          <div className="landing-preview-grid">
-            <div className="panel landing-preview-card">
-              <p className="landing-card-kicker">Recent trades</p>
-              <ul className="landing-preview-list">
-                <li>
-                  <span>EURUSD • Breakout</span>
-                  <strong className="landing-tag-win">+1.8R</strong>
-                </li>
-                <li>
-                  <span>GBPUSD • Pullback</span>
-                  <strong className="landing-tag-loss">-0.7R</strong>
-                </li>
-                <li>
-                  <span>XAUUSD • Reversal</span>
-                  <strong className="landing-tag-win">+2.4R</strong>
-                </li>
-              </ul>
-            </div>
-            <div className="panel landing-preview-card">
-              <p className="landing-card-kicker">Screenshot review</p>
-              <div className="landing-preview-shot">
-                <span>Before</span>
-                <span>After</span>
-              </div>
-              <p className="landing-preview-note">Open any trade to review full context.</p>
-            </div>
-          </div>
-        </section>
-
-        <section className="landing-section landing-testimonials reveal">
-          <div className="landing-section-title">
-            <h3>Trusted by disciplined traders</h3>
-            <p>Real feedback from traders building repeatable systems.</p>
-          </div>
-          <div className="landing-testimonial-grid">
-            <article className="panel landing-testimonial-card">
-              <p>"My win rate jumped once I tracked session habits. Journex keeps me accountable."</p>
-              <span>— Aisha, FX swing trader</span>
-            </article>
-            <article className="panel landing-testimonial-card">
-              <p>"The screenshot replay is powerful. I can finally review the why, not just the numbers."</p>
-              <span>— Mark, crypto day trader</span>
-            </article>
-            <article className="panel landing-testimonial-card">
-              <p>"Simple, clean, and focused. Exactly what a trading journal should be."</p>
-              <span>— Daniel, funded trader</span>
-            </article>
-          </div>
-        </section>
-
-        <section className="landing-section landing-proof reveal">
-          <div className="landing-section-title">
-            <h3>Built to look credible in front of traders, teams, and investors</h3>
-            <p>Journex is structured like a real operating system for trade review, not just another notes app.</p>
-          </div>
-          <div className="landing-proof-grid">
-            <article className="panel landing-proof-card">
-              <p className="landing-card-kicker">Investor signal</p>
-              <h4>Clear product story</h4>
-              <p>One focused workflow: capture, measure, review, improve. That clarity makes the platform easy to demo and easy to scale.</p>
-            </article>
-            <article className="panel landing-proof-card">
-              <p className="landing-card-kicker">Press angle</p>
-              <h4>Visual review layer</h4>
-              <p>Trade screenshots, replay, and behavior analysis give the product a stronger narrative than a basic journal dashboard.</p>
-            </article>
-            <article className="panel landing-proof-card">
-              <p className="landing-card-kicker">Expansion ready</p>
-              <h4>Designed for more modules</h4>
-              <p>Edge detection, coaching, automation, and account analytics already fit naturally into the product architecture.</p>
-            </article>
-          </div>
-        </section>
-
-        <section id="pricing" className="landing-section landing-pricing reveal">
-          <div className="landing-section-title">
-            <h3>Flexible plans</h3>
-            <p>Start free and scale when you need deeper insights.</p>
-          </div>
-          <div className="landing-pricing-grid">
-            <article className="panel pricing-card">
-              <h4>Free</h4>
-              <p className="pricing-price">$0</p>
-              <ul>
-                <li>Core trade journal</li>
-                <li>Basic analytics</li>
-                <li>Screenshot uploads</li>
-              </ul>
-              <button type="button" className="btn-secondary" onClick={() => openAuth("register")}>
-                Get Started
-              </button>
-            </article>
-            <article className="panel pricing-card pricing-card-highlight">
-              <h4>Pro</h4>
-              <p className="pricing-price">$19/mo</p>
-              <ul>
-                <li>Advanced insights & review</li>
-                <li>Edge detection & behavior</li>
-                <li>Priority support</li>
-              </ul>
-              <button type="button" className="btn-primary" onClick={() => openAuth("register")}>
-                Upgrade to Pro
-              </button>
-            </article>
-          </div>
-        </section>
+        {!isFeaturesPage ? landingHomeSections : featuresPageSections}
 
         <footer className="landing-footer">
           <div>
@@ -479,9 +582,15 @@ const AuthPanel = ({ onAuthenticated }) => {
             <p>Trading journal built for clarity.</p>
           </div>
           <div className="landing-footer-links">
-            <a href="#features">Features</a>
-            <a href="#preview">Preview</a>
-            <a href="#pricing">Pricing</a>
+            <button type="button" className="landing-link-button" onClick={() => navigatePublic("/")}>
+              Home
+            </button>
+            <button type="button" className="landing-link-button" onClick={() => navigatePublic("/features")}>
+              Features
+            </button>
+            <button type="button" className="landing-link-button" onClick={() => openAuth("login")}>
+              Login
+            </button>
           </div>
           <p className="landing-footer-copy">(c) {new Date().getFullYear()} Journex. All rights reserved.</p>
         </footer>
@@ -690,3 +799,4 @@ const AuthPanel = ({ onAuthenticated }) => {
 };
 
 export default AuthPanel;
+

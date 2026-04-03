@@ -269,82 +269,213 @@ const AuthPanel = ({ onAuthenticated }) => {
 
   const landingHomeSections = (
     <>
-      <section className="landing-hero reveal">
-        <div className="landing-hero-copy animate-riseIn">
-          <p className="landing-kicker">Built for serious traders</p>
-          <h2 className="landing-hero-title">Track. Analyze. Improve Your Trades.</h2>
-          <p className="landing-hero-text">
-            Journex gives you one focused place to log trades, review screenshots, and measure what is actually working
-            so you can improve with structure instead of guesswork.
-          </p>
-          <div className="landing-cta">
-            <button type="button" className="btn-primary landing-cta-primary" onClick={() => openAuth("register")}>
-              Get Started
-            </button>
-            <button type="button" className="btn-secondary landing-cta-secondary" onClick={() => navigatePublic("/features")}>
-              Explore Features
-            </button>
-          </div>
-          <div className="landing-stats">
-            <div className="landing-stat-card">
-              <h3>120+</h3>
-              <p>Weekly trades tracked</p>
+      <section className="landing-home-hero reveal">
+        <div className="landing-home-grid">
+          <div className="landing-home-copy animate-riseIn">
+            <div className="landing-home-brandline">
+              <div className="landing-home-brandmark" aria-hidden="true">
+                <span />
+              </div>
+              <div className="landing-home-brandcopy">
+                <p className="landing-home-brandname">Journex</p>
+                <p className="landing-home-brandmeta">Trading journal for disciplined execution</p>
+              </div>
             </div>
-            <div className="landing-stat-card">
-              <h3>4.8x</h3>
-              <p>Avg R:R consistency</p>
-            </div>
-            <div className="landing-stat-card">
-              <h3>24/7</h3>
-              <p>Cloud sync</p>
-            </div>
-          </div>
-          <div className="landing-trust">
-            <span>Trusted by traders at</span>
-            <div className="landing-trust-logos">
-              <span>NovaFX</span>
-              <span>AxisFlow</span>
-              <span>PulseTrades</span>
-              <span>TrendVault</span>
-            </div>
-          </div>
-        </div>
 
-        <div className="landing-hero-visual animate-riseIn">
-          <div className="landing-hero-card panel reveal">
-            <p className="landing-card-kicker">Dashboard</p>
-            <h3 className="landing-card-title">Performance at a glance</h3>
-            <div className="landing-card-grid">
-              <div className="landing-card-chip">
-                <span>Total Trades</span>
-                <strong>128</strong>
-              </div>
-              <div className="landing-card-chip">
-                <span>Win Rate</span>
-                <strong>58.3%</strong>
-              </div>
-              <div className="landing-card-chip">
-                <span>Net R</span>
-                <strong>+12.6R</strong>
-              </div>
+            <p className="landing-kicker landing-home-kicker">Structured review. Clearer decisions.</p>
+            <h2 className="landing-home-title">The calm, professional workspace your trading review process has been missing.</h2>
+            <p className="landing-home-text">
+              Journex brings trade logging, screenshot review, behavioral notes, and analytics into one focused flow so
+              you can review execution with less noise and more confidence.
+            </p>
+
+            <div className="landing-home-actions">
+              <button type="button" className="btn-primary landing-home-primary" onClick={() => openAuth("register")}>
+                Get Started
+              </button>
+              <button type="button" className="btn-secondary landing-home-secondary" onClick={() => navigatePublic("/features")}>
+                View Features
+              </button>
             </div>
-            <div className="landing-card-chart">
-              <span />
-              <span />
-              <span />
-              <span />
-              <span />
+
+            <div className="landing-home-signals">
+              <article className="landing-home-signal panel">
+                <span>One place for every trade</span>
+                <strong>Entries, exits, notes, and screenshots stay connected.</strong>
+              </article>
+              <article className="landing-home-signal panel">
+                <span>Made for deliberate review</span>
+                <strong>See what happened, why it happened, and what to repeat.</strong>
+              </article>
+              <article className="landing-home-signal panel">
+                <span>Built to grow with you</span>
+                <strong>Flexible enough for edge review, behavior tracking, and future automation.</strong>
+              </article>
             </div>
           </div>
-          <div className="landing-hero-art reveal">
-            <div className="landing-hero-orb landing-hero-orb-primary" />
-            <div className="landing-hero-orb landing-hero-orb-secondary" />
-            <div className="landing-hero-orb landing-hero-orb-tertiary" />
-            <div className="landing-hero-grid" />
+
+          <div className="landing-home-visual animate-riseIn">
+            <div className="landing-home-float landing-home-float-top">Screenshot replay ready</div>
+            <div className="landing-home-float landing-home-float-bottom">Behavior patterns visible</div>
+
+            <div className="landing-home-workspace panel reveal">
+              <div className="landing-home-windowbar">
+                <div className="landing-home-windowdots" aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+                <small>Journex workspace</small>
+              </div>
+
+              <div className="landing-home-metric-row">
+                <article className="landing-home-metric-card">
+                  <span>Trade log</span>
+                  <strong>Structured and fast</strong>
+                </article>
+                <article className="landing-home-metric-card">
+                  <span>Review flow</span>
+                  <strong>Visual and contextual</strong>
+                </article>
+                <article className="landing-home-metric-card">
+                  <span>Insights</span>
+                  <strong>Behavior-first</strong>
+                </article>
+              </div>
+
+              <div className="landing-home-chart-card">
+                <div className="landing-home-chart-head">
+                  <div>
+                    <p className="landing-card-kicker">Performance rhythm</p>
+                    <h3 className="landing-card-title">Clarity across sessions</h3>
+                  </div>
+                  <span className="landing-home-chart-tag">Review-ready</span>
+                </div>
+
+                <div className="landing-home-chart">
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                </div>
+              </div>
+
+              <div className="landing-home-review-grid">
+                <article className="landing-home-review-card">
+                  <p className="landing-card-kicker">Replay</p>
+                  <div className="landing-home-review-shot">
+                    <span>Before screenshot</span>
+                    <span>After screenshot</span>
+                  </div>
+                </article>
+                <article className="landing-home-review-card">
+                  <p className="landing-card-kicker">Execution notes</p>
+                  <ul className="landing-home-note-list">
+                    <li>Session tagged</li>
+                    <li>Setup recorded</li>
+                    <li>Behavior reviewed</li>
+                  </ul>
+                </article>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
+      <section className="landing-home-section reveal">
+        <div className="landing-section-title landing-home-section-title">
+          <p className="landing-kicker">Built for the review loop</p>
+          <h3>Everything on the surface is designed to help you review with less friction.</h3>
+          <p>
+            Journex keeps the workflow simple: log the trade once, keep the visual context attached, and come back later
+            with enough structure to learn from what actually happened.
+          </p>
+        </div>
+
+        <div className="landing-home-pillars">
+          <article className="panel landing-home-pillar">
+            <span className="landing-home-pillar-index">01</span>
+            <h4>Capture the full trade</h4>
+            <p>Entry, exit, session, setup, notes, and screenshots stay in one place instead of being scattered.</p>
+          </article>
+          <article className="panel landing-home-pillar">
+            <span className="landing-home-pillar-index">02</span>
+            <h4>Review with context</h4>
+            <p>Replay the trade later with the same visual evidence and notes that informed the original decision.</p>
+          </article>
+          <article className="panel landing-home-pillar">
+            <span className="landing-home-pillar-index">03</span>
+            <h4>Improve with patterns</h4>
+            <p>Behavior tags, sessions, and setup tracking make it easier to notice what habits deserve more attention.</p>
+          </article>
+        </div>
+      </section>
+
+      <section className="landing-home-section reveal">
+        <div className="landing-home-story">
+          <div className="landing-home-story-copy">
+            <p className="landing-kicker">What Journex feels like</p>
+            <h3>Professional enough to trust, simple enough to use every day.</h3>
+            <p>
+              The landing experience now mirrors the product itself: structured, spacious, and built around focused review
+              instead of flashy distraction.
+            </p>
+          </div>
+
+          <div className="landing-home-bento">
+            <article className="panel landing-home-bento-card landing-home-bento-card-large">
+              <p className="landing-card-kicker">Workflow</p>
+              <h4>From entry to replay in one continuous system</h4>
+              <p>Log trades quickly, then revisit the same trade later with screenshots, notes, and context still intact.</p>
+            </article>
+            <article className="panel landing-home-bento-card">
+              <p className="landing-card-kicker">Review</p>
+              <h4>Visual context stays attached</h4>
+              <p>Before and after screenshots remain part of the trade review instead of getting lost in separate folders.</p>
+            </article>
+            <article className="panel landing-home-bento-card">
+              <p className="landing-card-kicker">Insight</p>
+              <h4>Behavior is easier to spot</h4>
+              <p>Sessions, setup tags, and disciplined note-taking make patterns easier to see over time.</p>
+            </article>
+            <article className="panel landing-home-bento-card">
+              <p className="landing-card-kicker">Growth</p>
+              <h4>Ready for deeper modules</h4>
+              <p>Edge detection, automation, and richer analytics can fit into the same foundation without breaking the flow.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-home-section reveal">
+        <div className="panel landing-home-endorsement">
+          <div className="landing-home-endorsement-copy">
+            <p className="landing-kicker">Why traders stay consistent</p>
+            <h3>Journex makes good review habits feel lighter, faster, and easier to repeat.</h3>
+            <p>
+              When the workspace is calm and structured, it is easier to keep journaling, spot repeat behaviors, and
+              build a process you can trust under pressure.
+            </p>
+          </div>
+
+          <div className="landing-home-endorsement-points">
+            <div>
+              <span>Focused experience</span>
+              <strong>Important actions and signals stay visible without visual overload.</strong>
+            </div>
+            <div>
+              <span>Practical review</span>
+              <strong>The product helps you move from raw trades to usable lessons more naturally.</strong>
+            </div>
+            <div>
+              <span>Room to grow</span>
+              <strong>As your process matures, Journex can support deeper analytics and edge-focused review.</strong>
+            </div>
+          </div>
+        </div>
+      </section>
     </>
   );
 

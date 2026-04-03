@@ -644,10 +644,13 @@ const AuthPanel = ({ onAuthenticated }) => {
 
   const privacyPageSections = (
     <section className="landing-section landing-legal-section reveal">
-      <div className="landing-section-title">
+      <div className="landing-section-title landing-utility-simple-title">
         <p className="landing-kicker">Privacy</p>
-        <h3>How Journex handles your data</h3>
-        <p>Journex stores account details, trade records, screenshots, and review notes only to deliver your journal experience and keep your workspace synced.</p>
+        <h3>How Journex handles your journal data</h3>
+        <p>
+          Journex stores account details, trades, screenshots, and review notes so your workspace stays synced,
+          available, and useful when it is time to review.
+        </p>
       </div>
       <div className="landing-legal-grid">
         <article className="panel landing-legal-card">
@@ -668,10 +671,13 @@ const AuthPanel = ({ onAuthenticated }) => {
 
   const termsPageSections = (
     <section className="landing-section landing-legal-section reveal">
-      <div className="landing-section-title">
+      <div className="landing-section-title landing-utility-simple-title">
         <p className="landing-kicker">Terms</p>
         <h3>Using Journex responsibly</h3>
-        <p>Journex is a journaling and analysis tool for traders. It does not provide financial advice, guarantees, or trade execution outcomes.</p>
+        <p>
+          Journex is a journaling and analysis tool for traders. It is built to support review and organization, not to
+          provide financial advice or trading guarantees.
+        </p>
       </div>
       <div className="landing-legal-grid">
         <article className="panel landing-legal-card">
@@ -692,10 +698,10 @@ const AuthPanel = ({ onAuthenticated }) => {
 
   const contactPageSections = (
     <section className="landing-section landing-contact-section reveal">
-      <div className="landing-section-title">
+      <div className="landing-section-title landing-utility-simple-title">
         <p className="landing-kicker">Contact</p>
         <h3>Get in touch with Journex</h3>
-        <p>If you need help with access, product feedback, or setup questions, use the details below and we will point you in the right direction.</p>
+        <p>If you need help with access, product feedback, or setup questions, the details below will point you to the right place.</p>
       </div>
       <div className="landing-contact-grid">
         <article className="panel landing-contact-card">

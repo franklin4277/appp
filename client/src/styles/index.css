@@ -1755,6 +1755,50 @@ body::before {
   gap: 0.3rem;
 }
 
+.landing-utility-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.72fr);
+  gap: 1rem;
+  align-items: center;
+}
+
+.landing-utility-hero-copy h3 {
+  margin: 0.6rem 0 0;
+  font-size: clamp(1.9rem, 3.2vw, 2.9rem);
+  line-height: 1.06;
+}
+
+.landing-utility-hero-copy p:last-child {
+  margin: 0.55rem 0 0;
+  color: var(--text-muted);
+  line-height: 1.68;
+  max-width: 62ch;
+}
+
+.landing-utility-hero-card {
+  padding: 1.15rem;
+  border-radius: 24px;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.landing-utility-hero-card span {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #93c5fd;
+}
+
+.landing-utility-hero-card strong {
+  color: var(--text-main);
+  line-height: 1.5;
+}
+
+.landing-utility-simple-title {
+  max-width: 720px;
+}
+
 .saas-shell {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
@@ -4219,13 +4263,18 @@ body::before {
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.96));
 }
 
+:root[data-theme="light"] .landing-utility-hero-card {
+  background: rgba(255, 255, 255, 0.92);
+}
+
 @media (max-width: 1100px) {
   .landing-home-grid,
   .landing-home-story,
   .landing-home-endorsement,
   .landing-features-page-grid,
   .landing-features-page-sequence,
-  .landing-features-page-proof {
+  .landing-features-page-proof,
+  .landing-utility-hero {
     grid-template-columns: 1fr;
   }
 
@@ -4437,7 +4486,8 @@ body::before {
   .landing-features-page-analysis-card,
   .landing-features-page-capability,
   .landing-features-page-step,
-  .landing-features-page-highlights div {
+  .landing-features-page-highlights div,
+  .landing-utility-hero-card {
     padding: 0.95rem;
   }
 
@@ -4462,6 +4512,10 @@ body::before {
 
   .landing-footer-copy {
     text-align: left;
+  }
+
+  .landing-utility-hero-copy h3 {
+    font-size: clamp(1.7rem, 7vw, 2.25rem);
   }
 }
 
@@ -4542,7 +4596,8 @@ body::before {
   }
 
   .landing-features-page-highlights div,
-  .landing-features-page-proof-points div {
+  .landing-features-page-proof-points div,
+  .landing-utility-hero-card {
     padding: 0.82rem;
   }
 

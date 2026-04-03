@@ -7,14 +7,10 @@ import {
   requestPasswordReset,
   verifyTwoFactorLogin,
 } from "../api/tradesApi";
-import BrandLogo from "./BrandLogo";
 
 const AuthPanel = ({ onAuthenticated }) => {
   const showDebugSecrets = Boolean(import.meta.env.DEV || import.meta.env.VITE_SHOW_DEBUG_AUTH_SECRETS === "true");
   const [publicPath, setPublicPath] = useState(() => String(window.location.pathname || "").replace(/\/+$/, "") || "/");
-  const [landingMenuOpen, setLandingMenuOpen] = useState(false);
-  const [headerScrolled, setHeaderScrolled] = useState(false);
-  const [headerHidden, setHeaderHidden] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [mode, setMode] = useState("login");
   const [name, setName] = useState("");
@@ -32,8 +28,6 @@ const AuthPanel = ({ onAuthenticated }) => {
   const [deliveryHint, setDeliveryHint] = useState("");
   const [healthStatus, setHealthStatus] = useState({ state: "idle", attempt: 0, error: "" });
   const wakeSeqRef = useRef(0);
-  const landingMenuRef = useRef(null);
-  const lastScrollYRef = useRef(0);
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -90,59 +84,11 @@ const AuthPanel = ({ onAuthenticated }) => {
   useEffect(() => {
     const syncPath = () => {
       setPublicPath(String(window.location.pathname || "").replace(/\/+$/, "") || "/");
-      setLandingMenuOpen(false);
     };
 
     window.addEventListener("popstate", syncPath);
     return () => window.removeEventListener("popstate", syncPath);
   }, []);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentY = window.scrollY || 0;
-      const previousY = lastScrollYRef.current;
-      setHeaderScrolled(currentY > 18);
-
-      if (currentY <= 24) {
-        setHeaderHidden(false);
-      } else if (currentY > previousY && currentY - previousY > 6) {
-        setHeaderHidden(true);
-      } else if (currentY < previousY) {
-        setHeaderHidden(false);
-      }
-
-      lastScrollYRef.current = currentY;
-    };
-
-    handleScroll();
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  useEffect(() => {
-    if (!landingMenuOpen) {
-      return undefined;
-    }
-
-    const handlePointer = (event) => {
-      if (landingMenuRef.current && !landingMenuRef.current.contains(event.target)) {
-        setLandingMenuOpen(false);
-      }
-    };
-
-    const handleEscape = (event) => {
-      if (event.key === "Escape") {
-        setLandingMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handlePointer);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handlePointer);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [landingMenuOpen]);
 
   useEffect(() => {
     const elements = Array.from(document.querySelectorAll(".reveal"));
@@ -608,53 +554,6 @@ const AuthPanel = ({ onAuthenticated }) => {
   return (
     <main className={`landing-page ${isHomePage ? "landing-page-home" : "landing-page-secondary"}`}>
       <div className={`landing-wrap ${isHomePage ? "landing-wrap-home" : "landing-wrap-features"}`}>
-        <header className={`landing-header ${headerScrolled ? "is-scrolled" : ""} ${headerHidden ? "is-hidden" : ""}`}>
-          <button type="button" className="landing-brand landing-link-button" onClick={() => navigatePublic("/")}>
-            <BrandLogo className="brand-logo brand-logo-landing" />
-            <span className="landing-brand-title">Journex</span>
-          </button>
-          <div className="landing-menu" ref={landingMenuRef}>
-            <button
-              type="button"
-              className="landing-menu-trigger"
-              aria-expanded={landingMenuOpen}
-              aria-haspopup="menu"
-              onClick={() => setLandingMenuOpen((open) => !open)}
-            >
-              <span className="landing-menu-trigger-label">Get Started</span>
-              <span className="landing-menu-trigger-icon" aria-hidden="true">
-                <span />
-                <span />
-                <span />
-              </span>
-            </button>
-            {landingMenuOpen ? (
-              <div className="landing-menu-dropdown panel" role="menu" aria-label="Landing page menu">
-                <div className="landing-menu-group">
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="landing-menu-item"
-                    onClick={() => openAuth("login")}
-                  >
-                    Login
-                  </button>
-                </div>
-                <div className="landing-menu-divider" />
-                <div className="landing-menu-group">
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="landing-menu-item landing-menu-item-primary"
-                    onClick={() => openAuth("register")}
-                  >
-                    Register
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </header>
         {publicSections}
 
         <footer className="landing-footer">

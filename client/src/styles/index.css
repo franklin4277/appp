@@ -2771,6 +2771,7 @@ body::before {
 
 .saas-main-grid-analytics-overview {
   align-items: start;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.9fr);
 }
 
 .saas-analytics-equity-card,
@@ -3559,6 +3560,23 @@ body::before {
   color: var(--text-main);
   font-size: 1.05rem;
   line-height: 1.2;
+}
+
+.saas-risk-tracking-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.95fr);
+  gap: 0.9rem;
+  align-items: start;
+}
+
+.saas-risk-chart-panel,
+.saas-risk-side-panel {
+  min-width: 0;
+}
+
+.saas-risk-side-panel {
+  display: grid;
+  gap: 0.7rem;
 }
 
 .saas-risk-overview-grid {
@@ -5135,6 +5153,12 @@ body::before {
   .saas-form-grid {
     grid-template-columns: 1fr;
     gap: 0.52rem;
+  }
+
+  .saas-main-grid-analytics-overview,
+  .saas-risk-tracking-grid,
+  .saas-risk-overview-grid {
+    grid-template-columns: 1fr;
   }
 
   .saas-settings-grid {

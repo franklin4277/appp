@@ -970,6 +970,22 @@ const SaasWorkspace = ({
   const dailyProfitTargetPercent = Math.max(Number(user?.settings?.riskControls?.dailyProfitTargetPercent || 0), 0);
   const weeklyProfitTargetPercent = Math.max(Number(user?.settings?.riskControls?.weeklyProfitTargetPercent || 0), 0);
   const maxDailyDrawdownPercent = Math.max(Number(user?.settings?.riskControls?.maxDailyDrawdownPercent || 0), 0);
+  const showSettingsPreview = activePage === "settings" || activePage === "risk";
+  const previewProfileName = String(settingsDraft.profileName || "").trim() || activeProfile?.name || "Workspace";
+  const previewProfileDescription = String(settingsDraft.profileDescription || "").trim() || activeProfile?.description || "";
+  const previewAccountSize = showSettingsPreview ? Math.max(Number(settingsDraft.accountSize || 0), 0) : activeProfileAccountSize;
+  const previewMaxRiskPerTradePercent = showSettingsPreview
+    ? Math.max(Number(settingsDraft.maxRiskPerTradePercent || 0), 0)
+    : maxRiskPerTradePercent;
+  const previewDailyProfitTargetPercent = showSettingsPreview
+    ? Math.max(Number(settingsDraft.dailyProfitTargetPercent || 0), 0)
+    : dailyProfitTargetPercent;
+  const previewWeeklyProfitTargetPercent = showSettingsPreview
+    ? Math.max(Number(settingsDraft.weeklyProfitTargetPercent || 0), 0)
+    : weeklyProfitTargetPercent;
+  const previewMaxDailyDrawdownPercent = showSettingsPreview
+    ? Math.max(Number(settingsDraft.maxDailyDrawdownPercent || 0), 0)
+    : maxDailyDrawdownPercent;
   const activeAccountPerformance = useMemo(
     () => computeAccountPerformance(allTrades, activeProfileAccountSize),
     [activeProfileAccountSize, allTrades]
@@ -978,8 +994,20 @@ const SaasWorkspace = ({
     () => buildAccountTimeline(allTrades, activeProfileAccountSize),
     [activeProfileAccountSize, allTrades]
   );
+  const previewAccountPerformance = useMemo(
+    () => computeAccountPerformance(allTrades, previewAccountSize),
+    [allTrades, previewAccountSize]
+  );
+  const previewAccountTimeline = useMemo(
+    () => buildAccountTimeline(allTrades, previewAccountSize),
+    [allTrades, previewAccountSize]
+  );
   const accountImpactByTradeId = accountTimeline.impactByTradeId;
   const accountBalancePolyline = useMemo(() => buildPolyline(accountTimeline.points), [accountTimeline.points]);
+  const previewAccountBalancePolyline = useMemo(
+    () => buildPolyline(previewAccountTimeline.points),
+    [previewAccountTimeline.points]
+  );
   const todayStart = useMemo(() => {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
@@ -996,6 +1024,14 @@ const SaasWorkspace = ({
   const weeklyAccountPerformance = useMemo(
     () => computeAccountPerformance(weeklyTrades, activeProfileAccountSize),
     [activeProfileAccountSize, weeklyTrades]
+  );
+  const previewDailyAccountPerformance = useMemo(
+    () => computeAccountPerformance(dailyTrades, previewAccountSize),
+    [dailyTrades, previewAccountSize]
+  );
+  const previewWeeklyAccountPerformance = useMemo(
+    () => computeAccountPerformance(weeklyTrades, previewAccountSize),
+    [previewAccountSize, weeklyTrades]
   );
   const quickTradeRiskSnapshot = useMemo(() => {
     const riskPercent = Math.max(toNumber(quickTradeForm?.riskPercent, 0), 0);
@@ -1186,6 +1222,45 @@ const SaasWorkspace = ({
       breached: drawdownPercent >= maxDailyDrawdownPercent,
     };
   }, [dailyAccountPerformance, maxDailyDrawdownPercent]);
+  const previewDailyGoalProgress = useMemo(() => {
+    if (!previewDailyAccountPerformance || previewDailyProfitTargetPercent <= 0) {
+      return null;
+    }
+    return {
+      targetPercent: previewDailyProfitTargetPercent,
+      currentPercent: previewDailyAccountPerformance.returnPercent,
+      progressPercent: Math.min(
+        Math.max((previewDailyAccountPerformance.returnPercent / previewDailyProfitTargetPercent) * 100, 0),
+        100
+      ),
+    };
+  }, [previewDailyAccountPerformance, previewDailyProfitTargetPercent]);
+  const previewWeeklyGoalProgress = useMemo(() => {
+    if (!previewWeeklyAccountPerformance || previewWeeklyProfitTargetPercent <= 0) {
+      return null;
+    }
+    return {
+      targetPercent: previewWeeklyProfitTargetPercent,
+      currentPercent: previewWeeklyAccountPerformance.returnPercent,
+      progressPercent: Math.min(
+        Math.max((previewWeeklyAccountPerformance.returnPercent / previewWeeklyProfitTargetPercent) * 100, 0),
+        100
+      ),
+    };
+  }, [previewWeeklyAccountPerformance, previewWeeklyProfitTargetPercent]);
+  const previewDailyDrawdownProgress = useMemo(() => {
+    if (!previewDailyAccountPerformance || previewMaxDailyDrawdownPercent <= 0) {
+      return null;
+    }
+    const drawdownPercent = Math.max(-previewDailyAccountPerformance.returnPercent, 0);
+    return {
+      capPercent: previewMaxDailyDrawdownPercent,
+      currentPercent: drawdownPercent,
+      usedPercent: drawdownPercent,
+      progressPercent: Math.min(Math.max((drawdownPercent / previewMaxDailyDrawdownPercent) * 100, 0), 100),
+      breached: drawdownPercent >= previewMaxDailyDrawdownPercent,
+    };
+  }, [previewDailyAccountPerformance, previewMaxDailyDrawdownPercent]);
   const analyticsMetricBars = useMemo(
     () => [
       {
@@ -1213,28 +1288,28 @@ const SaasWorkspace = ({
     () => [
       {
         label: "Daily",
-        valueLabel: dailyGoalProgress
-          ? `${dailyGoalProgress.currentPercent >= 0 ? "+" : ""}${dailyGoalProgress.currentPercent}%`
+        valueLabel: previewDailyGoalProgress
+          ? `${previewDailyGoalProgress.currentPercent >= 0 ? "+" : ""}${previewDailyGoalProgress.currentPercent}%`
           : "Set target",
-        fillPercent: dailyGoalProgress?.progressPercent || 0,
+        fillPercent: previewDailyGoalProgress?.progressPercent || 0,
         tone: "green",
       },
       {
         label: "Weekly",
-        valueLabel: weeklyGoalProgress
-          ? `${weeklyGoalProgress.currentPercent >= 0 ? "+" : ""}${weeklyGoalProgress.currentPercent}%`
+        valueLabel: previewWeeklyGoalProgress
+          ? `${previewWeeklyGoalProgress.currentPercent >= 0 ? "+" : ""}${previewWeeklyGoalProgress.currentPercent}%`
           : "Set target",
-        fillPercent: weeklyGoalProgress?.progressPercent || 0,
+        fillPercent: previewWeeklyGoalProgress?.progressPercent || 0,
         tone: "blue",
       },
       {
         label: "Drawdown",
-        valueLabel: dailyDrawdownProgress ? `${dailyDrawdownProgress.usedPercent}% used` : "Set cap",
-        fillPercent: dailyDrawdownProgress?.progressPercent || 0,
+        valueLabel: previewDailyDrawdownProgress ? `${previewDailyDrawdownProgress.usedPercent}% used` : "Set cap",
+        fillPercent: previewDailyDrawdownProgress?.progressPercent || 0,
         tone: "red",
       },
     ],
-    [dailyDrawdownProgress, dailyGoalProgress, weeklyGoalProgress]
+    [previewDailyDrawdownProgress, previewDailyGoalProgress, previewWeeklyGoalProgress]
   );
 
   const formatAccountSize = useCallback((value) => {
@@ -4044,21 +4119,21 @@ const SaasWorkspace = ({
           <div className="saas-insights-row">
             <article className="panel saas-card saas-insight-card">
               <p className="saas-stat-kicker">Account size</p>
-              <h3>{activeProfileAccountSize > 0 ? formatCurrency(activeProfileAccountSize) : "-"}</h3>
-              <p className="saas-stat-label">Active profile: {activeProfile?.name || "Workspace"}</p>
+              <h3>{previewAccountSize > 0 ? formatCurrency(previewAccountSize) : "-"}</h3>
+              <p className="saas-stat-label">Active profile: {previewProfileName}</p>
             </article>
             <article className="panel saas-card saas-insight-card">
               <p className="saas-stat-kicker">Account return</p>
-              <h3>{activeAccountPerformance ? `${activeAccountPerformance.returnPercent >= 0 ? "+" : ""}${activeAccountPerformance.returnPercent}%` : "-"}</h3>
+              <h3>{previewAccountPerformance ? `${previewAccountPerformance.returnPercent >= 0 ? "+" : ""}${previewAccountPerformance.returnPercent}%` : "-"}</h3>
               <p className="saas-stat-label">
-                {activeAccountPerformance
-                  ? `${formatCurrency(activeAccountPerformance.currentBalance)} current balance`
+                {previewAccountPerformance
+                  ? `${formatCurrency(previewAccountPerformance.currentBalance)} current balance`
                   : "Set an account size to unlock account-aware performance."}
               </p>
             </article>
             <article className="panel saas-card saas-insight-card">
               <p className="saas-stat-kicker">Max drawdown</p>
-              <h3>{activeAccountPerformance ? `${activeAccountPerformance.maxDrawdownPercent}%` : "-"}</h3>
+              <h3>{previewAccountPerformance ? `${previewAccountPerformance.maxDrawdownPercent}%` : "-"}</h3>
               <p className="saas-stat-label">Account risk lives here instead of spreading across Review and Settings.</p>
             </article>
           </div>
@@ -4067,41 +4142,46 @@ const SaasWorkspace = ({
             <div className="saas-card-head">
               <div>
                 <h3 className="saas-card-title">Equity + Goal Tracking</h3>
-                <p className="saas-card-subtitle">Account goals, drawdown caps, and funded challenge progress.</p>
+                <p className="saas-card-subtitle">Account goals, drawdown caps, and funded challenge progress. Draft changes preview here before you save.</p>
               </div>
+              {showSettingsPreview ? <span className="chip text-textMain">Live preview</span> : null}
             </div>
-            {accountTimeline.points.length > 1 ? (
-              <div className="saas-equity-curve-card mt-3">
-                <svg viewBox="0 0 640 260" preserveAspectRatio="none" aria-hidden="true">
-                  <polyline points={accountBalancePolyline} />
-                </svg>
+            <div className="saas-risk-tracking-grid mt-4">
+              <div className="saas-risk-chart-panel">
+                {previewAccountTimeline.points.length > 1 ? (
+                  <div className="saas-equity-curve-card">
+                    <svg viewBox="0 0 640 260" preserveAspectRatio="none" aria-hidden="true">
+                      <polyline points={previewAccountBalancePolyline} />
+                    </svg>
+                  </div>
+                ) : (
+                  <p className="saas-stat-label">Add risk-aware trades to build an account equity curve.</p>
+                )}
               </div>
-            ) : (
-              <p className="saas-stat-label mt-3">Add risk-aware trades to build an account equity curve.</p>
-            )}
-            <div className="saas-mini-graph saas-mini-graph-goals mt-4">
-              {goalTrackingBars.map((metric) => (
-                <div key={metric.label} className="saas-mini-graph-row">
-                  <div className="saas-mini-graph-meta">
-                    <span>{metric.label}</span>
-                    <strong>{metric.valueLabel}</strong>
-                  </div>
-                  <div className="saas-mini-graph-track" aria-hidden="true">
-                    <span className={`saas-mini-graph-fill saas-mini-graph-fill-${metric.tone}`} style={{ width: `${metric.fillPercent}%` }} />
-                  </div>
+              <div className="saas-risk-side-panel">
+                <div className="saas-mini-graph saas-mini-graph-goals">
+                  {goalTrackingBars.map((metric) => (
+                    <div key={metric.label} className="saas-mini-graph-row">
+                      <div className="saas-mini-graph-meta">
+                        <span>{metric.label}</span>
+                        <strong>{metric.valueLabel}</strong>
+                      </div>
+                      <div className="saas-mini-graph-track" aria-hidden="true">
+                        <span className={`saas-mini-graph-fill saas-mini-graph-fill-${metric.tone}`} style={{ width: `${metric.fillPercent}%` }} />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <div className="saas-risk-overview-grid mt-4">
+                <div className="saas-risk-overview-grid">
               <div className="saas-note-card saas-goal-card">
                 <h4>Daily Goal</h4>
-                {dailyGoalProgress ? (
+                {previewDailyGoalProgress ? (
                   <>
                     <p className="saas-stat-label mt-2">
-                      {dailyAccountPerformance?.returnPercent?.toFixed(2)}% of {dailyGoalProgress.targetPercent}% target
+                      {previewDailyAccountPerformance?.returnPercent?.toFixed(2)}% of {previewDailyGoalProgress.targetPercent}% target
                     </p>
                     <div className="saas-progress saas-progress-green mt-3">
-                      <span style={{ width: `${dailyGoalProgress.progressPercent}%` }} />
+                      <span style={{ width: `${previewDailyGoalProgress.progressPercent}%` }} />
                     </div>
                   </>
                 ) : (
@@ -4110,13 +4190,13 @@ const SaasWorkspace = ({
               </div>
               <div className="saas-note-card saas-goal-card">
                 <h4>Weekly Goal</h4>
-                {weeklyGoalProgress ? (
+                {previewWeeklyGoalProgress ? (
                   <>
                     <p className="saas-stat-label mt-2">
-                      {weeklyAccountPerformance?.returnPercent?.toFixed(2)}% of {weeklyGoalProgress.targetPercent}% target
+                      {previewWeeklyAccountPerformance?.returnPercent?.toFixed(2)}% of {previewWeeklyGoalProgress.targetPercent}% target
                     </p>
                     <div className="saas-progress saas-progress-green mt-3">
-                      <span style={{ width: `${weeklyGoalProgress.progressPercent}%` }} />
+                      <span style={{ width: `${previewWeeklyGoalProgress.progressPercent}%` }} />
                     </div>
                   </>
                 ) : (
@@ -4125,18 +4205,20 @@ const SaasWorkspace = ({
               </div>
               <div className="saas-note-card saas-goal-card">
                 <h4>Daily Drawdown</h4>
-                {dailyDrawdownProgress ? (
+                {previewDailyDrawdownProgress ? (
                   <>
                     <p className="saas-stat-label mt-2">
-                      {dailyDrawdownProgress.usedPercent}% used of {dailyDrawdownProgress.capPercent}% cap
+                      {previewDailyDrawdownProgress.usedPercent}% used of {previewDailyDrawdownProgress.capPercent}% cap
                     </p>
                     <div className="saas-progress saas-progress-red mt-3">
-                      <span style={{ width: `${dailyDrawdownProgress.progressPercent}%` }} />
+                      <span style={{ width: `${previewDailyDrawdownProgress.progressPercent}%` }} />
                     </div>
                   </>
                 ) : (
                   <p className="saas-stat-label mt-2">Set a daily drawdown cap to track protection here.</p>
                 )}
+              </div>
+                </div>
               </div>
             </div>
           </article>
@@ -4378,12 +4460,12 @@ const SaasWorkspace = ({
           <div className="saas-insights-row saas-insights-row-settings">
             <article className="panel saas-card saas-insight-card">
               <p className="saas-stat-kicker">Active profile</p>
-              <h3>{activeProfile?.name || "Workspace"}</h3>
+              <h3>{previewProfileName}</h3>
               <p className="saas-stat-label">
-                {activeAccountPerformance
-                  ? `${formatAccountSize(activeProfile.accountSize)} start | ${activeAccountPerformance.returnPercent >= 0 ? "+" : ""}${activeAccountPerformance.returnPercent}% return`
-                  : activeProfile?.accountSize > 0
-                    ? `Account size ${formatAccountSize(activeProfile.accountSize)}`
+                {previewAccountPerformance
+                  ? `${formatAccountSize(previewAccountSize)} start | ${previewAccountPerformance.returnPercent >= 0 ? "+" : ""}${previewAccountPerformance.returnPercent}% return`
+                  : previewAccountSize > 0
+                    ? `Account size ${formatAccountSize(previewAccountSize)}`
                     : "Your current trading workspace and saved configuration."}
               </p>
             </article>

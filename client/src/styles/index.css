@@ -2716,6 +2716,13 @@ body::before {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
+.saas-coaching-grid {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+}
+
 .saas-card-title {
   margin: 0 0 0.72rem;
   color: var(--text-main);
@@ -3387,6 +3394,15 @@ body::before {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.03),
     0 10px 28px rgba(2, 6, 23, 0.16);
+}
+
+.saas-coaching-grid .saas-note-card,
+.saas-coaching-summary {
+  min-width: 0;
+}
+
+.saas-coaching-summary {
+  width: 100%;
 }
 
 .saas-note-card h4 {
@@ -4668,6 +4684,11 @@ body::before {
   }
 
   .saas-main-grid {
+    grid-template-columns: 1fr;
+    gap: 0.52rem;
+  }
+
+  .saas-coaching-grid {
     grid-template-columns: 1fr;
     gap: 0.52rem;
   }

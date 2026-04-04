@@ -3640,7 +3640,7 @@ const SaasWorkspace = ({
               </div>
               <span className="chip text-textMain">Assistant</span>
             </div>
-            <div className="saas-main-grid mt-4">
+            <div className="saas-coaching-grid mt-4">
               <div className="saas-note-card">
                 <h4>Keep</h4>
                 <ul className="saas-note-list">
@@ -3672,7 +3672,7 @@ const SaasWorkspace = ({
                 </ul>
               </div>
             </div>
-            <div className="saas-note-card mt-4">
+            <div className="saas-note-card saas-coaching-summary mt-4">
               <h4>Coach Summary</h4>
               <p className="saas-stat-label mt-2">{coachingSummary.assistant}</p>
               {reviewMistakeStats.length ? (

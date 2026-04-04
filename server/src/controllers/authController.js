@@ -22,6 +22,16 @@ import { trackFailedLoginAttempt } from "../services/security.js";
 const normalizeEmail = (value = "") => String(value).trim().toLowerCase();
 const normalizeName = (value = "") => String(value).trim();
 const isProd = process.env.NODE_ENV === "production";
+const normalizeAccountSize = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return 0;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw badRequest("Account size must be 0 or greater.");
+  }
+  return parsed;
+};
 
 const asStringArray = (value = []) => {
   const source = Array.isArray(value) ? value : String(value).split(/[,\n]/g);
@@ -1315,6 +1325,7 @@ export const createProfile = async (req, res, next) => {
   try {
     const name = normalizeName(req.body.name || "");
     const description = String(req.body.description || "").trim().slice(0, 200);
+    const accountSize = normalizeAccountSize(req.body.accountSize);
 
     if (name.length < 2) {
       throw badRequest("Profile name must be at least 2 characters.");
@@ -1326,6 +1337,7 @@ export const createProfile = async (req, res, next) => {
       id: nextId,
       name,
       description,
+      accountSize,
       isDefault: false,
       createdAt: new Date(),
     };
@@ -1347,6 +1359,56 @@ export const createProfile = async (req, res, next) => {
     });
 
     res.status(201).json({
+      user: toPublicUser(req.user),
+      profile,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateProfile = async (req, res, next) => {
+  try {
+    const profileId = String(req.params.profileId || "").trim();
+    if (!profileId) {
+      throw badRequest("profileId is required.");
+    }
+
+    ensureUserProfiles(req.user);
+    const profile = (req.user.profiles || []).find((entry) => entry.id === profileId);
+    if (!profile) {
+      const error = new Error("Profile not found.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, "name")) {
+      const name = normalizeName(req.body.name || "");
+      if (name.length < 2) {
+        throw badRequest("Profile name must be at least 2 characters.");
+      }
+      profile.name = name;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, "description")) {
+      profile.description = String(req.body.description || "").trim().slice(0, 200);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, "accountSize")) {
+      profile.accountSize = normalizeAccountSize(req.body.accountSize);
+    }
+
+    await req.user.save();
+
+    await recordAudit({
+      req,
+      userId: req.user._id,
+      action: "profile.updated",
+      targetType: "profile",
+      targetId: profileId,
+    });
+
+    res.json({
       user: toPublicUser(req.user),
       profile,
     });

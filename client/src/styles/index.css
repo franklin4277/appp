@@ -4257,14 +4257,57 @@ body::before {
   }
 
   .saas-topbar {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.55rem;
+    padding: 0.62rem 0.72rem;
+  }
+
+  .saas-topbar-left {
+    min-width: 0;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    white-space: nowrap;
   }
 
   .saas-topbar-right {
-    width: 100%;
-    justify-content: space-between;
-    flex-wrap: wrap;
+    width: auto;
+    min-width: 0;
+    flex: 1 1 auto;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+  }
+
+  .saas-user-card {
+    min-width: 0;
+    padding: 0.34rem 0.46rem;
+    gap: 0.45rem;
+  }
+
+  .saas-user-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 0.72rem;
+  }
+
+  .saas-user-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.38rem;
+    min-width: 0;
+  }
+
+  .saas-user-meta strong {
+    font-size: 0.76rem;
+    white-space: nowrap;
+  }
+
+  .saas-user-meta span {
+    max-width: 34vw;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .saas-page-header {
@@ -4843,6 +4886,15 @@ body::before {
 }
 
 @media (max-width: 520px) {
+  .saas-user-meta strong {
+    display: none;
+  }
+
+  .saas-user-meta span {
+    max-width: 42vw;
+    font-size: 0.7rem;
+  }
+
   .landing-wrap,
   .landing-wrap-home {
     width: calc(100% - 14px);

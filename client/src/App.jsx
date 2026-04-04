@@ -25,6 +25,7 @@ import {
   setActiveProfile,
   syncOfflineQueue,
   updateUserSettings,
+  updateProfile,
   unlockTrustedDevice,
 } from "./api/tradesApi";
 import { PAIRS } from "./utils/options";
@@ -303,6 +304,7 @@ const App = () => {
   const [quickTradeForm, setQuickTradeForm] = useState(() => buildQuickTradeForm({ pairOptions: PAIRS }));
   const [savingQuickTrade, setSavingQuickTrade] = useState(false);
   const [creatingProfile, setCreatingProfile] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
   const [savingUserSettings, setSavingUserSettings] = useState(false);
   const syncInFlightRef = useRef(false);
   const loadRequestSeqRef = useRef(0);
@@ -924,7 +926,7 @@ const App = () => {
     }
   };
 
-  const handleProfileCreate = async ({ name, description = "", makeActive = true } = {}) => {
+  const handleProfileCreate = async ({ name, description = "", accountSize = 0, makeActive = true } = {}) => {
     const trimmedName = String(name || "").trim();
     const trimmedDescription = String(description || "").trim();
 
@@ -951,6 +953,7 @@ const App = () => {
       const response = await createProfile(token, {
         name: trimmedName,
         description: trimmedDescription,
+        accountSize: Number(accountSize) || 0,
         makeActive,
       });
 
@@ -972,6 +975,42 @@ const App = () => {
       return null;
     } finally {
       setCreatingProfile(false);
+    }
+  };
+
+  const handleProfileUpdate = async (profileId, payload = {}) => {
+    const normalizedProfileId = String(profileId || "").trim();
+    if (!normalizedProfileId) {
+      setError("Select a profile first.");
+      return null;
+    }
+
+    if (!token) {
+      setError("You must be signed in to update a profile.");
+      return null;
+    }
+
+    if (!isOnline) {
+      setError("You're offline. Connect to the internet to update a profile.");
+      return null;
+    }
+
+    setSavingProfile(true);
+    setError("");
+    setStatusMessage("");
+
+    try {
+      const response = await updateProfile(token, normalizedProfileId, payload);
+      if (response?.user) {
+        setUser(response.user);
+      }
+      setStatusMessage("Profile updated.");
+      return response?.profile || null;
+    } catch (updateError) {
+      setError(updateError.message || "Could not update profile.");
+      return null;
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -1584,7 +1623,9 @@ const App = () => {
         filters={filters}
         handleProfileSwitch={handleProfileSwitch}
         handleProfileCreate={handleProfileCreate}
+        handleProfileUpdate={handleProfileUpdate}
         creatingProfile={creatingProfile}
+        savingProfile={savingProfile}
         handleUpdateUserSettings={handleUpdateUserSettings}
         savingUserSettings={savingUserSettings}
         handleGenerateMt5BridgeKey={handleGenerateMt5BridgeKey}

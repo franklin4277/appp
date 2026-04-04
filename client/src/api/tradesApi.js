@@ -900,6 +900,21 @@ export const createProfile = async (token, profilePayload) => {
   return parseResponse(response);
 };
 
+export const updateProfile = async (token, profileId, profilePayload) => {
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/auth/profiles/${encodeURIComponent(profileId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(profilePayload),
+    },
+    token
+  );
+  return parseResponse(response);
+};
+
 export const setActiveProfile = async (token, profileId) => {
   const response = await fetchWithAuthRetry(
     `${API_BASE}/api/auth/profiles/active`,

@@ -41,6 +41,7 @@ const defaultProfile = () => ({
   id: DEFAULT_PROFILE_ID,
   name: "Main Profile",
   description: "Default journal profile",
+  accountSize: 0,
   isDefault: true,
 });
 
@@ -75,6 +76,11 @@ const profileSchema = new mongoose.Schema(
       default: "",
       trim: true,
       maxlength: 200,
+    },
+    accountSize: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
     isDefault: {
       type: Boolean,
@@ -433,10 +439,12 @@ userSchema.pre("save", function normalizeProfiles(next) {
 
     const name = normalizeText(source.name).slice(0, 80);
     const description = normalizeText(source.description).slice(0, 200);
+    const accountSize = Number(source.accountSize);
     normalizedProfiles.push({
       id: nextId,
       name: name || (nextId === DEFAULT_PROFILE_ID ? "Main Profile" : `Profile ${index + 1}`),
       description,
+      accountSize: Number.isFinite(accountSize) && accountSize >= 0 ? accountSize : 0,
       isDefault: Boolean(source.isDefault),
       createdAt: ensureValidDate(source.createdAt),
     });

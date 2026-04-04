@@ -16,6 +16,7 @@ import {
   refreshSession,
   register,
   sendEmailDeliveryTest,
+  updateProfile,
   verifyEmail,
   verifyTwoFactorLogin,
   setActiveProfile,
@@ -93,6 +94,7 @@ router.patch("/settings", requireAuth, updateSettings);
 router.post("/integrations/mt5/key", requireAuth, authLimiter, generateMt5IntegrationKey);
 router.post("/integrations/mt5/disable", requireAuth, authLimiter, disableMt5Integration);
 router.post("/profiles", requireAuth, createProfile);
+router.patch("/profiles/:profileId", requireAuth, updateProfile);
 router.patch("/profiles/active", requireAuth, setActiveProfile);
 router.post("/email-verification/request", requireAuth, recoveryLimiter, requestEmailVerification);
 router.get("/email-delivery/status", requireAuth, getEmailDeliveryStatus);

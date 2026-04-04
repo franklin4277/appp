@@ -263,7 +263,9 @@ const SaasWorkspace = ({
   filters,
   handleProfileSwitch,
   handleProfileCreate,
+  handleProfileUpdate,
   creatingProfile,
+  savingProfile,
   handleUpdateUserSettings,
   savingUserSettings,
   handleGenerateMt5BridgeKey,
@@ -471,6 +473,7 @@ const SaasWorkspace = ({
   };
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [newProfileName, setNewProfileName] = useState("");
+  const [newProfileAccountSize, setNewProfileAccountSize] = useState("");
   const [selectedTrade, setSelectedTrade] = useState(null);
   const [reviewReplayTarget, setReviewReplayTarget] = useState("");
   const [tradeDetailsBusy, setTradeDetailsBusy] = useState(false);
@@ -484,6 +487,7 @@ const SaasWorkspace = ({
     cooldownMinutesAfterLoss: 30,
     stopForDayLossRR: 3,
     strictChecklistGate: false,
+    accountSize: "",
   });
   const [bridgeBusy, setBridgeBusy] = useState(false);
   const [bridgeKey, setBridgeKey] = useState("");
@@ -508,8 +512,27 @@ const SaasWorkspace = ({
       cooldownMinutesAfterLoss: user?.settings?.riskControls?.cooldownMinutesAfterLoss ?? 30,
       stopForDayLossRR: user?.settings?.riskControls?.stopForDayLossRR ?? 3,
       strictChecklistGate: Boolean(user?.settings?.riskControls?.strictChecklistGate),
+      accountSize:
+        (user?.profiles || []).find((profile) => profile.id === (user?.activeProfileId || "main"))?.accountSize ?? 0,
     });
   }, [user]);
+
+  const activeProfile = useMemo(
+    () => (user?.profiles || []).find((profile) => profile.id === (filters.profileId || user?.activeProfileId)),
+    [filters.profileId, user?.activeProfileId, user?.profiles]
+  );
+
+  const formatAccountSize = useCallback((value) => {
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return "Not set";
+    }
+    return amount.toLocaleString(undefined, {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 2,
+    });
+  }, []);
 
   useEffect(() => {
     setBridgeLabel(user?.integrations?.mt5?.label || "MT5 Bridge");
@@ -2043,8 +2066,10 @@ const SaasWorkspace = ({
           <div className="saas-insights-row saas-insights-row-settings">
             <article className="panel saas-card saas-insight-card">
               <p className="saas-stat-kicker">Active profile</p>
-              <h3>{(user.profiles || []).find((profile) => profile.id === (filters.profileId || user.activeProfileId))?.name || "Workspace"}</h3>
-              <p className="saas-stat-label">Your current trading workspace and saved configuration.</p>
+              <h3>{activeProfile?.name || "Workspace"}</h3>
+              <p className="saas-stat-label">
+                {activeProfile?.accountSize > 0 ? `Account size ${formatAccountSize(activeProfile.accountSize)}` : "Your current trading workspace and saved configuration."}
+              </p>
             </article>
             <article className="panel saas-card saas-insight-card">
               <p className="saas-stat-kicker">Connection</p>
@@ -2098,6 +2123,16 @@ const SaasWorkspace = ({
                     maxLength={40}
                     disabled={!isOnline || creatingProfile}
                   />
+                  <input
+                    className="input w-full sm:w-[180px]"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={newProfileAccountSize}
+                    onChange={(event) => setNewProfileAccountSize(event.target.value)}
+                    placeholder="Account size"
+                    disabled={!isOnline || creatingProfile}
+                  />
                   <button
                     type="button"
                     className="btn-primary !px-4 !py-2 text-sm"
@@ -2107,9 +2142,14 @@ const SaasWorkspace = ({
                       if (trimmed.length < 2 || typeof handleProfileCreate !== "function") {
                         return;
                       }
-                      const created = await handleProfileCreate({ name: trimmed, makeActive: true });
+                      const created = await handleProfileCreate({
+                        name: trimmed,
+                        accountSize: Number(newProfileAccountSize) || 0,
+                        makeActive: true,
+                      });
                       if (created) {
                         setNewProfileName("");
+                        setNewProfileAccountSize("");
                       }
                     }}
                   >
@@ -2117,6 +2157,36 @@ const SaasWorkspace = ({
                   </button>
                 </div>
               </div>
+              <label>
+                <span className="label">Active profile account size</span>
+                <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                  <input
+                    className="input w-full sm:w-[220px]"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={settingsDraft.accountSize}
+                    onChange={(event) => setSettingsDraft((prev) => ({ ...prev, accountSize: event.target.value }))}
+                    placeholder="10000"
+                    disabled={!isOnline || savingProfile}
+                  />
+                  <button
+                    type="button"
+                    className="btn-primary !px-4 !py-2 text-sm"
+                    disabled={!isOnline || savingProfile || typeof handleProfileUpdate !== "function" || !activeProfile?.id}
+                    onClick={() => {
+                      if (typeof handleProfileUpdate !== "function" || !activeProfile?.id) {
+                        return;
+                      }
+                      void handleProfileUpdate(activeProfile.id, {
+                        accountSize: Number(settingsDraft.accountSize) || 0,
+                      });
+                    }}
+                  >
+                    {savingProfile ? "Saving..." : "Save profile"}
+                  </button>
+                </div>
+              </label>
               <div className="saas-settings-theme-row">
                 <span className="label">Theme</span>
                 <ThemeToggle

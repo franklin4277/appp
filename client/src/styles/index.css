@@ -4509,10 +4509,14 @@ body::before {
   .landing-wrap,
   .landing-wrap-home {
     width: calc(100% - 16px);
-    min-height: auto;
+    min-height: calc(100svh - 16px);
     padding-top: 0.9rem;
     padding-bottom: 1.75rem;
     gap: 1.45rem;
+  }
+
+  .landing-wrap-home {
+    justify-content: flex-start;
   }
 
   .landing-page-secondary .landing-wrap {
@@ -4708,6 +4712,7 @@ body::before {
     grid-template-columns: 1fr;
     justify-items: start;
     gap: 0.8rem;
+    margin-top: auto;
     padding-top: 1rem;
   }
 
@@ -4731,12 +4736,14 @@ body::before {
   .landing-wrap,
   .landing-wrap-home {
     width: calc(100% - 14px);
+    min-height: calc(100svh - 14px);
   }
 
   .landing-home-topbar {
     gap: 0.65rem;
-    min-height: 60px;
-    padding: 0.66rem 0.75rem;
+    min-height: 58px;
+    padding: 0.62rem 0.72rem;
+    border-radius: 14px;
   }
 
   .landing-home-topbrand {
@@ -4750,19 +4757,20 @@ body::before {
   }
 
   .landing-home-topbrand-text {
-    font-size: 1.05rem;
+    font-size: 1rem;
   }
 
   .landing-home-topbar-cta {
-    min-width: 118px;
-    min-height: 44px;
-    padding: 0.72rem 0.9rem;
-    font-size: 0.86rem;
+    min-width: 114px;
+    min-height: 42px;
+    padding: 0.68rem 0.82rem;
+    border-radius: 12px;
+    font-size: 0.84rem;
   }
 
   .landing-home-showcase {
     gap: 1rem;
-    padding: 0.95rem;
+    padding: 1rem 0.95rem;
     border-radius: 18px;
   }
 
@@ -4785,8 +4793,9 @@ body::before {
   }
 
   .landing-footer {
-    gap: 0.72rem;
-    padding: 0.9rem 0.85rem;
+    gap: 0.68rem;
+    padding: 0.88rem 0.82rem;
+    border-radius: 16px;
   }
 
   .landing-footer-links {

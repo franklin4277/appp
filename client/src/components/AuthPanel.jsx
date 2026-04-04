@@ -327,6 +327,24 @@ const AuthPanel = ({ onAuthenticated }) => {
             </button>
           </div>
         </div>
+
+        <div className="landing-home-support panel animate-riseIn">
+          <p className="landing-home-support-kicker">Why Journex</p>
+          <div className="landing-home-support-grid">
+            <article className="landing-home-support-item">
+              <strong>Log clearly</strong>
+              <span>Trades, notes, and screenshots stay together.</span>
+            </article>
+            <article className="landing-home-support-item">
+              <strong>Review faster</strong>
+              <span>Come back later with the context still intact.</span>
+            </article>
+            <article className="landing-home-support-item">
+              <strong>Improve steadily</strong>
+              <span>Spot patterns without building a complicated workflow.</span>
+            </article>
+          </div>
+        </div>
       </section>
     </>
   );

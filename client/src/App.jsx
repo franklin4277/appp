@@ -1377,149 +1377,6 @@ const App = () => {
     });
   }, [user?.settings?.playbooks]);
 
-  const handleQuickTradeSubmit = useCallback(
-    async (event) => {
-      event.preventDefault();
-      if (!token) {
-        return;
-      }
-
-      const normalizedPair = String(quickTradeForm.pair || "").trim().toUpperCase();
-      const sanitizedPair = normalizedPair.replace(/[^A-Z0-9]/g, "");
-      const pair = sanitizedPair || pairOptions[0] || "";
-      if (!sanitizedPair && pairOptions[0]) {
-        setQuickTradeForm((prev) => ({ ...prev, pair: pairOptions[0] }));
-      }
-      const entryPrice = toNumber(normalizePriceInput(quickTradeForm.entryPrice), NaN);
-      const exitPrice = quickTradeForm.exitPrice === "" ? NaN : toNumber(normalizePriceInput(quickTradeForm.exitPrice), NaN);
-      const stopLossInput = normalizePriceInput(quickTradeForm.stopLoss);
-      const takeProfitInput = normalizePriceInput(quickTradeForm.takeProfit);
-      const stopLossValue = stopLossInput === "" ? NaN : toNumber(stopLossInput, NaN);
-      const takeProfitValue = takeProfitInput === "" ? NaN : toNumber(takeProfitInput, NaN);
-      const plannedRRInput = quickTradeForm.plannedRR === "" ? NaN : toNumber(quickTradeForm.plannedRR, NaN);
-      const riskPercentInput = quickTradeForm.riskPercent === "" ? NaN : toNumber(quickTradeForm.riskPercent, NaN);
-      if (!pair || pair.length < 3 || pair.length > 15 || !Number.isFinite(entryPrice) || entryPrice <= 0) {
-        setError("Pair and entry price are required.");
-        return;
-      }
-      if (quickTradeForm.plannedRR !== "" && (!Number.isFinite(plannedRRInput) || plannedRRInput <= 0)) {
-        setError("Planned R:R must be greater than 0.");
-        return;
-      }
-      if (quickTradeForm.riskPercent !== "" && (!Number.isFinite(riskPercentInput) || riskPercentInput < 0)) {
-        setError("Risk % must be 0 or greater.");
-        return;
-      }
-
-      const defaultStop = round(entryPrice * 0.995, 5);
-      const defaultTake = round(entryPrice * 1.01, 5);
-      const stopLoss = Number.isFinite(stopLossValue) && stopLossValue > 0 ? stopLossValue : defaultStop;
-      const takeProfit = Number.isFinite(takeProfitValue) && takeProfitValue > 0 ? takeProfitValue : defaultTake;
-      if (!Number.isFinite(stopLoss) || stopLoss <= 0 || !Number.isFinite(takeProfit) || takeProfit <= 0) {
-        setError("Stop loss and take profit must be greater than 0.");
-        return;
-      }
-      const plannedRR = Number.isFinite(plannedRRInput) && plannedRRInput > 0
-        ? round(plannedRRInput, 2)
-        : round(Math.abs(takeProfit - entryPrice) / Math.max(Math.abs(entryPrice - stopLoss), 0.00001), 2);
-      const riskPercent =
-        Number.isFinite(riskPercentInput) && riskPercentInput >= 0 ? round(riskPercentInput, 2) : 1;
-      const playbook = (user?.settings?.playbooks || []).find(
-        (item) => item?.id === String(quickTradeForm.playbookId || "").trim()
-      );
-      const activeProfileAccountSize = Number(
-        (user?.profiles || []).find((profile) => profile.id === (filters.profileId || user?.activeProfileId))?.accountSize || 0
-      );
-      const lotSize = calculateLotSize({
-        accountBalance: activeProfileAccountSize,
-        riskPercent,
-        entryPrice,
-        stopLoss,
-        pair,
-      });
-      const isWinning = Number.isFinite(exitPrice) ? exitPrice >= entryPrice : false;
-      const result = Number.isFinite(exitPrice) ? (isWinning ? "Win" : "Loss") : "BE";
-      const rrAchieved = Number.isFinite(exitPrice)
-        ? round((Math.abs(exitPrice - entryPrice) / Math.max(Math.abs(entryPrice - stopLoss), 0.00001)) * (isWinning ? 1 : -1), 2)
-        : 0;
-
-      const safeSession = String(quickTradeForm.session || "").trim() || sessionOptions[0] || "London";
-      if (!String(quickTradeForm.session || "").trim() && sessionOptions[0]) {
-        setQuickTradeForm((prev) => ({ ...prev, session: sessionOptions[0] }));
-      }
-      const safeSetupType = String(quickTradeForm.setupType || "").trim() || setupOptions[0] || "Breakout";
-      if (!String(quickTradeForm.setupType || "").trim() && setupOptions[0]) {
-        setQuickTradeForm((prev) => ({ ...prev, setupType: setupOptions[0] }));
-      }
-      const data = new FormData();
-      data.append("profileId", filters.profileId || user?.activeProfileId || "");
-      data.append("pair", pair);
-      data.append("tradeDate", quickTradeForm.tradeDate || new Date().toISOString().slice(0, 10));
-      data.append("session", safeSession);
-      data.append("tradeType", "Buy");
-      data.append("setupType", safeSetupType);
-      data.append("playbookId", playbook?.id || "");
-      data.append("playbookName", playbook?.name || "");
-      data.append("entryPrice", String(entryPrice));
-      data.append("exitPrice", Number.isFinite(exitPrice) ? String(exitPrice) : "");
-      data.append("stopLoss", String(stopLoss));
-      data.append("takeProfit", String(takeProfit));
-      data.append("plannedRR", String(plannedRR));
-      data.append("riskPercent", String(riskPercent));
-      data.append("lotSize", lotSize > 0 ? String(lotSize) : "");
-      data.append("result", result);
-      data.append("rrAchieved", String(rrAchieved));
-      data.append("asiaHighLowUsed", "false");
-      data.append("pocInteraction", "false");
-      data.append("pocOutcome", "");
-      data.append("cleanSetup", String(Boolean(quickTradeForm.followedPlan)));
-      data.append("acceptGuardrailOverride", "true");
-      data.append("ruleBreakReason", quickTradeForm.followedPlan ? "" : "Quick entry plan override");
-      data.append("priceAction", "");
-      data.append("executionReview", quickTradeForm.notes || "");
-      data.append("emotionalState", quickTradeForm.emotion || "");
-      data.append("mistakeTags", (quickTradeForm.mistakeTags || []).join(","));
-      data.append("scaleInCount", String(toNumber(quickTradeForm.scaleInCount, 0)));
-      data.append("scaleOutCount", String(toNumber(quickTradeForm.scaleOutCount, 0)));
-      data.append("partialCloseCount", String(toNumber(quickTradeForm.partialCloseCount, 0)));
-      data.append("movedStopToBreakeven", String(Boolean(quickTradeForm.movedStopToBreakeven)));
-      data.append("trailingStopUsed", String(Boolean(quickTradeForm.trailingStopUsed)));
-      data.append("exitReason", quickTradeForm.exitReason || "");
-      if (quickTradeForm.screenshotBefore) {
-        data.append("screenshotBefore", quickTradeForm.screenshotBefore);
-      }
-      if (quickTradeForm.screenshotAfter) {
-        data.append("screenshotAfter", quickTradeForm.screenshotAfter);
-      }
-
-      setSavingQuickTrade(true);
-      setError("");
-      try {
-        await createTrade(data, token);
-        resetQuickTradeForm();
-        onTradeSaved();
-        setStatusMessage("Trade saved successfully.");
-      } catch (submitError) {
-        setError(submitError.message || "Failed to save trade.");
-      } finally {
-        setSavingQuickTrade(false);
-      }
-    },
-    [
-      filters.profileId,
-      onTradeSaved,
-      quickTradeForm,
-      resetQuickTradeForm,
-      pairOptions,
-      sessionOptions,
-      setupOptions,
-      token,
-      user?.activeProfileId,
-      user?.profiles,
-      user?.settings?.playbooks,
-    ]
-  );
-
   const queuedTrades = useMemo(
     () =>
       offlineQueue
@@ -1720,6 +1577,149 @@ const App = () => {
       followedPlan: recentQuickTradeDefaults.followedPlan ?? prev.followedPlan,
     }));
   }, [recentQuickTradeDefaults]);
+
+  const handleQuickTradeSubmit = useCallback(
+    async (event) => {
+      event.preventDefault();
+      if (!token) {
+        return;
+      }
+
+      const normalizedPair = String(quickTradeForm.pair || "").trim().toUpperCase();
+      const sanitizedPair = normalizedPair.replace(/[^A-Z0-9]/g, "");
+      const pair = sanitizedPair || pairOptions[0] || "";
+      if (!sanitizedPair && pairOptions[0]) {
+        setQuickTradeForm((prev) => ({ ...prev, pair: pairOptions[0] }));
+      }
+      const entryPrice = toNumber(normalizePriceInput(quickTradeForm.entryPrice), NaN);
+      const exitPrice = quickTradeForm.exitPrice === "" ? NaN : toNumber(normalizePriceInput(quickTradeForm.exitPrice), NaN);
+      const stopLossInput = normalizePriceInput(quickTradeForm.stopLoss);
+      const takeProfitInput = normalizePriceInput(quickTradeForm.takeProfit);
+      const stopLossValue = stopLossInput === "" ? NaN : toNumber(stopLossInput, NaN);
+      const takeProfitValue = takeProfitInput === "" ? NaN : toNumber(takeProfitInput, NaN);
+      const plannedRRInput = quickTradeForm.plannedRR === "" ? NaN : toNumber(quickTradeForm.plannedRR, NaN);
+      const riskPercentInput = quickTradeForm.riskPercent === "" ? NaN : toNumber(quickTradeForm.riskPercent, NaN);
+      if (!pair || pair.length < 3 || pair.length > 15 || !Number.isFinite(entryPrice) || entryPrice <= 0) {
+        setError("Pair and entry price are required.");
+        return;
+      }
+      if (quickTradeForm.plannedRR !== "" && (!Number.isFinite(plannedRRInput) || plannedRRInput <= 0)) {
+        setError("Planned R:R must be greater than 0.");
+        return;
+      }
+      if (quickTradeForm.riskPercent !== "" && (!Number.isFinite(riskPercentInput) || riskPercentInput < 0)) {
+        setError("Risk % must be 0 or greater.");
+        return;
+      }
+
+      const defaultStop = round(entryPrice * 0.995, 5);
+      const defaultTake = round(entryPrice * 1.01, 5);
+      const stopLoss = Number.isFinite(stopLossValue) && stopLossValue > 0 ? stopLossValue : defaultStop;
+      const takeProfit = Number.isFinite(takeProfitValue) && takeProfitValue > 0 ? takeProfitValue : defaultTake;
+      if (!Number.isFinite(stopLoss) || stopLoss <= 0 || !Number.isFinite(takeProfit) || takeProfit <= 0) {
+        setError("Stop loss and take profit must be greater than 0.");
+        return;
+      }
+      const plannedRR = Number.isFinite(plannedRRInput) && plannedRRInput > 0
+        ? round(plannedRRInput, 2)
+        : round(Math.abs(takeProfit - entryPrice) / Math.max(Math.abs(entryPrice - stopLoss), 0.00001), 2);
+      const riskPercent =
+        Number.isFinite(riskPercentInput) && riskPercentInput >= 0 ? round(riskPercentInput, 2) : 1;
+      const playbook = (user?.settings?.playbooks || []).find(
+        (item) => item?.id === String(quickTradeForm.playbookId || "").trim()
+      );
+      const activeProfileAccountSize = Number(
+        (user?.profiles || []).find((profile) => profile.id === (filters.profileId || user?.activeProfileId))?.accountSize || 0
+      );
+      const lotSize = calculateLotSize({
+        accountBalance: activeProfileAccountSize,
+        riskPercent,
+        entryPrice,
+        stopLoss,
+        pair,
+      });
+      const isWinning = Number.isFinite(exitPrice) ? exitPrice >= entryPrice : false;
+      const result = Number.isFinite(exitPrice) ? (isWinning ? "Win" : "Loss") : "BE";
+      const rrAchieved = Number.isFinite(exitPrice)
+        ? round((Math.abs(exitPrice - entryPrice) / Math.max(Math.abs(entryPrice - stopLoss), 0.00001)) * (isWinning ? 1 : -1), 2)
+        : 0;
+
+      const safeSession = String(quickTradeForm.session || "").trim() || sessionOptions[0] || "London";
+      if (!String(quickTradeForm.session || "").trim() && sessionOptions[0]) {
+        setQuickTradeForm((prev) => ({ ...prev, session: sessionOptions[0] }));
+      }
+      const safeSetupType = String(quickTradeForm.setupType || "").trim() || setupOptions[0] || "Breakout";
+      if (!String(quickTradeForm.setupType || "").trim() && setupOptions[0]) {
+        setQuickTradeForm((prev) => ({ ...prev, setupType: setupOptions[0] }));
+      }
+      const data = new FormData();
+      data.append("profileId", filters.profileId || user?.activeProfileId || "");
+      data.append("pair", pair);
+      data.append("tradeDate", quickTradeForm.tradeDate || new Date().toISOString().slice(0, 10));
+      data.append("session", safeSession);
+      data.append("tradeType", "Buy");
+      data.append("setupType", safeSetupType);
+      data.append("playbookId", playbook?.id || "");
+      data.append("playbookName", playbook?.name || "");
+      data.append("entryPrice", String(entryPrice));
+      data.append("exitPrice", Number.isFinite(exitPrice) ? String(exitPrice) : "");
+      data.append("stopLoss", String(stopLoss));
+      data.append("takeProfit", String(takeProfit));
+      data.append("plannedRR", String(plannedRR));
+      data.append("riskPercent", String(riskPercent));
+      data.append("lotSize", lotSize > 0 ? String(lotSize) : "");
+      data.append("result", result);
+      data.append("rrAchieved", String(rrAchieved));
+      data.append("asiaHighLowUsed", "false");
+      data.append("pocInteraction", "false");
+      data.append("pocOutcome", "");
+      data.append("cleanSetup", String(Boolean(quickTradeForm.followedPlan)));
+      data.append("acceptGuardrailOverride", "true");
+      data.append("ruleBreakReason", quickTradeForm.followedPlan ? "" : "Quick entry plan override");
+      data.append("priceAction", "");
+      data.append("executionReview", quickTradeForm.notes || "");
+      data.append("emotionalState", quickTradeForm.emotion || "");
+      data.append("mistakeTags", (quickTradeForm.mistakeTags || []).join(","));
+      data.append("scaleInCount", String(toNumber(quickTradeForm.scaleInCount, 0)));
+      data.append("scaleOutCount", String(toNumber(quickTradeForm.scaleOutCount, 0)));
+      data.append("partialCloseCount", String(toNumber(quickTradeForm.partialCloseCount, 0)));
+      data.append("movedStopToBreakeven", String(Boolean(quickTradeForm.movedStopToBreakeven)));
+      data.append("trailingStopUsed", String(Boolean(quickTradeForm.trailingStopUsed)));
+      data.append("exitReason", quickTradeForm.exitReason || "");
+      if (quickTradeForm.screenshotBefore) {
+        data.append("screenshotBefore", quickTradeForm.screenshotBefore);
+      }
+      if (quickTradeForm.screenshotAfter) {
+        data.append("screenshotAfter", quickTradeForm.screenshotAfter);
+      }
+
+      setSavingQuickTrade(true);
+      setError("");
+      try {
+        await createTrade(data, token);
+        resetQuickTradeForm();
+        onTradeSaved();
+        setStatusMessage("Trade saved successfully.");
+      } catch (submitError) {
+        setError(submitError.message || "Failed to save trade.");
+      } finally {
+        setSavingQuickTrade(false);
+      }
+    },
+    [
+      filters.profileId,
+      onTradeSaved,
+      pairOptions,
+      quickTradeForm,
+      resetQuickTradeForm,
+      sessionOptions,
+      setupOptions,
+      token,
+      user?.activeProfileId,
+      user?.profiles,
+      user?.settings?.playbooks,
+    ]
+  );
 
   const activeMeta = pageMeta[activePage] || pageMeta.dashboard;
   const setupTop = setupRankings.slice(0, 6);

@@ -3316,7 +3316,7 @@ const SaasWorkspace = ({
             <div className="saas-main-grid mt-4">
               <div className="saas-note-card">
                 <h4>{activeReview.summaryTitle}</h4>
-                <ul className="saas-note-list">
+                <ul className="saas-note-list saas-note-list-plain">
                   <li>
                     <span className="saas-list-icon saas-list-icon-green">
                       <IconGlyph name="win" />
@@ -3649,7 +3649,7 @@ const SaasWorkspace = ({
             <div className="saas-coaching-grid mt-4">
               <div className="saas-note-card">
                 <h4>Keep</h4>
-                <ul className="saas-note-list">
+                <ul className="saas-note-list saas-note-list-plain">
                   {coachingSummary.keep.map((item) => (
                     <li key={`coach-keep-${item}`}>
                       <span><strong>{item}</strong></span>
@@ -3659,7 +3659,7 @@ const SaasWorkspace = ({
               </div>
               <div className="saas-note-card">
                 <h4>Stop</h4>
-                <ul className="saas-note-list">
+                <ul className="saas-note-list saas-note-list-plain">
                   {coachingSummary.stop.map((item) => (
                     <li key={`coach-stop-${item}`}>
                       <span><strong>{item}</strong></span>
@@ -4351,11 +4351,11 @@ const SaasWorkspace = ({
                   ))}
                 </select>
               </label>
-              <div className="saas-settings-theme-row">
+              <div className="saas-settings-theme-row saas-settings-theme-row-form">
                 <span className="label">Create profile</span>
-                <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                <div className="saas-inline-form saas-inline-form-profile-create">
                   <input
-                    className="input w-full sm:w-[260px]"
+                    className="input saas-inline-form-main"
                     value={newProfileName}
                     onChange={(event) => setNewProfileName(event.target.value)}
                     placeholder="Profile name"
@@ -4363,7 +4363,7 @@ const SaasWorkspace = ({
                     disabled={!isOnline || creatingProfile}
                   />
                   <input
-                    className="input w-full sm:w-[180px]"
+                    className="input saas-inline-form-compact"
                     type="number"
                     min="0"
                     step="0.01"
@@ -4374,7 +4374,7 @@ const SaasWorkspace = ({
                   />
                   <button
                     type="button"
-                    className="btn-primary !px-4 !py-2 text-sm"
+                    className="btn-primary saas-inline-form-action !px-4 !py-2 text-sm"
                     disabled={!isOnline || creatingProfile || newProfileName.trim().length < 2 || typeof handleProfileCreate !== "function"}
                     onClick={async () => {
                       const trimmed = newProfileName.trim();

@@ -3490,6 +3490,14 @@ body::before {
   min-width: 0;
 }
 
+.saas-note-list-plain li {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.saas-note-list-plain li > span {
+  min-width: 0;
+}
+
 .saas-note-list strong {
   color: var(--text-main);
   font-size: 0.84rem;
@@ -3621,6 +3629,39 @@ body::before {
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
+}
+
+.saas-settings-theme-row-form {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.saas-settings-theme-row-form > .label {
+  display: block;
+}
+
+.saas-inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.saas-inline-form-main {
+  flex: 1 1 260px;
+  min-width: min(260px, 100%);
+}
+
+.saas-inline-form-compact {
+  flex: 0 1 180px;
+  min-width: 140px;
+}
+
+.saas-inline-form-action {
+  flex: 0 0 auto;
 }
 
 .saas-page-settings .saas-card {
@@ -3777,6 +3818,19 @@ body::before {
 .saas-page-settings .saas-settings-theme-row,
 .saas-page-risk .saas-settings-theme-row {
   padding: 0.72rem 0.78rem;
+}
+
+.saas-page-settings .saas-inline-form-profile-create {
+  align-items: stretch;
+}
+
+.saas-page-settings .saas-settings-theme-row-form,
+.saas-page-risk .saas-settings-theme-row-form {
+  gap: 0.72rem;
+}
+
+.saas-page-settings .saas-inline-form-profile-create .saas-inline-form-action {
+  min-width: 108px;
 }
 
 .saas-page-trade-detail .saas-trade-modal-body {

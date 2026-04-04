@@ -144,6 +144,10 @@ const pageMeta = {
     title: "Performance Review",
     subtitle: "Weekly and monthly performance breakdown",
   },
+  coaching: {
+    title: "Review Coaching",
+    subtitle: "Keep, stop, and test next without crowding the main review page",
+  },
   replay: {
     title: "Replay",
     subtitle: "Review screenshots, calendar flow, and share-ready trade context",
@@ -269,19 +273,19 @@ const groupedStats = (trades = [], selector = () => "") =>
     }))
     .sort((a, b) => b.winRate - a.winRate || b.avgRR - a.avgRR);
 
-const buildQuickTradeForm = ({ setupOptions = [], sessionOptions = [], pairOptions = [] } = {}) => ({
+const buildQuickTradeForm = ({ setupOptions = [], sessionOptions = [], pairOptions = [], defaults = {} } = {}) => ({
   tradeDate: new Date().toISOString().slice(0, 10),
-  pair: pairOptions[0] || "",
+  pair: defaults.pair || pairOptions[0] || "",
   entryPrice: "",
   exitPrice: "",
   stopLoss: "",
   takeProfit: "",
   plannedRR: "",
-  riskPercent: "1",
+  riskPercent: defaults.riskPercent || "1",
   lotSize: "",
-  setupType: setupOptions[0] || "",
-  playbookId: "",
-  session: sessionOptions[0] || "",
+  setupType: defaults.setupType || setupOptions[0] || "",
+  playbookId: defaults.playbookId || "",
+  session: defaults.session || sessionOptions[0] || "",
   mistakeTags: [],
   scaleInCount: "0",
   scaleOutCount: "0",
@@ -289,8 +293,8 @@ const buildQuickTradeForm = ({ setupOptions = [], sessionOptions = [], pairOptio
   movedStopToBreakeven: false,
   trailingStopUsed: false,
   exitReason: "",
-  emotion: "",
-  followedPlan: true,
+  emotion: defaults.emotion || "",
+  followedPlan: defaults.followedPlan ?? true,
   notes: "",
   screenshotBefore: null,
   screenshotAfter: null,
@@ -1326,12 +1330,41 @@ const App = () => {
   }, [pairOptions, sessionOptions, setupOptions]);
 
   const handleQuickTradeChange = useCallback((field, value) => {
+    const playbooks = Array.isArray(user?.settings?.playbooks) ? user.settings.playbooks : [];
+    const matchPlaybook = (nextState) => {
+      const setupType = String(nextState?.setupType || "").trim();
+      const session = String(nextState?.session || "").trim();
+      if (!setupType && !session) {
+        return "";
+      }
+      const exactMatches = playbooks.filter((playbook) => {
+        const pbSetup = String(playbook?.setupType || "").trim();
+        const pbSession = String(playbook?.targetSession || "").trim();
+        return pbSetup === setupType && pbSession === session;
+      });
+      if (exactMatches.length === 1) {
+        return String(exactMatches[0].id || "");
+      }
+      return "";
+    };
+
     setQuickTradeForm((prev) => {
       if (field !== "pair") {
-        return {
+        const nextState = {
           ...prev,
           [field]: value,
         };
+        if (field === "playbookId") {
+          return nextState;
+        }
+        if (field === "setupType" || field === "session") {
+          const matchedPlaybookId = matchPlaybook(nextState);
+          return {
+            ...nextState,
+            playbookId: matchedPlaybookId || nextState.playbookId || "",
+          };
+        }
+        return nextState;
       }
 
       const normalizedPair = String(value || "")
@@ -1342,11 +1375,24 @@ const App = () => {
         pair: normalizedPair,
       };
     });
-  }, []);
+  }, [user?.settings?.playbooks]);
 
   const resetQuickTradeForm = useCallback(() => {
-    setQuickTradeForm(buildQuickTradeForm({ setupOptions, sessionOptions, pairOptions }));
-  }, [pairOptions, sessionOptions, setupOptions]);
+    setQuickTradeForm(buildQuickTradeForm({ setupOptions, sessionOptions, pairOptions, defaults: recentQuickTradeDefaults }));
+  }, [pairOptions, recentQuickTradeDefaults, sessionOptions, setupOptions]);
+
+  const applyRecentTradeDefaults = useCallback(() => {
+    setQuickTradeForm((prev) => ({
+      ...prev,
+      pair: recentQuickTradeDefaults.pair || prev.pair,
+      setupType: recentQuickTradeDefaults.setupType || prev.setupType,
+      playbookId: recentQuickTradeDefaults.playbookId || prev.playbookId,
+      session: recentQuickTradeDefaults.session || prev.session,
+      riskPercent: recentQuickTradeDefaults.riskPercent || prev.riskPercent,
+      emotion: recentQuickTradeDefaults.emotion || prev.emotion,
+      followedPlan: recentQuickTradeDefaults.followedPlan ?? prev.followedPlan,
+    }));
+  }, [recentQuickTradeDefaults]);
 
   const handleQuickTradeSubmit = useCallback(
     async (event) => {
@@ -1657,6 +1703,24 @@ const App = () => {
         .slice(0, 6),
     [closedTrades]
   );
+  const recentQuickTradeDefaults = useMemo(() => {
+    const lastTrade = recentTrades[0];
+    if (!lastTrade) {
+      return {};
+    }
+    return {
+      pair: String(lastTrade?.pair || "")
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, ""),
+      setupType: String(lastTrade?.setupType || "").trim(),
+      playbookId: String(lastTrade?.playbookId || "").trim(),
+      session: String(lastTrade?.session || "").trim(),
+      riskPercent: Number.isFinite(Number(lastTrade?.riskPercent)) ? String(lastTrade.riskPercent) : "1",
+      emotion: normalizeEmotion(lastTrade?.notes?.emotionalState || ""),
+      followedPlan:
+        typeof lastTrade?.tags?.cleanSetup === "boolean" ? Boolean(lastTrade.tags.cleanSetup) : true,
+    };
+  }, [recentTrades]);
 
   const activeMeta = pageMeta[activePage] || pageMeta.dashboard;
   const setupTop = setupRankings.slice(0, 6);
@@ -1821,6 +1885,7 @@ const App = () => {
         recentTrades={recentTrades}
         quickTradeForm={quickTradeForm}
         handleQuickTradeChange={handleQuickTradeChange}
+        applyRecentTradeDefaults={applyRecentTradeDefaults}
         setupOptions={setupOptions}
         sessionOptions={sessionOptions}
         pairOptions={pairOptions}

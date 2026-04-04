@@ -615,6 +615,7 @@ const navIconMap = {
   edge: "edge",
   behavior: "behavior",
   review: "review",
+  coaching: "behavior",
   replay: "review",
   playbooks: "edge",
   risk: "warn",
@@ -668,6 +669,7 @@ const SaasWorkspace = ({
   recentTrades,
   quickTradeForm,
   handleQuickTradeChange,
+  applyRecentTradeDefaults,
   pairOptions,
   setupOptions,
   sessionOptions,
@@ -848,6 +850,7 @@ const SaasWorkspace = ({
     edge: "Edge",
     behavior: "Behavior",
     review: "Review",
+    coaching: "Coaching",
     replay: "Replay",
     playbooks: "Playbooks",
     risk: "Risk",
@@ -1038,6 +1041,10 @@ const SaasWorkspace = ({
   const playbooks = useMemo(
     () => (Array.isArray(user?.settings?.playbooks) ? user.settings.playbooks : []),
     [user?.settings?.playbooks]
+  );
+  const selectedPlaybook = useMemo(
+    () => playbooks.find((playbook) => String(playbook?.id || "") === String(quickTradeForm.playbookId || "")) || null,
+    [playbooks, quickTradeForm.playbookId]
   );
   const mistakeCatalog = useMemo(
     () => (Array.isArray(user?.settings?.reviewToolkit?.mistakeTags) ? user.settings.reviewToolkit.mistakeTags : []),
@@ -2317,6 +2324,40 @@ const SaasWorkspace = ({
           <button type="button" className="saas-back-link" onClick={() => setActivePage("dashboard")}>
             <span aria-hidden="true">&lt;</span> Back to Dashboard
           </button>
+          <section className="panel saas-section-switcher">
+            <div className="saas-section-switcher-head">
+              <strong>Smart entry</strong>
+              <span>Reuse your recent context so you do less typing.</span>
+            </div>
+            <div className="saas-section-switcher-tabs">
+              <button
+                type="button"
+                className="saas-section-tab saas-section-tab-active"
+                onClick={() => {
+                  if (typeof applyRecentTradeDefaults === "function") {
+                    applyRecentTradeDefaults();
+                  }
+                }}
+              >
+                Use Recent Defaults
+              </button>
+              <button
+                type="button"
+                className="saas-section-tab"
+                onClick={() => {
+                  if (selectedPlaybook?.setupType) {
+                    handleQuickTradeChange("setupType", selectedPlaybook.setupType);
+                  }
+                  if (selectedPlaybook?.targetSession) {
+                    handleQuickTradeChange("session", selectedPlaybook.targetSession);
+                  }
+                }}
+                disabled={!selectedPlaybook}
+              >
+                Apply Playbook Defaults
+              </button>
+            </div>
+          </section>
           <form className="panel saas-card saas-add-trade" onSubmit={handleQuickTradeSubmit}>
             <div className="saas-form-grid">
               <label>
@@ -2484,7 +2525,11 @@ const SaasWorkspace = ({
                     </option>
                   ))}
                 </select>
-                <p className="input-hint">Attach this trade to a saved playbook so review can compare execution quality.</p>
+                <p className="input-hint">
+                  {selectedPlaybook
+                    ? `Journex can auto-fill setup and session from ${selectedPlaybook.name}.`
+                    : "Journex will auto-match a playbook when your setup and session clearly fit one."}
+                </p>
               </label>
               <label>
                 <span className="label">Trading Session</span>
@@ -3369,65 +3414,35 @@ const SaasWorkspace = ({
             </article>
           </div>
 
-          <div className="saas-main-grid">
-            <article className="panel saas-card">
-              <div className="saas-card-head">
-                <div>
-                  <h3 className="saas-card-title">Review Coach</h3>
-                  <p className="saas-card-subtitle">Keep, stop, and test next.</p>
-                </div>
-                <span className="chip text-textMain">Assistant</span>
+          <article className="panel saas-card">
+            <div className="saas-card-head">
+              <div>
+                <h3 className="saas-card-title">Review Coach</h3>
+                <p className="saas-card-subtitle">Keep the main review page lighter and open coaching only when you need it.</p>
+              </div>
+              <span className="chip text-textMain">Assistant</span>
+            </div>
+            <div className="saas-main-grid mt-4">
+              <div className="saas-note-card">
+                <h4>Current focus</h4>
+                <p className="saas-stat-label mt-2">{coachingSummary.assistant}</p>
+                <p className="saas-stat-label mt-2">
+                  {reviewMistakeStats.length
+                    ? `${reviewMistakeStats[0].label} is still the biggest leak in this range.`
+                    : "Once you tag mistakes, coaching will pinpoint the biggest leak here."}
+                </p>
               </div>
               <div className="saas-note-card">
-                <h4>Keep</h4>
-                <ul className="saas-note-list">
-                  {coachingSummary.keep.map((item) => (
-                    <li key={`keep-${item}`}>
-                      <span>
-                        <strong>{item}</strong>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                <h4>Next step</h4>
+                <p className="saas-stat-label mt-2">Open the dedicated coaching page to see keep, stop, and test guidance without crowding review.</p>
+                <div className="saas-settings-actions mt-3">
+                  <button type="button" className="btn-primary" onClick={() => setActivePage("coaching")}>
+                    Open Coaching
+                  </button>
+                </div>
               </div>
-              <div className="saas-note-card mt-3">
-                <h4>Stop</h4>
-                <ul className="saas-note-list">
-                  {coachingSummary.stop.map((item) => (
-                    <li key={`stop-${item}`}>
-                      <span>
-                        <strong>{item}</strong>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="saas-note-card mt-3">
-                <h4>Test Next</h4>
-                <ul className="saas-note-list">
-                  {coachingSummary.test.map((item) => (
-                    <li key={`test-${item}`}>
-                      <span>
-                        <strong>{item}</strong>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                <p className="saas-stat-label mt-3">{coachingSummary.assistant}</p>
-              </div>
-              <div className="saas-note-card mt-3">
-                <h4>Top Leak</h4>
-                {reviewMistakeStats.length ? (
-                  <p className="saas-stat-label">
-                    <strong>{reviewMistakeStats[0].label}</strong> is costing <strong>-{reviewMistakeStats[0].costRR}R</strong> across{" "}
-                    {reviewMistakeStats[0].trades} tagged trades.
-                  </p>
-                ) : (
-                  <p className="saas-stat-label">No mistakes tagged in this review range yet.</p>
-                )}
-              </div>
-            </article>
-          </div>
+            </div>
+          </article>
 
           <div className="saas-insights-row">
             <article className="panel saas-card saas-insight-card">
@@ -3593,6 +3608,81 @@ const SaasWorkspace = ({
                 Showing the latest 500 trades. Use Export CSV for full history.
               </p>
             ) : null}
+          </article>
+        </section>
+      ) : null}
+
+      {activePage === "coaching" ? (
+        <section className="space-y-4 saas-page-section">
+          <div className="saas-insights-row">
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Discipline</p>
+              <h3>{reviewScores.discipline}%</h3>
+              <p className="saas-stat-label">How consistently you are following the process in the selected review range.</p>
+            </article>
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Risk control</p>
+              <h3>{reviewScores.riskControl}%</h3>
+              <p className="saas-stat-label">Risk score built from screenshot coverage, tagging, and saved risk limits.</p>
+            </article>
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Execution grade</p>
+              <h3>{reviewScores.grade}</h3>
+              <p className="saas-stat-label">A dedicated page for coaching keeps the main review page clean and faster to scan.</p>
+            </article>
+          </div>
+
+          <article className="panel saas-card">
+            <div className="saas-card-head">
+              <div>
+                <h3 className="saas-card-title">Review Coach</h3>
+                <p className="saas-card-subtitle">Keep, stop, and test next based on the current review range.</p>
+              </div>
+              <span className="chip text-textMain">Assistant</span>
+            </div>
+            <div className="saas-main-grid mt-4">
+              <div className="saas-note-card">
+                <h4>Keep</h4>
+                <ul className="saas-note-list">
+                  {coachingSummary.keep.map((item) => (
+                    <li key={`coach-keep-${item}`}>
+                      <span><strong>{item}</strong></span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="saas-note-card">
+                <h4>Stop</h4>
+                <ul className="saas-note-list">
+                  {coachingSummary.stop.map((item) => (
+                    <li key={`coach-stop-${item}`}>
+                      <span><strong>{item}</strong></span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="saas-note-card">
+                <h4>Test Next</h4>
+                <ul className="saas-note-list">
+                  {coachingSummary.test.map((item) => (
+                    <li key={`coach-test-${item}`}>
+                      <span><strong>{item}</strong></span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            <div className="saas-note-card mt-4">
+              <h4>Coach Summary</h4>
+              <p className="saas-stat-label mt-2">{coachingSummary.assistant}</p>
+              {reviewMistakeStats.length ? (
+                <p className="saas-stat-label mt-2">
+                  <strong>{reviewMistakeStats[0].label}</strong> is costing <strong>-{reviewMistakeStats[0].costRR}R</strong> across {reviewMistakeStats[0].trades} tagged trades.
+                </p>
+              ) : (
+                <p className="saas-stat-label mt-2">No mistakes tagged in this review range yet.</p>
+              )}
+            </div>
           </article>
         </section>
       ) : null}
@@ -3784,33 +3874,71 @@ const SaasWorkspace = ({
             <div className="saas-card-head">
               <div>
                 <h3 className="saas-card-title">Playbook Library</h3>
-                <p className="saas-card-subtitle">Edit saved setup playbooks without crowding the main settings page.</p>
+                <p className="saas-card-subtitle">See your playbooks first. Raw JSON is tucked away unless you actually need it.</p>
               </div>
             </div>
-            <div className="saas-settings-grid mt-3">
-              <label className="saas-settings-span-full">
-                <span className="label">Playbooks JSON</span>
-                <textarea
-                  className="input font-mono text-xs"
-                  rows={12}
-                  value={settingsDraft.playbooksJson}
-                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, playbooksJson: event.target.value }))}
-                  placeholder='[{"id":"london-breakout","name":"London Breakout","setupType":"Breakout"}]'
-                  disabled={!isOnline || savingUserSettings}
-                />
-              </label>
-              <label className="saas-settings-span-full">
-                <span className="label">Mistake labels</span>
-                <textarea
-                  className="input"
-                  rows={3}
-                  value={settingsDraft.mistakeTags}
-                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, mistakeTags: event.target.value }))}
-                  placeholder="Late entry, Oversized risk, Early close"
-                  disabled={!isOnline || savingUserSettings}
-                />
-              </label>
+            <div className="saas-main-grid mt-4">
+              {playbooks.length ? (
+                playbooks.map((playbook) => (
+                  <article key={`playbook-card-${playbook.id}`} className="saas-note-card">
+                    <h4>{playbook.name || "Untitled playbook"}</h4>
+                    <p className="saas-stat-label mt-2">
+                      {(playbook.setupType || "No setup")}{playbook.targetSession ? ` • ${playbook.targetSession}` : ""}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {Array.isArray(playbook.confirmations)
+                        ? playbook.confirmations.slice(0, 3).map((item) => (
+                            <span key={`pb-confirm-${playbook.id}-${item}`} className="chip">{item}</span>
+                          ))
+                        : null}
+                      {Array.isArray(playbook.checklist)
+                        ? playbook.checklist.slice(0, 2).map((item) => (
+                            <span key={`pb-check-${playbook.id}-${item}`} className="chip">{item}</span>
+                          ))
+                        : null}
+                    </div>
+                    <p className="saas-stat-label mt-3">
+                      ID: <strong>{playbook.id}</strong>
+                    </p>
+                  </article>
+                ))
+              ) : (
+                <div className="saas-note-card">
+                  <h4>No playbooks yet</h4>
+                  <p className="saas-stat-label mt-2">Create one in advanced editor or import your existing JSON below.</p>
+                </div>
+              )}
             </div>
+            <label className="saas-settings-span-full mt-4">
+              <span className="label">Mistake labels</span>
+              <textarea
+                className="input"
+                rows={3}
+                value={settingsDraft.mistakeTags}
+                onChange={(event) => setSettingsDraft((prev) => ({ ...prev, mistakeTags: event.target.value }))}
+                placeholder="Late entry, Oversized risk, Early close"
+                disabled={!isOnline || savingUserSettings}
+              />
+            </label>
+            <details className="saas-collapsible mt-4">
+              <summary className="saas-collapsible-summary">
+                Advanced playbook editor
+                <span>Only open this when you want to import or bulk edit JSON</span>
+              </summary>
+              <div className="saas-collapsible-body">
+                <label className="saas-settings-span-full">
+                  <span className="label">Playbooks JSON</span>
+                  <textarea
+                    className="input font-mono text-xs"
+                    rows={12}
+                    value={settingsDraft.playbooksJson}
+                    onChange={(event) => setSettingsDraft((prev) => ({ ...prev, playbooksJson: event.target.value }))}
+                    placeholder='[{"id":"london-breakout","name":"London Breakout","setupType":"Breakout"}]'
+                    disabled={!isOnline || savingUserSettings}
+                  />
+                </label>
+              </div>
+            </details>
             <div className="saas-settings-actions mt-4">
               <button
                 type="button"

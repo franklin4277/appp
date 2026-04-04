@@ -21,6 +21,7 @@ const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade, on
   const closeButtonRef = useRef(null);
   const overlayRef = useRef(null);
   const lastFocused = useRef(null);
+  const touchStartRef = useRef(null);
 
   useEffect(() => {
     if (!selectedTradeId) {
@@ -146,7 +147,28 @@ const ScreenshotReplay = ({ trades = [], selectedTradeId = "", onSelectTrade, on
   const afterLabel = trade.screenshots?.after ? "After chart" : trade.offlineMeta?.screenshotAfterName || "After";
 
   return (
-    <section className="panel animate-riseIn">
+    <section
+      className="panel animate-riseIn"
+      onTouchStart={(event) => {
+        touchStartRef.current = event.touches?.[0]?.clientX ?? null;
+      }}
+      onTouchEnd={(event) => {
+        const startX = touchStartRef.current;
+        const endX = event.changedTouches?.[0]?.clientX ?? null;
+        if (startX === null || endX === null) {
+          return;
+        }
+        const delta = endX - startX;
+        if (Math.abs(delta) < 40) {
+          return;
+        }
+        if (delta < 0) {
+          setIndex((prev) => Math.min(prev + 1, imageTrades.length - 1));
+        } else {
+          setIndex((prev) => Math.max(prev - 1, 0));
+        }
+      }}
+    >
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold">Screenshot Replay</h3>

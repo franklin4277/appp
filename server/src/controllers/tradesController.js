@@ -153,6 +153,24 @@ const parseOptionalDate = (value) => {
 const ensurePair = (value = "") => String(value || "").trim().toUpperCase();
 const ensureText = (value = "") => String(value || "").trim();
 const ensureLowerText = (value = "") => ensureText(value).toLowerCase();
+const ensureStringList = (value = []) => {
+  const source = Array.isArray(value) ? value : String(value || "").split(/[,\n]/g);
+  const seen = new Set();
+  const output = [];
+  source.forEach((item) => {
+    const text = ensureText(item);
+    if (!text) {
+      return;
+    }
+    const key = text.toLowerCase();
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    output.push(text);
+  });
+  return output.slice(0, 16);
+};
 const isHttpUrl = (value = "") => /^https?:\/\//i.test(String(value || "").trim());
 const BRIDGE_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const BRIDGE_ALLOWED_IMAGE_MIME = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp"]);
@@ -743,6 +761,8 @@ const resolveTradePayload = ({ req, source, files = {} }) => {
     session: ensureText(source.session),
     tradeType,
     setupType: ensureText(source.setupType),
+    playbookId: ensureText(source.playbookId).slice(0, 64),
+    playbookName: ensureText(source.playbookName).slice(0, 80),
     entryPrice,
     exitPrice,
     exitTime,
@@ -763,6 +783,15 @@ const resolveTradePayload = ({ req, source, files = {} }) => {
       priceAction: ensureText(source.priceAction),
       executionReview: ensureText(source.executionReview),
       emotionalState: ensureText(source.emotionalState),
+    },
+    mistakeTags: ensureStringList(source.mistakeTags),
+    lifecycle: {
+      scaleInCount: Math.max(0, toNumber(source.scaleInCount, 0)),
+      scaleOutCount: Math.max(0, toNumber(source.scaleOutCount, 0)),
+      partialCloseCount: Math.max(0, toNumber(source.partialCloseCount, 0)),
+      movedStopToBreakeven: toBoolean(source.movedStopToBreakeven),
+      trailingStopUsed: toBoolean(source.trailingStopUsed),
+      exitReason: ensureText(source.exitReason).slice(0, 120),
     },
     ruleBreakReason: ensureText(source.ruleBreakReason),
     screenshotFiles: {
@@ -923,9 +952,13 @@ export const createTrade = async (req, res, next) => {
       result: derived.result,
       plannedRR: payload.plannedRR,
       rrAchieved: derived.rrAchieved,
+      playbookId: payload.playbookId,
+      playbookName: payload.playbookName,
       strategyFingerprint: derived.strategyFingerprint,
       tags: payload.tags,
       notes: payload.notes,
+      mistakeTags: payload.mistakeTags,
+      lifecycle: payload.lifecycle,
       ruleBreakReason: payload.ruleBreakReason,
       guardrailWarnings: guardrails.warnings,
       qualityFlags: derived.qualityFlags,
@@ -1882,9 +1915,13 @@ export const importTradesCsv = async (req, res, next) => {
           result: derived.result,
           plannedRR: payload.plannedRR,
           rrAchieved: derived.rrAchieved,
+          playbookId: payload.playbookId,
+          playbookName: payload.playbookName,
           strategyFingerprint: derived.strategyFingerprint,
           tags: payload.tags,
           notes: payload.notes,
+          mistakeTags: payload.mistakeTags,
+          lifecycle: payload.lifecycle,
           ruleBreakReason: payload.ruleBreakReason,
           guardrailWarnings: [],
           qualityFlags: derived.qualityFlags,

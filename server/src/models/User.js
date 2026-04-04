@@ -1,5 +1,10 @@
 import mongoose from "mongoose";
-import { DEFAULT_RISK_CONTROLS, DEFAULT_STRATEGY_OPTIONS } from "../constants/defaults.js";
+import {
+  DEFAULT_PLAYBOOKS,
+  DEFAULT_REVIEW_TOOLKIT,
+  DEFAULT_RISK_CONTROLS,
+  DEFAULT_STRATEGY_OPTIONS,
+} from "../constants/defaults.js";
 import { DEFAULT_SUBSCRIPTION } from "../constants/plans.js";
 
 const normalizeText = (value = "") =>
@@ -36,6 +41,17 @@ const stringListField = {
 };
 
 const cloneList = (value = []) => value.map((item) => String(item));
+const clonePlaybooks = (value = []) =>
+  value.map((item) => ({
+    id: String(item?.id || ""),
+    name: String(item?.name || ""),
+    setupType: String(item?.setupType || ""),
+    targetSession: String(item?.targetSession || ""),
+    confirmations: cloneList(item?.confirmations || []),
+    invalidations: cloneList(item?.invalidations || []),
+    checklist: cloneList(item?.checklist || []),
+    notes: String(item?.notes || ""),
+  }));
 const DEFAULT_PROFILE_ID = "main";
 const defaultProfile = () => ({
   id: DEFAULT_PROFILE_ID,
@@ -293,6 +309,84 @@ const subscriptionSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const playbookSchema = new mongoose.Schema(
+  {
+    id: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 64,
+    },
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 80,
+    },
+    setupType: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 80,
+    },
+    targetSession: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 40,
+    },
+    confirmations: stringListField,
+    invalidations: stringListField,
+    checklist: stringListField,
+    notes: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 400,
+    },
+  },
+  { _id: false }
+);
+
+const reviewToolkitSchema = new mongoose.Schema(
+  {
+    mistakeTags: stringListField,
+    fundedMode: {
+      enabled: {
+        type: Boolean,
+        default: DEFAULT_REVIEW_TOOLKIT.fundedMode.enabled,
+      },
+      provider: {
+        type: String,
+        default: DEFAULT_REVIEW_TOOLKIT.fundedMode.provider,
+        trim: true,
+        maxlength: 80,
+      },
+      profitTargetPercent: {
+        type: Number,
+        default: DEFAULT_REVIEW_TOOLKIT.fundedMode.profitTargetPercent,
+        min: 0,
+      },
+      maxTotalDrawdownPercent: {
+        type: Number,
+        default: DEFAULT_REVIEW_TOOLKIT.fundedMode.maxTotalDrawdownPercent,
+        min: 0,
+      },
+      consistencyPercent: {
+        type: Number,
+        default: DEFAULT_REVIEW_TOOLKIT.fundedMode.consistencyPercent,
+        min: 0,
+      },
+      minTradingDays: {
+        type: Number,
+        default: DEFAULT_REVIEW_TOOLKIT.fundedMode.minTradingDays,
+        min: 0,
+      },
+    },
+  },
+  { _id: false }
+);
+
 const buildDefaultSettings = () => ({
   options: {
     pairs: cloneList(DEFAULT_STRATEGY_OPTIONS.pairs),
@@ -304,6 +398,11 @@ const buildDefaultSettings = () => ({
     emotionTags: cloneList(DEFAULT_STRATEGY_OPTIONS.emotionTags),
   },
   riskControls: { ...DEFAULT_RISK_CONTROLS },
+  playbooks: clonePlaybooks(DEFAULT_PLAYBOOKS),
+  reviewToolkit: {
+    mistakeTags: cloneList(DEFAULT_REVIEW_TOOLKIT.mistakeTags),
+    fundedMode: { ...DEFAULT_REVIEW_TOOLKIT.fundedMode },
+  },
 });
 
 const settingsSchema = new mongoose.Schema(
@@ -358,6 +457,17 @@ const settingsSchema = new mongoose.Schema(
         type: Boolean,
         default: DEFAULT_RISK_CONTROLS.strictChecklistGate,
       },
+    },
+    playbooks: {
+      type: [playbookSchema],
+      default: () => clonePlaybooks(DEFAULT_PLAYBOOKS),
+    },
+    reviewToolkit: {
+      type: reviewToolkitSchema,
+      default: () => ({
+        mistakeTags: cloneList(DEFAULT_REVIEW_TOOLKIT.mistakeTags),
+        fundedMode: { ...DEFAULT_REVIEW_TOOLKIT.fundedMode },
+      }),
     },
   },
   { _id: false }
@@ -541,6 +651,48 @@ userSchema.pre("save", function normalizeProfiles(next) {
   this.settings.riskControls = {
     ...DEFAULT_RISK_CONTROLS,
     ...this.settings.riskControls,
+  };
+  if (!Array.isArray(this.settings.playbooks)) {
+    this.settings.playbooks = clonePlaybooks(DEFAULT_PLAYBOOKS);
+  }
+  this.settings.playbooks = this.settings.playbooks
+    .map((playbook, index) => {
+      const id = normalizeText(playbook?.id || playbook?.name || `playbook-${index + 1}`)
+        .toLowerCase()
+        .replace(/[^a-z0-9-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 64);
+      const name = normalizeText(playbook?.name || `Playbook ${index + 1}`).slice(0, 80);
+      if (!id || !name) {
+        return null;
+      }
+      return {
+        id,
+        name,
+        setupType: normalizeText(playbook?.setupType || "").slice(0, 80),
+        targetSession: normalizeText(playbook?.targetSession || "").slice(0, 40),
+        confirmations: normalizeStringList(playbook?.confirmations || []),
+        invalidations: normalizeStringList(playbook?.invalidations || []),
+        checklist: normalizeStringList(playbook?.checklist || []),
+        notes: normalizeText(playbook?.notes || "").slice(0, 400),
+      };
+    })
+    .filter(Boolean);
+  if (!this.settings.playbooks.length) {
+    this.settings.playbooks = clonePlaybooks(DEFAULT_PLAYBOOKS);
+  }
+  if (!this.settings.reviewToolkit || typeof this.settings.reviewToolkit !== "object") {
+    this.settings.reviewToolkit = {
+      mistakeTags: cloneList(DEFAULT_REVIEW_TOOLKIT.mistakeTags),
+      fundedMode: { ...DEFAULT_REVIEW_TOOLKIT.fundedMode },
+    };
+  }
+  this.settings.reviewToolkit.mistakeTags = normalizeStringList(
+    this.settings.reviewToolkit.mistakeTags ?? DEFAULT_REVIEW_TOOLKIT.mistakeTags
+  );
+  this.settings.reviewToolkit.fundedMode = {
+    ...DEFAULT_REVIEW_TOOLKIT.fundedMode,
+    ...(this.settings.reviewToolkit.fundedMode || {}),
   };
   this.subscription.planId = this.subscription.planId || DEFAULT_SUBSCRIPTION.planId;
   this.subscription.status = this.subscription.status || DEFAULT_SUBSCRIPTION.status;

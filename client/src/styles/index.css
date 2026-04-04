@@ -5261,3 +5261,68 @@ body::before {
     scroll-behavior: auto !important;
   }
 }
+
+.saas-settings-span-full {
+  grid-column: 1 / -1;
+}
+
+.saas-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.saas-calendar-day {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.95rem;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.88));
+  text-align: left;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.saas-calendar-day:hover {
+  transform: translateY(-1px);
+  border-color: rgba(96, 165, 250, 0.35);
+  box-shadow: 0 20px 40px rgba(2, 6, 23, 0.18);
+}
+
+.saas-calendar-day span {
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.saas-calendar-day strong {
+  font-size: 1rem;
+  color: var(--text-main);
+}
+
+.saas-calendar-day small {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.saas-calendar-day-win {
+  border-color: rgba(34, 197, 94, 0.28);
+}
+
+.saas-calendar-day-loss {
+  border-color: rgba(239, 68, 68, 0.28);
+}
+
+@media (max-width: 768px) {
+  .saas-calendar-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+  }
+
+  .saas-calendar-day {
+    padding: 0.8rem;
+    border-radius: 14px;
+  }
+}

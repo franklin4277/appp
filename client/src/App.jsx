@@ -247,7 +247,15 @@ const buildQuickTradeForm = ({ setupOptions = [], sessionOptions = [], pairOptio
   riskPercent: "1",
   lotSize: "",
   setupType: setupOptions[0] || "",
+  playbookId: "",
   session: sessionOptions[0] || "",
+  mistakeTags: [],
+  scaleInCount: "0",
+  scaleOutCount: "0",
+  partialCloseCount: "0",
+  movedStopToBreakeven: false,
+  trailingStopUsed: false,
+  exitReason: "",
   emotion: "",
   followedPlan: true,
   notes: "",
@@ -1345,6 +1353,9 @@ const App = () => {
         : round(Math.abs(takeProfit - entryPrice) / Math.max(Math.abs(entryPrice - stopLoss), 0.00001), 2);
       const riskPercent =
         Number.isFinite(riskPercentInput) && riskPercentInput >= 0 ? round(riskPercentInput, 2) : 1;
+      const playbook = (user?.settings?.playbooks || []).find(
+        (item) => item?.id === String(quickTradeForm.playbookId || "").trim()
+      );
       const activeProfileAccountSize = Number(
         (user?.profiles || []).find((profile) => profile.id === (filters.profileId || user?.activeProfileId))?.accountSize || 0
       );
@@ -1376,6 +1387,8 @@ const App = () => {
       data.append("session", safeSession);
       data.append("tradeType", "Buy");
       data.append("setupType", safeSetupType);
+      data.append("playbookId", playbook?.id || "");
+      data.append("playbookName", playbook?.name || "");
       data.append("entryPrice", String(entryPrice));
       data.append("exitPrice", Number.isFinite(exitPrice) ? String(exitPrice) : "");
       data.append("stopLoss", String(stopLoss));
@@ -1394,6 +1407,13 @@ const App = () => {
       data.append("priceAction", "");
       data.append("executionReview", quickTradeForm.notes || "");
       data.append("emotionalState", quickTradeForm.emotion || "");
+      data.append("mistakeTags", (quickTradeForm.mistakeTags || []).join(","));
+      data.append("scaleInCount", String(toNumber(quickTradeForm.scaleInCount, 0)));
+      data.append("scaleOutCount", String(toNumber(quickTradeForm.scaleOutCount, 0)));
+      data.append("partialCloseCount", String(toNumber(quickTradeForm.partialCloseCount, 0)));
+      data.append("movedStopToBreakeven", String(Boolean(quickTradeForm.movedStopToBreakeven)));
+      data.append("trailingStopUsed", String(Boolean(quickTradeForm.trailingStopUsed)));
+      data.append("exitReason", quickTradeForm.exitReason || "");
       if (quickTradeForm.screenshotBefore) {
         data.append("screenshotBefore", quickTradeForm.screenshotBefore);
       }
@@ -1424,6 +1444,8 @@ const App = () => {
       setupOptions,
       token,
       user?.activeProfileId,
+      user?.profiles,
+      user?.settings?.playbooks,
     ]
   );
 
@@ -1703,6 +1725,7 @@ const App = () => {
   return (
     <main className="app-shell w-full min-h-screen p-0">
       <SaasWorkspace
+        token={token}
         activePage={activePage}
         setActivePage={setActivePage}
         pages={PAGES}

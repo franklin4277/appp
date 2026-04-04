@@ -1,7 +1,12 @@
 import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 import Trade from "../models/Trade.js";
-import { DEFAULT_RISK_CONTROLS, DEFAULT_STRATEGY_OPTIONS } from "../constants/defaults.js";
+import {
+  DEFAULT_PLAYBOOKS,
+  DEFAULT_REVIEW_TOOLKIT,
+  DEFAULT_RISK_CONTROLS,
+  DEFAULT_STRATEGY_OPTIONS,
+} from "../constants/defaults.js";
 import { recordAudit } from "../services/audit.js";
 import {
   createOneTimeCode,
@@ -86,6 +91,41 @@ const normalizeNamedList = (value = [], maxLength, fallback = []) => {
   }
 
   return fallback;
+};
+
+const normalizePlaybookId = (value = "") =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+
+const normalizePlaybooks = (value = []) => {
+  const source = Array.isArray(value) ? value : [];
+  const seen = new Set();
+  const output = [];
+
+  source.forEach((item, index) => {
+    const name = String(item?.name || "").trim().slice(0, 80);
+    const id = normalizePlaybookId(item?.id || name || `playbook-${index + 1}`);
+    if (!id || !name || seen.has(id)) {
+      return;
+    }
+    seen.add(id);
+    output.push({
+      id,
+      name,
+      setupType: String(item?.setupType || "").trim().slice(0, 80),
+      targetSession: String(item?.targetSession || "").trim().slice(0, 40),
+      confirmations: normalizeNamedList(asStringArray(item?.confirmations || []), 80, []),
+      invalidations: normalizeNamedList(asStringArray(item?.invalidations || []), 80, []),
+      checklist: normalizeNamedList(asStringArray(item?.checklist || []), 80, []),
+      notes: String(item?.notes || "").trim().slice(0, 400),
+    });
+  });
+
+  return output.length ? output : DEFAULT_PLAYBOOKS;
 };
 
 const toNumber = (value, fallback) => {
@@ -199,6 +239,7 @@ const toMt5IntegrationSummary = (user) => {
 const mergeSettings = (current = {}, next = {}) => {
   const optionsPayload = next.options || {};
   const riskPayload = next.riskControls || {};
+  const reviewToolkitPayload = next.reviewToolkit || {};
 
   return {
     options: {
@@ -270,6 +311,55 @@ const mergeSettings = (current = {}, next = {}) => {
         riskPayload.strictChecklistGate ??
         current.riskControls?.strictChecklistGate ??
         DEFAULT_RISK_CONTROLS.strictChecklistGate,
+    },
+    playbooks: normalizePlaybooks(next.playbooks ?? current.playbooks ?? DEFAULT_PLAYBOOKS),
+    reviewToolkit: {
+      mistakeTags: normalizeNamedList(
+        asStringArray(reviewToolkitPayload.mistakeTags ?? current.reviewToolkit?.mistakeTags ?? DEFAULT_REVIEW_TOOLKIT.mistakeTags),
+        80,
+        DEFAULT_REVIEW_TOOLKIT.mistakeTags
+      ),
+      fundedMode: {
+        enabled:
+          reviewToolkitPayload.fundedMode?.enabled ??
+          current.reviewToolkit?.fundedMode?.enabled ??
+          DEFAULT_REVIEW_TOOLKIT.fundedMode.enabled,
+        provider: String(
+          reviewToolkitPayload.fundedMode?.provider ??
+            current.reviewToolkit?.fundedMode?.provider ??
+            DEFAULT_REVIEW_TOOLKIT.fundedMode.provider
+        )
+          .trim()
+          .slice(0, 80),
+        profitTargetPercent: Math.max(
+          0,
+          toNumber(
+            reviewToolkitPayload.fundedMode?.profitTargetPercent,
+            current.reviewToolkit?.fundedMode?.profitTargetPercent
+          ) ?? DEFAULT_REVIEW_TOOLKIT.fundedMode.profitTargetPercent
+        ),
+        maxTotalDrawdownPercent: Math.max(
+          0,
+          toNumber(
+            reviewToolkitPayload.fundedMode?.maxTotalDrawdownPercent,
+            current.reviewToolkit?.fundedMode?.maxTotalDrawdownPercent
+          ) ?? DEFAULT_REVIEW_TOOLKIT.fundedMode.maxTotalDrawdownPercent
+        ),
+        consistencyPercent: Math.max(
+          0,
+          toNumber(
+            reviewToolkitPayload.fundedMode?.consistencyPercent,
+            current.reviewToolkit?.fundedMode?.consistencyPercent
+          ) ?? DEFAULT_REVIEW_TOOLKIT.fundedMode.consistencyPercent
+        ),
+        minTradingDays: Math.max(
+          0,
+          toNumber(
+            reviewToolkitPayload.fundedMode?.minTradingDays,
+            current.reviewToolkit?.fundedMode?.minTradingDays
+          ) ?? DEFAULT_REVIEW_TOOLKIT.fundedMode.minTradingDays
+        ),
+      },
     },
   };
 };

@@ -1,4 +1,9 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
+import {
+  createWeeklyReviewShare,
+  listWeeklyReviewShares,
+  revokeWeeklyReviewShare,
+} from "../api/tradesApi";
 import ThemeToggle from "./ThemeToggle";
 import BrandLogo from "./BrandLogo";
 import ScreenshotReplay from "./ScreenshotReplay";
@@ -328,6 +333,115 @@ const buildReviewScores = ({
   };
 };
 
+const buildMistakeStats = (trades = []) =>
+  Object.values(
+    (Array.isArray(trades) ? trades : []).reduce((acc, trade) => {
+      const tags = Array.isArray(trade?.mistakeTags) ? trade.mistakeTags : [];
+      tags.forEach((tag) => {
+        const label = String(tag || "").trim();
+        if (!label) {
+          return;
+        }
+        if (!acc[label]) {
+          acc[label] = { label, trades: 0, losses: 0, netRR: 0 };
+        }
+        acc[label].trades += 1;
+        if (toNumber(trade?.rrAchieved) < 0) {
+          acc[label].losses += 1;
+        }
+        acc[label].netRR += toNumber(trade?.rrAchieved);
+      });
+      return acc;
+    }, {})
+  )
+    .map((item) => ({
+      ...item,
+      netRR: round(item.netRR, 2),
+      costRR: round(Math.abs(Math.min(item.netRR, 0)), 2),
+    }))
+    .sort((a, b) => b.costRR - a.costRR || b.trades - a.trades);
+
+const buildCalendarDays = (trades = []) => {
+  const byDay = new Map();
+  (Array.isArray(trades) ? trades : []).forEach((trade) => {
+    const date = new Date(trade?.tradeDate || 0);
+    if (Number.isNaN(date.getTime())) {
+      return;
+    }
+    const key = date.toISOString().slice(0, 10);
+    const current = byDay.get(key) || { key, trades: 0, netRR: 0, wins: 0, losses: 0 };
+    current.trades += 1;
+    current.netRR += toNumber(trade?.rrAchieved);
+    if (String(trade?.result || "").toLowerCase() === "win") {
+      current.wins += 1;
+    } else if (String(trade?.result || "").toLowerCase() === "loss") {
+      current.losses += 1;
+    }
+    byDay.set(key, current);
+  });
+  return [...byDay.values()]
+    .map((item) => ({ ...item, netRR: round(item.netRR, 2) }))
+    .sort((a, b) => b.key.localeCompare(a.key));
+};
+
+const buildCoachingSummary = ({
+  trades = [],
+  mistakeStats = [],
+  bestSetup = null,
+  bestSession = null,
+  screenshotCoverage = 0,
+}) => {
+  if (!Array.isArray(trades) || !trades.length) {
+    return {
+      keep: ["Log 3-5 clean trades so Journex can coach from real data."],
+      stop: ["Avoid rushing into review conclusions before you have enough sample size."],
+      test: ["Capture screenshots and notes on every trade this week."],
+      assistant: "Once you build a sample, Journex will turn your review into a clearer weekly coaching brief.",
+    };
+  }
+
+  const followedPlanCount = trades.filter((trade) => trade?.tags?.cleanSetup).length;
+  const ruleBreakCount = trades.filter((trade) => String(trade?.ruleBreakReason || "").trim()).length;
+  const keep = [];
+  const stop = [];
+  const test = [];
+
+  if (bestSetup) {
+    keep.push(`Keep leaning into ${bestSetup.label}; it is your strongest setup in this range.`);
+  }
+  if (bestSession) {
+    keep.push(`Prioritize ${bestSession.label} when you want your cleanest decision-making window.`);
+  }
+  if (followedPlanCount > 0) {
+    keep.push(`Your cleaner trades are giving you structure. Preserve that routine.`);
+  }
+  if (mistakeStats[0]) {
+    stop.push(`Stop leaking R into ${mistakeStats[0].label}; it has cost ${mistakeStats[0].costRR}R so far.`);
+  }
+  if (ruleBreakCount > 0) {
+    stop.push(`Cut down rule overrides. ${ruleBreakCount} trade${ruleBreakCount === 1 ? "" : "s"} needed an override reason.`);
+  }
+  if (screenshotCoverage < 80) {
+    test.push("Raise screenshot coverage so your replay and review stay visual, not just memory-based.");
+  }
+  if (bestSetup) {
+    test.push(`Run a focused block of ${bestSetup.label} trades and compare them against your weaker setups.`);
+  }
+  if (bestSession) {
+    test.push(`Protect ${bestSession.label} as a priority session and trade lighter outside it.`);
+  }
+
+  return {
+    keep: keep.slice(0, 3),
+    stop: stop.slice(0, 3),
+    test: test.slice(0, 3),
+    assistant:
+      screenshotCoverage >= 80
+        ? "Replay quality is strong enough now to make your weekly review much more actionable."
+        : "Your review is improving, but more screenshots and tighter notes will make the coaching sharper.",
+  };
+};
+
 const formatCurrency = (value) => {
   const amount = Number(value);
   if (!Number.isFinite(amount)) {
@@ -505,6 +619,7 @@ const navIconMap = {
 };
 
 const SaasWorkspace = ({
+  token,
   activePage,
   setActivePage,
   pages,
@@ -664,10 +779,12 @@ const SaasWorkspace = ({
         trade?.pair,
         trade?.session,
         trade?.setupType,
+        trade?.playbookName,
         trade?.tradeType,
         trade?.result,
         trade?.ruleBreakReason,
         trade?.notes?.emotionalState,
+        ...(Array.isArray(trade?.mistakeTags) ? trade.mistakeTags : []),
       ]
         .filter(Boolean)
         .join(" ")
@@ -735,6 +852,14 @@ const SaasWorkspace = ({
     pairs: "",
     sessions: "",
     setupTypes: "",
+    playbooksJson: "",
+    mistakeTags: "",
+    fundedModeEnabled: false,
+    fundedProvider: "",
+    fundedProfitTargetPercent: 8,
+    fundedMaxTotalDrawdownPercent: 10,
+    fundedConsistencyPercent: 25,
+    fundedMinTradingDays: 5,
     requireRuleAlignment: true,
     maxTradesPerSession: 4,
     cooldownMinutesAfterLoss: 30,
@@ -751,6 +876,12 @@ const SaasWorkspace = ({
   const [bridgeLabel, setBridgeLabel] = useState(() => user?.integrations?.mt5?.label || "MT5 Bridge");
   const [bridgeMessage, setBridgeMessage] = useState("");
   const [bridgeError, setBridgeError] = useState("");
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareError, setShareError] = useState("");
+  const [shareMessage, setShareMessage] = useState("");
+  const [reviewShares, setReviewShares] = useState([]);
+  const [loadingReviewShares, setLoadingReviewShares] = useState(false);
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
   const userInitials = useMemo(() => {
     const base = String(user?.name || user?.email || "J").trim();
     const parts = base.split(/\s+/).filter(Boolean);
@@ -762,12 +893,35 @@ const SaasWorkspace = ({
     const resolvedActiveProfile =
       (user?.profiles || []).find((profile) => profile.id === (user?.activeProfileId || "main")) || null;
     const toCsv = (value = []) => (Array.isArray(value) ? value.join(", ") : "");
+    const playbooks = Array.isArray(user?.settings?.playbooks) ? user.settings.playbooks : [];
+    const safePlaybooks = playbooks.length
+      ? playbooks
+      : [
+          {
+            id: "main-playbook",
+            name: "Main Playbook",
+            setupType: "",
+            targetSession: "",
+            confirmations: [],
+            invalidations: [],
+            checklist: [],
+            notes: "",
+          },
+        ];
     setSettingsDraft({
       profileName: resolvedActiveProfile?.name || "",
       profileDescription: resolvedActiveProfile?.description || "",
       pairs: toCsv(user?.settings?.options?.pairs || []),
       sessions: toCsv(user?.settings?.options?.sessions || []),
       setupTypes: toCsv(user?.settings?.options?.setupTypes || []),
+      playbooksJson: JSON.stringify(safePlaybooks, null, 2),
+      mistakeTags: toCsv(user?.settings?.reviewToolkit?.mistakeTags || []),
+      fundedModeEnabled: Boolean(user?.settings?.reviewToolkit?.fundedMode?.enabled),
+      fundedProvider: user?.settings?.reviewToolkit?.fundedMode?.provider || "",
+      fundedProfitTargetPercent: user?.settings?.reviewToolkit?.fundedMode?.profitTargetPercent ?? 8,
+      fundedMaxTotalDrawdownPercent: user?.settings?.reviewToolkit?.fundedMode?.maxTotalDrawdownPercent ?? 10,
+      fundedConsistencyPercent: user?.settings?.reviewToolkit?.fundedMode?.consistencyPercent ?? 25,
+      fundedMinTradingDays: user?.settings?.reviewToolkit?.fundedMode?.minTradingDays ?? 5,
       requireRuleAlignment: Boolean(user?.settings?.riskControls?.requireRuleAlignment ?? true),
       maxTradesPerSession: user?.settings?.riskControls?.maxTradesPerSession ?? 4,
       cooldownMinutesAfterLoss: user?.settings?.riskControls?.cooldownMinutesAfterLoss ?? 30,
@@ -858,6 +1012,71 @@ const SaasWorkspace = ({
       hasAccountSize: activeProfileAccountSize > 0,
     };
   }, [activeProfileAccountSize, maxRiskPerTradePercent, quickTradeForm]);
+  const playbooks = useMemo(
+    () => (Array.isArray(user?.settings?.playbooks) ? user.settings.playbooks : []),
+    [user?.settings?.playbooks]
+  );
+  const mistakeCatalog = useMemo(
+    () => (Array.isArray(user?.settings?.reviewToolkit?.mistakeTags) ? user.settings.reviewToolkit.mistakeTags : []),
+    [user?.settings?.reviewToolkit?.mistakeTags]
+  );
+  const fundedMode = useMemo(
+    () => ({
+      enabled: Boolean(user?.settings?.reviewToolkit?.fundedMode?.enabled),
+      provider: String(user?.settings?.reviewToolkit?.fundedMode?.provider || ""),
+      profitTargetPercent: Math.max(Number(user?.settings?.reviewToolkit?.fundedMode?.profitTargetPercent || 0), 0),
+      maxTotalDrawdownPercent: Math.max(
+        Number(user?.settings?.reviewToolkit?.fundedMode?.maxTotalDrawdownPercent || 0),
+        0
+      ),
+      consistencyPercent: Math.max(Number(user?.settings?.reviewToolkit?.fundedMode?.consistencyPercent || 0), 0),
+      minTradingDays: Math.max(Number(user?.settings?.reviewToolkit?.fundedMode?.minTradingDays || 0), 0),
+    }),
+    [user?.settings?.reviewToolkit?.fundedMode]
+  );
+  const playbookStats = useMemo(
+    () => groupedStats(allTrades, (trade) => trade?.playbookName || trade?.playbookId),
+    [allTrades]
+  );
+  const mistakeStats = useMemo(() => buildMistakeStats(allTrades), [allTrades]);
+  const reviewMistakeStats = useMemo(() => buildMistakeStats(activeReviewTrades), [activeReviewTrades]);
+  const reviewCalendarDays = useMemo(() => buildCalendarDays(activeReviewTrades), [activeReviewTrades]);
+  const replayTrades = useMemo(
+    () =>
+      [...activeReviewTrades].sort(
+        (a, b) => new Date(a?.tradeDate || 0).getTime() - new Date(b?.tradeDate || 0).getTime()
+      ),
+    [activeReviewTrades]
+  );
+  const replayTradeIndex = useMemo(
+    () => replayTrades.findIndex((trade) => String(trade?._id || "") === String(reviewReplayTarget || "")),
+    [replayTrades, reviewReplayTarget]
+  );
+  const replayTrade = replayTradeIndex >= 0 ? replayTrades[replayTradeIndex] : replayTrades[0] || null;
+  const fundedProgress = useMemo(() => {
+    if (!fundedMode.enabled || !activeAccountPerformance || !activeProfileAccountSize) {
+      return null;
+    }
+    const totalDrawdownUsed = Math.max(activeAccountPerformance.maxDrawdownPercent, 0);
+    const profitProgress = fundedMode.profitTargetPercent
+      ? Math.min(Math.max((activeAccountPerformance.returnPercent / fundedMode.profitTargetPercent) * 100, 0), 100)
+      : 0;
+    const drawdownProgress = fundedMode.maxTotalDrawdownPercent
+      ? Math.min(Math.max((totalDrawdownUsed / fundedMode.maxTotalDrawdownPercent) * 100, 0), 100)
+      : 0;
+    const tradingDays = new Set(
+      allTrades.map((trade) => String(trade?.tradeDate || "").slice(0, 10)).filter(Boolean)
+    ).size;
+    return {
+      tradingDays,
+      passedDays: fundedMode.minTradingDays > 0 ? tradingDays >= fundedMode.minTradingDays : true,
+      profitProgress,
+      drawdownProgress,
+      targetReached: fundedMode.profitTargetPercent > 0 && activeAccountPerformance.returnPercent >= fundedMode.profitTargetPercent,
+      drawdownBreached:
+        fundedMode.maxTotalDrawdownPercent > 0 && totalDrawdownUsed >= fundedMode.maxTotalDrawdownPercent,
+    };
+  }, [activeAccountPerformance, activeProfileAccountSize, allTrades, fundedMode]);
   const topSetupConfidence = confidenceForSample(resolvedSetupTop[0]?.trades || 0);
   const topSessionConfidence = confidenceForSample(resolvedSessionTop[0]?.trades || 0);
   const reviewScores = useMemo(
@@ -886,6 +1105,23 @@ const SaasWorkspace = ({
           })
         : [],
     [maxRiskPerTradePercent, selectedTrade, selectedTradeImpact]
+  );
+  const coachingSummary = useMemo(
+    () =>
+      buildCoachingSummary({
+        trades: activeReviewTrades,
+        mistakeStats: reviewMistakeStats,
+        bestSetup: reviewBestSetup,
+        bestSession: reviewBestSession,
+        screenshotCoverage: reviewScreenshotCoverage,
+      }),
+    [
+      activeReviewTrades,
+      reviewBestSession,
+      reviewBestSetup,
+      reviewMistakeStats,
+      reviewScreenshotCoverage,
+    ]
   );
   const dailyGoalProgress = useMemo(() => {
     if (!dailyAccountPerformance || dailyProfitTargetPercent <= 0) {
@@ -947,6 +1183,43 @@ const SaasWorkspace = ({
   useEffect(() => {
     setBridgeLabel(user?.integrations?.mt5?.label || "MT5 Bridge");
   }, [user?.integrations?.mt5?.label]);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (event) => {
+      event.preventDefault();
+      setDeferredInstallPrompt(event);
+    };
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+  }, []);
+
+  useEffect(() => {
+    if (activePage !== "review" || !token || !isOnline) {
+      return;
+    }
+    let mounted = true;
+    setLoadingReviewShares(true);
+    listWeeklyReviewShares(token)
+      .then((response) => {
+        if (!mounted) {
+          return;
+        }
+        setReviewShares(Array.isArray(response?.data) ? response.data : []);
+      })
+      .catch(() => {
+        if (mounted) {
+          setReviewShares([]);
+        }
+      })
+      .finally(() => {
+        if (mounted) {
+          setLoadingReviewShares(false);
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [activePage, isOnline, token]);
 
   const backendBase = useMemo(() => {
     const raw = String(import.meta.env.VITE_API_URL || "").trim();
@@ -1099,6 +1372,103 @@ const SaasWorkspace = ({
     window.scrollTo(0, 0);
     setActivePage("review");
   }, []);
+
+  const handleInstallApp = useCallback(async () => {
+    if (!deferredInstallPrompt) {
+      return;
+    }
+    try {
+      await deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+    } catch {
+      // Ignore prompt failures.
+    } finally {
+      setDeferredInstallPrompt(null);
+    }
+  }, [deferredInstallPrompt]);
+
+  const handleCreateReviewShare = useCallback(async () => {
+    if (!token || !isOnline) {
+      return;
+    }
+    setShareBusy(true);
+    setShareError("");
+    setShareMessage("");
+    try {
+      const response = await createWeeklyReviewShare(token, {
+        title: "Weekly review",
+      });
+      const nextShares = await listWeeklyReviewShares(token);
+      setReviewShares(Array.isArray(nextShares?.data) ? nextShares.data : []);
+      if (response?.shareUrl) {
+        try {
+          await navigator.clipboard.writeText(response.shareUrl);
+          setShareMessage("Weekly review share link copied.");
+        } catch {
+          setShareMessage(response.shareUrl);
+        }
+      }
+    } catch (error) {
+      setShareError(error.message || "Could not create a review share.");
+    } finally {
+      setShareBusy(false);
+    }
+  }, [isOnline, token]);
+
+  const handleRevokeShare = useCallback(
+    async (shareId) => {
+      if (!token || !shareId) {
+        return;
+      }
+      try {
+        await revokeWeeklyReviewShare(token, shareId);
+        const nextShares = await listWeeklyReviewShares(token);
+        setReviewShares(Array.isArray(nextShares?.data) ? nextShares.data : []);
+        setShareMessage("Share revoked.");
+        setShareError("");
+      } catch (error) {
+        setShareError(error.message || "Could not revoke share.");
+      }
+    },
+    [token]
+  );
+
+  const copyTradeSummary = useCallback(async (trade) => {
+    if (!trade) {
+      return;
+    }
+    const summary = [
+      `${trade.pair || "Pair"} | ${trade.setupType || "Setup"} | ${formatTradeDate(trade.tradeDate)}`,
+      `Result: ${trade.result || "-"} | R: ${toNumber(trade.rrAchieved).toFixed(2)} | Session: ${trade.session || "-"}`,
+      trade.playbookName ? `Playbook: ${trade.playbookName}` : "",
+      Array.isArray(trade.mistakeTags) && trade.mistakeTags.length ? `Mistakes: ${trade.mistakeTags.join(", ")}` : "",
+      trade.notes?.executionReview ? `Review: ${trade.notes.executionReview}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    try {
+      await navigator.clipboard.writeText(summary);
+      setShareMessage("Trade summary copied.");
+      setShareError("");
+    } catch {
+      setShareError("Clipboard copy failed for trade summary.");
+    }
+  }, []);
+
+  const stepReplayTrade = useCallback(
+    (direction) => {
+      if (!replayTrades.length) {
+        return;
+      }
+      const currentIndex = replayTradeIndex >= 0 ? replayTradeIndex : 0;
+      const nextIndex = Math.min(Math.max(currentIndex + direction, 0), replayTrades.length - 1);
+      const nextTrade = replayTrades[nextIndex];
+      if (nextTrade) {
+        setReviewReplayTarget(nextTrade._id || "");
+      }
+    },
+    [replayTradeIndex, replayTrades]
+  );
 
   const copyText = async (value, successMessage) => {
     if (!value) {
@@ -1298,6 +1668,11 @@ const SaasWorkspace = ({
           <span className={`saas-status-dot ${isOnline ? "" : "saas-status-dot-offline"}`} aria-hidden="true" />
           <span>{isOnline ? "Online" : "Offline mode"}</span>
           {offlineQueue.length ? <span className="chip">{offlineQueue.length} queued</span> : null}
+          {deferredInstallPrompt ? (
+            <button type="button" className="chip quick-chart-btn" onClick={() => void handleInstallApp()}>
+              Install App
+            </button>
+          ) : null}
         </div>
         <div className="saas-topbar-right">
           <div className="saas-user-card">
@@ -1574,6 +1949,66 @@ const SaasWorkspace = ({
               </div>
             )}
           </article>
+
+          <div className="saas-main-grid">
+            <article className="panel saas-card">
+              <div className="saas-card-head">
+                <div>
+                  <h3 className="saas-card-title">Playbook Performance</h3>
+                  <p className="saas-card-subtitle">See which saved playbooks actually hold up in live execution.</p>
+                </div>
+              </div>
+              {playbookStats.length ? (
+                <div className="saas-ranking-list">
+                  {playbookStats.slice(0, 4).map((item) => (
+                    <div key={`playbook-${item.label}`} className="saas-ranking-item">
+                      <div className="saas-ranking-top">
+                        <strong>{item.label}</strong>
+                        <span className="saas-rank-rate">{item.winRate}%</span>
+                      </div>
+                      <div className="saas-ranking-sub">
+                        <p>{item.trades} trades</p>
+                        <p>Avg R:R {toNumber(item.avgRR).toFixed(2)}x</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="saas-risk-panel saas-risk-panel-muted">
+                  Save playbooks in Settings and attach them in Add Trade to compare live execution against your playbook library.
+                </div>
+              )}
+            </article>
+
+            <article className="panel saas-card">
+              <div className="saas-card-head">
+                <div>
+                  <h3 className="saas-card-title">Costly Mistakes</h3>
+                  <p className="saas-card-subtitle">The behaviors currently taking the most R off the table.</p>
+                </div>
+              </div>
+              {mistakeStats.length ? (
+                <div className="saas-ranking-list">
+                  {mistakeStats.slice(0, 4).map((item) => (
+                    <div key={`mistake-cost-${item.label}`} className="saas-ranking-item">
+                      <div className="saas-ranking-top">
+                        <strong>{item.label}</strong>
+                        <span className="saas-rank-rate saas-rank-rate-low">-{item.costRR}R</span>
+                      </div>
+                      <div className="saas-ranking-sub">
+                        <p>{item.trades} tagged trades</p>
+                        <p>{item.losses} losses linked to this leak</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="saas-risk-panel saas-risk-panel-muted">
+                  Turn on the mistake tracker in your trade workflow to see which habits need the most attention.
+                </div>
+              )}
+            </article>
+          </div>
 
           <article className="panel saas-edge-banner">
             <div className="saas-banner-head">
@@ -1879,6 +2314,32 @@ const SaasWorkspace = ({
                 </div>
               </label>
               <label>
+                <span className="label">Playbook</span>
+                <select
+                  className="input"
+                  value={quickTradeForm.playbookId}
+                  onChange={(event) => {
+                    const nextId = event.target.value;
+                    const selectedPlaybook = playbooks.find((playbook) => playbook.id === nextId);
+                    handleQuickTradeChange("playbookId", nextId);
+                    if (selectedPlaybook?.setupType) {
+                      handleQuickTradeChange("setupType", selectedPlaybook.setupType);
+                    }
+                    if (selectedPlaybook?.targetSession) {
+                      handleQuickTradeChange("session", selectedPlaybook.targetSession);
+                    }
+                  }}
+                >
+                  <option value="">No playbook</option>
+                  {playbooks.map((playbook) => (
+                    <option key={playbook.id} value={playbook.id}>
+                      {playbook.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="input-hint">Attach this trade to a saved playbook so review can compare execution quality.</p>
+              </label>
+              <label>
                 <span className="label">Trading Session</span>
                 <select
                   className="input"
@@ -1914,6 +2375,107 @@ const SaasWorkspace = ({
                 />
               </label>
             </div>
+
+            <article className="saas-note-card">
+              <div className="saas-card-head">
+                <div>
+                  <h3 className="saas-card-title">Lifecycle Tracking</h3>
+                  <p className="saas-card-subtitle">Track how the trade evolved after entry, not just how it ended.</p>
+                </div>
+              </div>
+              <div className="saas-form-grid">
+                <label>
+                  <span className="label">Scale-ins</span>
+                  <input
+                    className="input"
+                    type="number"
+                    min="0"
+                    value={quickTradeForm.scaleInCount}
+                    onChange={(event) => handleQuickTradeChange("scaleInCount", event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span className="label">Scale-outs</span>
+                  <input
+                    className="input"
+                    type="number"
+                    min="0"
+                    value={quickTradeForm.scaleOutCount}
+                    onChange={(event) => handleQuickTradeChange("scaleOutCount", event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span className="label">Partial closes</span>
+                  <input
+                    className="input"
+                    type="number"
+                    min="0"
+                    value={quickTradeForm.partialCloseCount}
+                    onChange={(event) => handleQuickTradeChange("partialCloseCount", event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span className="label">Exit reason</span>
+                  <input
+                    className="input"
+                    value={quickTradeForm.exitReason}
+                    onChange={(event) => handleQuickTradeChange("exitReason", event.target.value)}
+                    placeholder="Target, manual close, stop, time-based..."
+                  />
+                </label>
+              </div>
+              <div className="chip-row mt-3">
+                <button
+                  type="button"
+                  className={`chip-btn ${quickTradeForm.movedStopToBreakeven ? "chip-btn-active" : ""}`}
+                  onClick={() =>
+                    handleQuickTradeChange("movedStopToBreakeven", !quickTradeForm.movedStopToBreakeven)
+                  }
+                >
+                  Moved to breakeven
+                </button>
+                <button
+                  type="button"
+                  className={`chip-btn ${quickTradeForm.trailingStopUsed ? "chip-btn-active" : ""}`}
+                  onClick={() => handleQuickTradeChange("trailingStopUsed", !quickTradeForm.trailingStopUsed)}
+                >
+                  Trailing stop used
+                </button>
+              </div>
+            </article>
+
+            {mistakeCatalog.length ? (
+              <article className="saas-note-card">
+                <div className="saas-card-head">
+                  <div>
+                    <h3 className="saas-card-title">Mistake Tracker</h3>
+                    <p className="saas-card-subtitle">Tag the leaks so review can rank what is costing you most.</p>
+                  </div>
+                </div>
+                <div className="chip-row">
+                  {mistakeCatalog.map((mistake) => {
+                    const isActive = (quickTradeForm.mistakeTags || []).includes(mistake);
+                    return (
+                      <button
+                        key={`mistake-${mistake}`}
+                        type="button"
+                        className={`chip-btn ${isActive ? "chip-btn-active" : ""}`}
+                        onClick={() =>
+                          handleQuickTradeChange(
+                            "mistakeTags",
+                            isActive
+                              ? (quickTradeForm.mistakeTags || []).filter((item) => item !== mistake)
+                              : [...(quickTradeForm.mistakeTags || []), mistake]
+                          )
+                        }
+                      >
+                        {mistake}
+                      </button>
+                    );
+                  })}
+                </div>
+              </article>
+            ) : null}
 
             <div
               className={`saas-risk-panel ${
@@ -2652,6 +3214,269 @@ const SaasWorkspace = ({
             </article>
           </div>
 
+          <div className="saas-main-grid">
+            <article className="panel saas-card">
+              <div className="saas-card-head">
+                <div>
+                  <h3 className="saas-card-title">Weekly Coaching</h3>
+                  <p className="saas-card-subtitle">A practical keep / stop / test brief from your current review range.</p>
+                </div>
+                <span className="chip text-textMain">Assistant</span>
+              </div>
+              <div className="saas-note-card">
+                <h4>Keep</h4>
+                <ul className="saas-note-list">
+                  {coachingSummary.keep.map((item) => (
+                    <li key={`keep-${item}`}>
+                      <span>
+                        <strong>{item}</strong>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="saas-note-card mt-3">
+                <h4>Stop</h4>
+                <ul className="saas-note-list">
+                  {coachingSummary.stop.map((item) => (
+                    <li key={`stop-${item}`}>
+                      <span>
+                        <strong>{item}</strong>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="saas-note-card mt-3">
+                <h4>Test Next</h4>
+                <ul className="saas-note-list">
+                  {coachingSummary.test.map((item) => (
+                    <li key={`test-${item}`}>
+                      <span>
+                        <strong>{item}</strong>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="saas-stat-label mt-3">{coachingSummary.assistant}</p>
+              </div>
+            </article>
+
+            <article className="panel saas-card">
+              <div className="saas-card-head">
+                <div>
+                  <h3 className="saas-card-title">Mistake Tracker</h3>
+                  <p className="saas-card-subtitle">Rank the execution leaks costing the most R.</p>
+                </div>
+              </div>
+              {reviewMistakeStats.length ? (
+                <div className="saas-ranking-list">
+                  {reviewMistakeStats.slice(0, 5).map((item) => (
+                    <div key={`mistake-stat-${item.label}`} className="saas-ranking-item">
+                      <div className="saas-ranking-top">
+                        <strong>{item.label}</strong>
+                        <span className="saas-rank-rate saas-rank-rate-low">-{item.costRR}R</span>
+                      </div>
+                      <div className="saas-ranking-sub">
+                        <p>{item.trades} tagged trades</p>
+                        <p>{item.losses} losing trades carried this leak</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="saas-risk-panel saas-risk-panel-muted">
+                  Tag mistakes when logging trades to see which behaviors are actually costing you.
+                </div>
+              )}
+            </article>
+          </div>
+
+          <article className="panel saas-card">
+            <div className="saas-card-head">
+              <div>
+                <h3 className="saas-card-title">Trading Calendar</h3>
+                <p className="saas-card-subtitle">A day-by-day view of when trades clustered and how each day closed.</p>
+              </div>
+            </div>
+            {reviewCalendarDays.length ? (
+              <div className="saas-calendar-grid">
+                {reviewCalendarDays.slice(0, 21).map((day) => (
+                  <button
+                    key={`calendar-${day.key}`}
+                    type="button"
+                    className={`saas-calendar-day ${day.netRR > 0 ? "saas-calendar-day-win" : day.netRR < 0 ? "saas-calendar-day-loss" : ""}`}
+                    onClick={() => {
+                      const match = activeReviewTrades.find(
+                        (trade) => String(trade?.tradeDate || "").slice(0, 10) === day.key
+                      );
+                      if (match) {
+                        openTradeFromReview(match);
+                      }
+                    }}
+                  >
+                    <span>{new Date(day.key).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
+                    <strong>{day.trades} trades</strong>
+                    <small>{day.netRR >= 0 ? "+" : ""}{day.netRR}R</small>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="saas-stat-label">No trades in this range yet.</p>
+            )}
+          </article>
+
+          <div className="saas-main-grid">
+            <article className="panel saas-card">
+              <div className="saas-card-head">
+                <div>
+                  <h3 className="saas-card-title">Session Replay</h3>
+                  <p className="saas-card-subtitle">Walk trades in chronological order to replay the flow of the session.</p>
+                </div>
+              </div>
+              <div className="saas-settings-actions">
+                <button
+                  type="button"
+                  className="landing-cta-secondary"
+                  onClick={() => stepReplayTrade(-1)}
+                  disabled={!replayTrades.length || replayTradeIndex <= 0}
+                >
+                  Prev Trade
+                </button>
+                <span className="chip text-textMain">
+                  {replayTradeIndex >= 0 ? replayTradeIndex + 1 : 0}/{replayTrades.length}
+                </span>
+                <button
+                  type="button"
+                  className="landing-cta-secondary"
+                  onClick={() => stepReplayTrade(1)}
+                  disabled={!replayTrades.length || replayTradeIndex >= replayTrades.length - 1}
+                >
+                  Next Trade
+                </button>
+              </div>
+              {replayTrade ? (
+                <button
+                  type="button"
+                  className="saas-note-card mt-3 text-left"
+                  onClick={() => openTradeFromReview(replayTrade)}
+                >
+                  <h4>{replayTrade.pair} - {replayTrade.setupType}</h4>
+                  <p className="saas-stat-label mt-2">
+                    {formatTradeDate(replayTrade.tradeDate)} | {replayTrade.session} | {toNumber(replayTrade.rrAchieved).toFixed(2)}R
+                  </p>
+                </button>
+              ) : (
+                <p className="saas-stat-label">No trades available for replay.</p>
+              )}
+            </article>
+
+            <article className="panel saas-card">
+              <div className="saas-card-head">
+                <div>
+                  <h3 className="saas-card-title">Sharing</h3>
+                  <p className="saas-card-subtitle">Create a weekly review share link or copy a trade summary for coaching and accountability.</p>
+                </div>
+              </div>
+              <div className="saas-settings-actions">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => void handleCreateReviewShare()}
+                  disabled={!isOnline || shareBusy}
+                >
+                  {shareBusy ? "Creating..." : "Create Review Share"}
+                </button>
+                {selectedTrade ? (
+                  <button
+                    type="button"
+                    className="landing-cta-secondary"
+                    onClick={() => void copyTradeSummary(selectedTrade)}
+                  >
+                    Copy Trade Summary
+                  </button>
+                ) : null}
+              </div>
+              {shareError ? <p className="saas-alert saas-alert-error mt-3">{shareError}</p> : null}
+              {shareMessage ? <p className="saas-alert mt-3">{shareMessage}</p> : null}
+              {loadingReviewShares ? (
+                <p className="saas-stat-label mt-3">Loading shares...</p>
+              ) : reviewShares.length ? (
+                <div className="saas-ranking-list mt-3">
+                  {reviewShares.slice(0, 4).map((share) => (
+                    <div key={share.id} className="saas-ranking-item">
+                      <div className="saas-ranking-top">
+                        <strong>{share.title}</strong>
+                        <span className="chip">{share.isExpired ? "Expired" : "Live"}</span>
+                      </div>
+                      <div className="saas-ranking-sub">
+                        <p>{share.periodStart} to {share.periodEnd}</p>
+                        <p>Expires {formatDateTime(share.expiresAt)}</p>
+                      </div>
+                      <div className="saas-settings-actions mt-2">
+                        <button
+                          type="button"
+                          className="chip text-textMain"
+                          onClick={() => void handleRevokeShare(share.id)}
+                        >
+                          Revoke
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="saas-stat-label mt-3">No review shares created yet.</p>
+              )}
+            </article>
+          </div>
+
+          {fundedMode.enabled ? (
+            <article className="panel saas-card">
+              <div className="saas-card-head">
+                <div>
+                  <h3 className="saas-card-title">Funded Account Mode</h3>
+                  <p className="saas-card-subtitle">
+                    {fundedMode.provider || "Challenge rules"} tracked against your active profile performance.
+                  </p>
+                </div>
+              </div>
+              {fundedProgress ? (
+                <div className="saas-metric-list">
+                  <div className="saas-metric-item">
+                    <span>Profit target</span>
+                    <strong>{fundedMode.profitTargetPercent}%</strong>
+                  </div>
+                  <div className="saas-progress saas-progress-green">
+                    <span style={{ width: `${fundedProgress.profitProgress}%` }} />
+                  </div>
+                  <div className="saas-metric-item">
+                    <span>Total drawdown cap</span>
+                    <strong>{fundedMode.maxTotalDrawdownPercent}%</strong>
+                  </div>
+                  <div className="saas-progress saas-progress-red">
+                    <span style={{ width: `${fundedProgress.drawdownProgress}%` }} />
+                  </div>
+                  <div className="saas-metric-item">
+                    <span>Minimum trading days</span>
+                    <strong>{fundedProgress.tradingDays}/{fundedMode.minTradingDays || fundedProgress.tradingDays}</strong>
+                  </div>
+                  <p className="saas-metric-note">
+                    {fundedProgress.drawdownBreached
+                      ? "Drawdown limit breached. Review before continuing."
+                      : fundedProgress.targetReached
+                        ? "Target reached. Protect the account and keep consistency clean."
+                        : "Challenge still in progress. Keep execution clean and consistency controlled."}
+                  </p>
+                </div>
+              ) : (
+                <div className="saas-risk-panel saas-risk-panel-muted">
+                  Set account size and funded rules in Settings to track challenge progress here.
+                </div>
+              )}
+            </article>
+          ) : null}
+
           <article className="panel saas-card">
             <h3 className="saas-card-title">Trade Breakdown</h3>
 
@@ -3057,6 +3882,117 @@ const SaasWorkspace = ({
 
           <article className="panel saas-card">
             <div className="saas-section-header">
+              <span className="saas-stat-icon saas-stat-icon-blue">
+                <IconGlyph name="review" />
+              </span>
+              <div>
+                <h3 className="saas-card-title">Playbooks & Review Toolkit</h3>
+                <p className="saas-card-subtitle">Save playbooks, mistake labels, and funded-account rules in one place.</p>
+              </div>
+            </div>
+            <div className="saas-settings-grid">
+              <label className="saas-settings-span-full">
+                <span className="label">Playbooks JSON</span>
+                <textarea
+                  className="input font-mono text-xs"
+                  rows={12}
+                  value={settingsDraft.playbooksJson}
+                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, playbooksJson: event.target.value }))}
+                  placeholder='[{"id":"london-breakout","name":"London Breakout","setupType":"Breakout"}]'
+                  disabled={!isOnline || savingUserSettings}
+                />
+              </label>
+              <label className="saas-settings-span-full">
+                <span className="label">Mistake labels</span>
+                <textarea
+                  className="input"
+                  rows={3}
+                  value={settingsDraft.mistakeTags}
+                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, mistakeTags: event.target.value }))}
+                  placeholder="Late entry, Oversized risk, Early close"
+                  disabled={!isOnline || savingUserSettings}
+                />
+              </label>
+              <label className="flex items-center gap-2 text-sm text-textMain saas-settings-span-full">
+                <input
+                  type="checkbox"
+                  checked={Boolean(settingsDraft.fundedModeEnabled)}
+                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, fundedModeEnabled: event.target.checked }))}
+                  disabled={!isOnline || savingUserSettings}
+                />
+                Enable funded-account mode
+              </label>
+              <label>
+                <span className="label">Funded provider</span>
+                <input
+                  className="input"
+                  value={settingsDraft.fundedProvider}
+                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, fundedProvider: event.target.value }))}
+                  placeholder="FTMO / prop challenge / personal rules"
+                  disabled={!isOnline || savingUserSettings}
+                />
+              </label>
+              <label>
+                <span className="label">Profit target (%)</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={settingsDraft.fundedProfitTargetPercent}
+                  onChange={(event) =>
+                    setSettingsDraft((prev) => ({ ...prev, fundedProfitTargetPercent: event.target.value }))
+                  }
+                  disabled={!isOnline || savingUserSettings}
+                />
+              </label>
+              <label>
+                <span className="label">Max total drawdown (%)</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={settingsDraft.fundedMaxTotalDrawdownPercent}
+                  onChange={(event) =>
+                    setSettingsDraft((prev) => ({ ...prev, fundedMaxTotalDrawdownPercent: event.target.value }))
+                  }
+                  disabled={!isOnline || savingUserSettings}
+                />
+              </label>
+              <label>
+                <span className="label">Consistency cap (%)</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={settingsDraft.fundedConsistencyPercent}
+                  onChange={(event) =>
+                    setSettingsDraft((prev) => ({ ...prev, fundedConsistencyPercent: event.target.value }))
+                  }
+                  disabled={!isOnline || savingUserSettings}
+                />
+              </label>
+              <label>
+                <span className="label">Minimum trading days</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={settingsDraft.fundedMinTradingDays}
+                  onChange={(event) =>
+                    setSettingsDraft((prev) => ({ ...prev, fundedMinTradingDays: event.target.value }))
+                  }
+                  disabled={!isOnline || savingUserSettings}
+                />
+              </label>
+            </div>
+          </article>
+
+          <article className="panel saas-card">
+            <div className="saas-section-header">
               <span className="saas-stat-icon saas-stat-icon-red">
                 <IconGlyph name="warn" />
               </span>
@@ -3205,11 +4141,32 @@ const SaasWorkspace = ({
                   setSettingsDraft((prev) => ({ ...prev, pairs: nextPairsCsv }));
                 }
 
+                let parsedPlaybooks = [];
+                try {
+                  const raw = JSON.parse(settingsDraft.playbooksJson || "[]");
+                  parsedPlaybooks = Array.isArray(raw) ? raw : [];
+                } catch {
+                  window.alert("Playbooks JSON is invalid. Fix the JSON before saving settings.");
+                  return;
+                }
+
                 void handleUpdateUserSettings({
                   options: {
                     pairs: nextPairs,
                     sessions: fromCsv(settingsDraft.sessions),
                     setupTypes: fromCsv(settingsDraft.setupTypes),
+                  },
+                  playbooks: parsedPlaybooks,
+                  reviewToolkit: {
+                    mistakeTags: fromCsv(settingsDraft.mistakeTags),
+                    fundedMode: {
+                      enabled: Boolean(settingsDraft.fundedModeEnabled),
+                      provider: settingsDraft.fundedProvider,
+                      profitTargetPercent: Number(settingsDraft.fundedProfitTargetPercent) || 0,
+                      maxTotalDrawdownPercent: Number(settingsDraft.fundedMaxTotalDrawdownPercent) || 0,
+                      consistencyPercent: Number(settingsDraft.fundedConsistencyPercent) || 0,
+                      minTradingDays: Number(settingsDraft.fundedMinTradingDays) || 0,
+                    },
                   },
                   riskControls: {
                     requireRuleAlignment: Boolean(settingsDraft.requireRuleAlignment),
@@ -3454,6 +4411,10 @@ const SaasWorkspace = ({
                 <strong>{selectedTrade.tradeType || "-"}</strong>
               </li>
               <li>
+                <span>Playbook</span>
+                <strong>{selectedTrade.playbookName || selectedTrade.playbookId || "-"}</strong>
+              </li>
+              <li>
                 <span>Entry</span>
                 <strong>
                   {Number.isFinite(toFinite(selectedTrade.entryPrice))
@@ -3537,6 +4498,22 @@ const SaasWorkspace = ({
                 <span>Status</span>
                 <strong>{selectedTrade.automation?.status || "closed"}</strong>
               </li>
+              <li>
+                <span>Scale-ins</span>
+                <strong>{toNumber(selectedTrade.lifecycle?.scaleInCount, 0)}</strong>
+              </li>
+              <li>
+                <span>Scale-outs</span>
+                <strong>{toNumber(selectedTrade.lifecycle?.scaleOutCount, 0)}</strong>
+              </li>
+              <li>
+                <span>Partial closes</span>
+                <strong>{toNumber(selectedTrade.lifecycle?.partialCloseCount, 0)}</strong>
+              </li>
+              <li>
+                <span>Exit reason</span>
+                <strong>{selectedTrade.lifecycle?.exitReason || "-"}</strong>
+              </li>
             </ul>
 
             <div className="mt-3 flex flex-wrap gap-2">
@@ -3544,11 +4521,20 @@ const SaasWorkspace = ({
               {selectedTrade.tags?.pocInteraction ? <span className="chip">POC</span> : null}
               {selectedTrade.tags?.cleanSetup ? <span className="chip">Clean</span> : null}
               {selectedTrade.tags?.pocOutcome ? <span className="chip">{selectedTrade.tags.pocOutcome}</span> : null}
+              {selectedTrade.lifecycle?.movedStopToBreakeven ? <span className="chip">Moved to BE</span> : null}
+              {selectedTrade.lifecycle?.trailingStopUsed ? <span className="chip">Trailing stop</span> : null}
               {selectedTradeJournalLabels.map((label) => (
                 <span key={`journal-label-${label}`} className="chip">
                   {label}
                 </span>
               ))}
+              {Array.isArray(selectedTrade.mistakeTags)
+                ? selectedTrade.mistakeTags.map((tag) => (
+                    <span key={`mistake-${tag}`} className="chip">
+                      {tag}
+                    </span>
+                  ))
+                : null}
               {Array.isArray(selectedTrade.qualityFlags)
                 ? selectedTrade.qualityFlags.slice(0, 6).map((flag) => (
                     <span key={`qf-${flag}`} className="chip">
@@ -3617,6 +4603,24 @@ const SaasWorkspace = ({
             <div className="saas-settings-actions mt-4">
               <button type="button" className="btn-primary" onClick={() => setSelectedTrade(null)}>
                 Close
+              </button>
+              {selectedTrade?.screenshots?.before || selectedTrade?.screenshots?.after ? (
+                <button
+                  type="button"
+                  className="landing-cta-secondary"
+                  onClick={() =>
+                    openInspectView(selectedTrade, selectedTrade?.screenshots?.before ? "before" : "after")
+                  }
+                >
+                  Inspect Screenshots
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="landing-cta-secondary"
+                onClick={() => void copyTradeSummary(selectedTrade)}
+              >
+                Copy Summary
               </button>
               <button
                 type="button"

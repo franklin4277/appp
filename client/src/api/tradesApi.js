@@ -1144,6 +1144,8 @@ const normalizeQueuedDraft = (draft = {}) => {
     session: String(draft.session || "").trim(),
     tradeType: String(draft.tradeType || "").trim(),
     setupType: String(draft.setupType || "").trim(),
+    playbookId: String(draft.playbookId || "").trim(),
+    playbookName: String(draft.playbookName || "").trim(),
     entryPrice: String(toNumber(draft.entryPrice)),
     exitPrice:
       draft.exitPrice === undefined || draft.exitPrice === null || draft.exitPrice === ""
@@ -1163,6 +1165,15 @@ const normalizeQueuedDraft = (draft = {}) => {
     priceAction: String(draft.priceAction || "").trim(),
     executionReview: String(draft.executionReview || "").trim(),
     emotionalState: String(draft.emotionalState || "").trim(),
+    mistakeTags: Array.isArray(draft.mistakeTags)
+      ? draft.mistakeTags.map((item) => String(item || "").trim()).filter(Boolean).join(",")
+      : String(draft.mistakeTags || "").trim(),
+    scaleInCount: String(toNumber(draft.scaleInCount)),
+    scaleOutCount: String(toNumber(draft.scaleOutCount)),
+    partialCloseCount: String(toNumber(draft.partialCloseCount)),
+    movedStopToBreakeven: String(Boolean(draft.movedStopToBreakeven)),
+    trailingStopUsed: String(Boolean(draft.trailingStopUsed)),
+    exitReason: String(draft.exitReason || "").trim(),
     acceptGuardrailOverride: "true",
     screenshotBeforeName: String(draft.screenshotBeforeName || draft.screenshotBeforeFile?.name || "").trim(),
     screenshotAfterName: String(draft.screenshotAfterName || draft.screenshotAfterFile?.name || "").trim(),
@@ -1181,6 +1192,8 @@ const buildOfflineDisplayTrade = (id, payload, queuedAt) => ({
   session: payload.session,
   tradeType: payload.tradeType,
   setupType: payload.setupType,
+  playbookId: payload.playbookId,
+  playbookName: payload.playbookName,
   entryPrice: toNumber(payload.entryPrice),
   exitPrice: payload.exitPrice === "" ? null : toNumber(payload.exitPrice, null),
   stopLoss: toNumber(payload.stopLoss),
@@ -1199,6 +1212,18 @@ const buildOfflineDisplayTrade = (id, payload, queuedAt) => ({
     priceAction: payload.priceAction,
     executionReview: payload.executionReview,
     emotionalState: payload.emotionalState,
+  },
+  mistakeTags: String(payload.mistakeTags || "")
+    .split(/[,\n]/g)
+    .map((item) => item.trim())
+    .filter(Boolean),
+  lifecycle: {
+    scaleInCount: toNumber(payload.scaleInCount),
+    scaleOutCount: toNumber(payload.scaleOutCount),
+    partialCloseCount: toNumber(payload.partialCloseCount),
+    movedStopToBreakeven: payload.movedStopToBreakeven === "true",
+    trailingStopUsed: payload.trailingStopUsed === "true",
+    exitReason: payload.exitReason,
   },
   automation: {
     exitPrice: payload.exitPrice === "" ? null : toNumber(payload.exitPrice, null),
@@ -1333,6 +1358,8 @@ const buildQueuedFormData = (payload = {}) => {
     "session",
     "tradeType",
     "setupType",
+    "playbookId",
+    "playbookName",
     "entryPrice",
     "exitPrice",
     "stopLoss",
@@ -1349,6 +1376,13 @@ const buildQueuedFormData = (payload = {}) => {
     "priceAction",
     "executionReview",
     "emotionalState",
+    "mistakeTags",
+    "scaleInCount",
+    "scaleOutCount",
+    "partialCloseCount",
+    "movedStopToBreakeven",
+    "trailingStopUsed",
+    "exitReason",
     "screenshotBeforeNote",
     "screenshotAfterNote",
     "acceptGuardrailOverride",

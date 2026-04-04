@@ -12,6 +12,7 @@ const ScreenshotInspectView = ({ tradeId = "", token = "" }) => {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [fillMode, setFillMode] = useState("fit");
+  const [touchStartX, setTouchStartX] = useState(null);
 
   const [selectedSlot, setSelectedSlot] = useState(() => {
     const params = new URLSearchParams(window.location.search || "");
@@ -204,6 +205,22 @@ const ScreenshotInspectView = ({ tradeId = "", token = "" }) => {
             zoom > 1 ? "cursor-grab" : "cursor-zoom-in"
           } ${isDragging ? "cursor-grabbing" : ""}`}
           onWheel={handleWheel}
+          onTouchStart={(event) => setTouchStartX(event.touches?.[0]?.clientX ?? null)}
+          onTouchEnd={(event) => {
+            const endX = event.changedTouches?.[0]?.clientX ?? null;
+            if (touchStartX === null || endX === null) {
+              return;
+            }
+            const delta = endX - touchStartX;
+            if (Math.abs(delta) < 40) {
+              return;
+            }
+            if (delta < 0 && hasAfter) {
+              setSelectedSlot("after");
+            } else if (delta > 0 && hasBefore) {
+              setSelectedSlot("before");
+            }
+          }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}

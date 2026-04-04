@@ -112,6 +112,18 @@ const tradeSchema = new mongoose.Schema(
       trim: true,
       set: normalizeText,
     },
+    playbookId: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 64,
+    },
+    playbookName: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 80,
+    },
     strategyFingerprint: {
       type: String,
       default: "",
@@ -189,6 +201,11 @@ const tradeSchema = new mongoose.Schema(
       default: [],
       set: normalizeStringList,
     },
+    mistakeTags: {
+      type: [String],
+      default: [],
+      set: normalizeStringList,
+    },
     notes: {
       priceAction: {
         type: String,
@@ -226,6 +243,35 @@ const tradeSchema = new mongoose.Schema(
         default: "",
         trim: true,
         maxlength: 400,
+      },
+    },
+    lifecycle: {
+      scaleInCount: {
+        type: Number,
+        default: 0,
+      },
+      scaleOutCount: {
+        type: Number,
+        default: 0,
+      },
+      partialCloseCount: {
+        type: Number,
+        default: 0,
+      },
+      movedStopToBreakeven: {
+        type: Boolean,
+        default: false,
+      },
+      trailingStopUsed: {
+        type: Boolean,
+        default: false,
+      },
+      exitReason: {
+        type: String,
+        default: "",
+        trim: true,
+        maxlength: 120,
+        set: normalizeText,
       },
     },
     importSource: {

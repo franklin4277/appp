@@ -1181,10 +1181,61 @@ const SaasWorkspace = ({
     return {
       capPercent: maxDailyDrawdownPercent,
       currentPercent: drawdownPercent,
+      usedPercent: drawdownPercent,
       progressPercent: Math.min(Math.max((drawdownPercent / maxDailyDrawdownPercent) * 100, 0), 100),
       breached: drawdownPercent >= maxDailyDrawdownPercent,
     };
   }, [dailyAccountPerformance, maxDailyDrawdownPercent]);
+  const analyticsMetricBars = useMemo(
+    () => [
+      {
+        label: "Expectancy",
+        valueLabel: `${round(expectancyValue, 2)}R`,
+        fillPercent: Math.min(Math.max((toNumber(expectancyValue) + 2) * 25, 6), 100),
+        tone: "blue",
+      },
+      {
+        label: "Equity",
+        valueLabel: `${toNumber(resolvedEdgeInsights?.equityNow) >= 0 ? "+" : "-"}${Math.abs(toNumber(resolvedEdgeInsights?.equityNow)).toFixed(2)}R`,
+        fillPercent: Math.min(Math.max(Math.abs(toNumber(resolvedEdgeInsights?.equityNow)) * 22, 6), 100),
+        tone: toNumber(resolvedEdgeInsights?.equityNow) >= 0 ? "green" : "slate",
+      },
+      {
+        label: "Drawdown",
+        valueLabel: `-${Math.abs(toNumber(resolvedEdgeInsights?.maxDrawdown)).toFixed(2)}R`,
+        fillPercent: Math.min(Math.max(Math.abs(toNumber(resolvedEdgeInsights?.maxDrawdown)) * 30, 6), 100),
+        tone: "red",
+      },
+    ],
+    [expectancyValue, resolvedEdgeInsights?.equityNow, resolvedEdgeInsights?.maxDrawdown]
+  );
+  const goalTrackingBars = useMemo(
+    () => [
+      {
+        label: "Daily",
+        valueLabel: dailyGoalProgress
+          ? `${dailyGoalProgress.currentPercent >= 0 ? "+" : ""}${dailyGoalProgress.currentPercent}%`
+          : "Set target",
+        fillPercent: dailyGoalProgress?.progressPercent || 0,
+        tone: "green",
+      },
+      {
+        label: "Weekly",
+        valueLabel: weeklyGoalProgress
+          ? `${weeklyGoalProgress.currentPercent >= 0 ? "+" : ""}${weeklyGoalProgress.currentPercent}%`
+          : "Set target",
+        fillPercent: weeklyGoalProgress?.progressPercent || 0,
+        tone: "blue",
+      },
+      {
+        label: "Drawdown",
+        valueLabel: dailyDrawdownProgress ? `${dailyDrawdownProgress.usedPercent}% used` : "Set cap",
+        fillPercent: dailyDrawdownProgress?.progressPercent || 0,
+        tone: "red",
+      },
+    ],
+    [dailyDrawdownProgress, dailyGoalProgress, weeklyGoalProgress]
+  );
 
   const formatAccountSize = useCallback((value) => {
     const amount = Number(value);
@@ -1964,7 +2015,7 @@ const SaasWorkspace = ({
             </article>
           </div>
           <div className="saas-stats-grid saas-stats-grid-primary">
-            <article className="panel saas-card">
+            <article className="panel saas-card saas-analytics-equity-card">
               <div className="saas-stat-head">
                 <span className="saas-stat-icon saas-stat-icon-blue">
                   <IconGlyph name="pulse" />
@@ -2104,8 +2155,8 @@ const SaasWorkspace = ({
             )}
           </article>
 
-          <div className="saas-main-grid">
-            <article className="panel saas-card">
+          <div className="saas-main-grid saas-main-grid-analytics-overview">
+            <article className="panel saas-card saas-analytics-equity-card">
               <div className="saas-card-head">
                 <div>
                   <h3 className="saas-card-title">Playbook Performance</h3>
@@ -2134,7 +2185,7 @@ const SaasWorkspace = ({
               )}
             </article>
 
-            <article className="panel saas-card">
+            <article className="panel saas-card saas-analytics-metrics-card">
               <div className="saas-card-head">
                 <div>
                   <h3 className="saas-card-title">Costly Mistakes</h3>
@@ -2229,7 +2280,7 @@ const SaasWorkspace = ({
               ) : null}
             </article>
 
-            <article className="panel saas-card">
+            <article className="panel saas-card saas-analytics-metrics-card">
               <h3 className="saas-card-title">Key Metrics</h3>
               <div className="saas-metric-list">
                 <div className="saas-metric-item">
@@ -2253,6 +2304,19 @@ const SaasWorkspace = ({
                 {resolvedEdgeInsights.worstHabit?.detail ? (
                   <p className="saas-metric-note">{resolvedEdgeInsights.worstHabit.detail}</p>
                 ) : null}
+              </div>
+              <div className="saas-mini-graph">
+                {analyticsMetricBars.map((metric) => (
+                  <div key={metric.label} className="saas-mini-graph-row">
+                    <div className="saas-mini-graph-meta">
+                      <span>{metric.label}</span>
+                      <strong>{metric.valueLabel}</strong>
+                    </div>
+                    <div className="saas-mini-graph-track" aria-hidden="true">
+                      <span className={`saas-mini-graph-fill saas-mini-graph-fill-${metric.tone}`} style={{ width: `${metric.fillPercent}%` }} />
+                    </div>
+                  </div>
+                ))}
               </div>
               <button type="button" className="landing-cta-secondary !w-full" onClick={() => setActivePage("behavior")}>
                 Behavior Analysis
@@ -2897,7 +2961,7 @@ const SaasWorkspace = ({
             </article>
           </div>
 
-          <div className="saas-main-grid">
+          <div className="saas-main-grid saas-main-grid-analytics-overview">
             <article className="panel saas-card">
               <div className="saas-section-header">
                 <span className="saas-stat-icon saas-stat-icon-blue">
@@ -4015,8 +4079,21 @@ const SaasWorkspace = ({
             ) : (
               <p className="saas-stat-label mt-3">Add risk-aware trades to build an account equity curve.</p>
             )}
-            <div className="saas-main-grid mt-4">
-              <div className="saas-note-card">
+            <div className="saas-mini-graph saas-mini-graph-goals mt-4">
+              {goalTrackingBars.map((metric) => (
+                <div key={metric.label} className="saas-mini-graph-row">
+                  <div className="saas-mini-graph-meta">
+                    <span>{metric.label}</span>
+                    <strong>{metric.valueLabel}</strong>
+                  </div>
+                  <div className="saas-mini-graph-track" aria-hidden="true">
+                    <span className={`saas-mini-graph-fill saas-mini-graph-fill-${metric.tone}`} style={{ width: `${metric.fillPercent}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="saas-risk-overview-grid mt-4">
+              <div className="saas-note-card saas-goal-card">
                 <h4>Daily Goal</h4>
                 {dailyGoalProgress ? (
                   <>
@@ -4031,7 +4108,7 @@ const SaasWorkspace = ({
                   <p className="saas-stat-label mt-2">Set a daily profit target to track progress here.</p>
                 )}
               </div>
-              <div className="saas-note-card">
+              <div className="saas-note-card saas-goal-card">
                 <h4>Weekly Goal</h4>
                 {weeklyGoalProgress ? (
                   <>
@@ -4046,7 +4123,7 @@ const SaasWorkspace = ({
                   <p className="saas-stat-label mt-2">Set a weekly profit target to track progress here.</p>
                 )}
               </div>
-              <div className="saas-note-card">
+              <div className="saas-note-card saas-goal-card">
                 <h4>Daily Drawdown</h4>
                 {dailyDrawdownProgress ? (
                   <>

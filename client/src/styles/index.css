@@ -740,6 +740,10 @@ body::before {
   color: var(--text-main);
 }
 
+.landing-page-home {
+  background: #3b3a55;
+}
+
 .landing-wrap {
   width: min(1200px, calc(100% - 48px));
   margin: 0 auto;
@@ -1014,6 +1018,180 @@ body::before {
 
 .landing-home-hero {
   position: relative;
+}
+
+.landing-home-hero-compact {
+  display: grid;
+  gap: 1.6rem;
+}
+
+.landing-home-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.95rem 1.25rem;
+  border-radius: 0;
+  background: #3e2ad8;
+  box-shadow: 0 20px 50px rgba(37, 99, 235, 0.18);
+}
+
+.landing-home-topbrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  color: #f8fafc;
+  font: inherit;
+  cursor: pointer;
+}
+
+.landing-home-topbrand-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+}
+
+.landing-home-topbrand-mark::before,
+.landing-home-topbrand-mark::after,
+.landing-home-topbrand-mark span::before,
+.landing-home-topbrand-mark span::after {
+  content: "";
+  position: absolute;
+  inset: 50%;
+  background: #3e2ad8;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+}
+
+.landing-home-topbrand-mark::before,
+.landing-home-topbrand-mark::after {
+  width: 22px;
+  height: 7px;
+}
+
+.landing-home-topbrand-mark::after {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.landing-home-topbrand-mark span::before,
+.landing-home-topbrand-mark span::after {
+  width: 8px;
+  height: 22px;
+}
+
+.landing-home-topbrand-mark span::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.landing-home-topbrand-mark span::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.landing-home-topbrand-text {
+  font-size: 1.9rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
+.landing-home-topbar-cta {
+  min-width: 174px;
+  min-height: 54px;
+  padding: 0.85rem 1.6rem;
+  border: 0;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.landing-home-topbar-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.18);
+}
+
+.landing-home-showcase {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 2rem;
+  min-height: 520px;
+  padding: clamp(2rem, 4vw, 2.6rem);
+  border-radius: 28px;
+  border: 1px solid rgba(129, 140, 248, 0.12);
+  background: #050528;
+  box-shadow: 0 32px 72px rgba(2, 6, 23, 0.3);
+}
+
+.landing-home-showcase-copy {
+  display: grid;
+  gap: 1rem;
+  align-content: end;
+}
+
+.landing-home-showcase-title {
+  margin: 0;
+  max-width: 8ch;
+  font-size: clamp(4.25rem, 8vw, 6.4rem);
+  line-height: 0.95;
+  letter-spacing: -0.065em;
+  color: #f8fafc;
+  text-wrap: balance;
+}
+
+.landing-home-showcase-text {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: rgba(226, 232, 240, 0.84);
+}
+
+.landing-home-showcase-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.95rem;
+  align-self: end;
+}
+
+.landing-home-showcase-btn {
+  width: 188px;
+  min-height: 56px;
+  padding: 0.9rem 1.4rem;
+  border: 0;
+  border-radius: 16px;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.landing-home-showcase-btn:hover {
+  transform: translateY(-1px);
+}
+
+.landing-home-showcase-btn-primary {
+  background: #4a35f0;
+  color: #f8fafc;
+  box-shadow: 0 18px 34px rgba(74, 53, 240, 0.28);
+}
+
+.landing-home-showcase-btn-secondary {
+  background: #1a1d45;
+  color: #f8fafc;
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.08);
 }
 
 .landing-home-grid {
@@ -3674,6 +3852,60 @@ body::before {
     gap: 0.95rem;
   }
 
+  .landing-home-hero-compact {
+    gap: 1rem;
+  }
+
+  .landing-home-topbar {
+    padding: 0.7rem 0.8rem;
+  }
+
+  .landing-home-topbrand-text {
+    font-size: 1.45rem;
+  }
+
+  .landing-home-topbar-cta {
+    min-width: 138px;
+    min-height: 48px;
+    padding: 0.78rem 1rem;
+    border-radius: 14px;
+    font-size: 0.95rem;
+  }
+
+  .landing-home-showcase {
+    grid-template-columns: 1fr;
+    min-height: 0;
+    gap: 1.4rem;
+    padding: 1rem;
+    border-radius: 22px;
+  }
+
+  .landing-home-showcase-title {
+    max-width: 8.5ch;
+    font-size: clamp(3.15rem, 13vw, 4.4rem);
+  }
+
+  .landing-home-showcase-text {
+    max-width: 24ch;
+    font-size: 0.96rem;
+  }
+
+  .landing-home-showcase-actions {
+    width: 100%;
+    justify-content: stretch;
+    gap: 0.75rem;
+  }
+
+  .landing-home-showcase-btn {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    min-height: 50px;
+    padding-inline: 1rem;
+    border-radius: 14px;
+    font-size: 0.94rem;
+  }
+
   .landing-features-hero {
     flex-direction: column;
     align-items: flex-start;
@@ -4523,6 +4755,69 @@ body::before {
   .landing-wrap,
   .landing-wrap-home {
     width: calc(100% - 14px);
+  }
+
+  .landing-home-topbar {
+    gap: 0.65rem;
+    padding: 0.65rem 0.75rem;
+  }
+
+  .landing-home-topbrand {
+    gap: 0.55rem;
+    min-width: 0;
+  }
+
+  .landing-home-topbrand-mark {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+  }
+
+  .landing-home-topbrand-mark::before,
+  .landing-home-topbrand-mark::after {
+    width: 16px;
+    height: 5px;
+  }
+
+  .landing-home-topbrand-mark span::before,
+  .landing-home-topbrand-mark span::after {
+    width: 6px;
+    height: 16px;
+  }
+
+  .landing-home-topbrand-text {
+    font-size: 1.12rem;
+  }
+
+  .landing-home-topbar-cta {
+    min-width: 122px;
+    min-height: 44px;
+    padding: 0.7rem 0.85rem;
+    font-size: 0.9rem;
+  }
+
+  .landing-home-showcase {
+    gap: 1rem;
+    padding: 0.95rem;
+    border-radius: 18px;
+  }
+
+  .landing-home-showcase-title {
+    font-size: clamp(2.8rem, 14vw, 3.65rem);
+  }
+
+  .landing-home-showcase-text {
+    font-size: 0.88rem;
+    line-height: 1.5;
+  }
+
+  .landing-home-showcase-actions {
+    flex-direction: column;
+  }
+
+  .landing-home-showcase-btn {
+    width: 100%;
+    min-height: 48px;
   }
 
   .landing-home-brandmark {

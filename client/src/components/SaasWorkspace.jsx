@@ -3452,7 +3452,7 @@ const SaasWorkspace = ({
               </div>
             ) : null}
 
-            <div className="saas-main-grid mt-4">
+            <div className="saas-main-grid saas-main-grid-playbooks mt-4">
               <div className="saas-note-card">
                 <h4>{activeReview.summaryTitle}</h4>
                 <ul className="saas-note-list saas-note-list-plain">
@@ -4495,7 +4495,7 @@ const SaasWorkspace = ({
                 <p className="saas-card-subtitle">Manage profiles, theme, and the workspace this account uses every day.</p>
               </div>
             </div>
-            <div className="saas-settings-grid">
+            <div className="saas-settings-grid saas-settings-grid-trade-options">
               <label>
                 <span className="label">Active Profile</span>
                 <select
@@ -4782,7 +4782,7 @@ const SaasWorkspace = ({
               Download the bridge script to auto-import trades and screenshots from MT5.
             </p>
 
-            <div className="saas-settings-grid mt-3">
+            <div className="saas-settings-grid saas-settings-grid-bridge mt-3">
               <label>
                 <span className="label">Bridge label</span>
                 <input

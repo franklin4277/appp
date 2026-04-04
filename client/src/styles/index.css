@@ -2769,6 +2769,11 @@ body::before {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
+.saas-main-grid-playbooks {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  align-items: start;
+}
+
 .saas-main-grid-analytics-overview {
   align-items: start;
   grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.9fr);
@@ -3743,6 +3748,7 @@ body::before {
   display: grid;
   gap: 0.7rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
 }
 
 .saas-settings-theme-row {
@@ -3925,6 +3931,10 @@ body::before {
   align-items: stretch;
 }
 
+.saas-page-playbooks .saas-main-grid-playbooks > .saas-empty-state {
+  grid-column: 1 / -1;
+}
+
 .saas-page-playbooks .chip {
   max-width: 100%;
   overflow-wrap: anywhere;
@@ -3938,6 +3948,7 @@ body::before {
 .saas-page-settings .saas-settings-grid,
 .saas-page-risk .saas-settings-grid {
   gap: 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
 .saas-page-settings .saas-settings-theme-row,
@@ -3956,6 +3967,16 @@ body::before {
 
 .saas-page-settings .saas-inline-form-profile-create .saas-inline-form-action {
   min-width: 108px;
+}
+
+.saas-settings-grid-trade-options {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.saas-settings-grid-bridge > .saas-settings-theme-row,
+.saas-settings-grid-bridge > .saas-settings-theme-row-form,
+.saas-settings-grid-bridge > .saas-settings-span-full {
+  grid-column: 1 / -1;
 }
 
 .saas-page-trade-detail .saas-trade-modal-body {

@@ -7,6 +7,7 @@ import {
   requestPasswordReset,
   verifyTwoFactorLogin,
 } from "../api/tradesApi";
+import BrandLogo from "./BrandLogo";
 
 const AuthPanel = ({ onAuthenticated }) => {
   const showDebugSecrets = Boolean(import.meta.env.DEV || import.meta.env.VITE_SHOW_DEBUG_AUTH_SECRETS === "true");
@@ -302,9 +303,7 @@ const AuthPanel = ({ onAuthenticated }) => {
       <section className="landing-home-hero landing-home-hero-compact reveal">
         <header className="landing-home-topbar animate-riseIn">
           <button type="button" className="landing-home-topbrand" onClick={() => navigatePublic("/")} aria-label="Journex home">
-            <span className="landing-home-topbrand-mark" aria-hidden="true">
-              <span />
-            </span>
+            <BrandLogo className="brand-logo landing-home-topbrand-logo" />
             <span className="landing-home-topbrand-text">Journex</span>
           </button>
 

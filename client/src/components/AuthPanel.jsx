@@ -33,9 +33,18 @@ const AuthPanel = ({ onAuthenticated }) => {
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  const wakeBackend = async ({ maxMs = 45_000 } = {}) => {
+  const isWarmableNetworkError = (error) =>
+    Boolean(
+      error?.isNetworkError ||
+        error?.code === "NETWORK_UNREACHABLE" ||
+        error?.code === "REQUEST_TIMEOUT"
+    );
+
+  const wakeBackend = async ({ maxMs = 45_000, visible = true } = {}) => {
     if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setHealthStatus({ state: "offline", attempt: 0, error: "" });
+      if (visible) {
+        setHealthStatus({ state: "offline", attempt: 0, error: "" });
+      }
       return false;
     }
 
@@ -48,7 +57,9 @@ const AuthPanel = ({ onAuthenticated }) => {
 
     while (Date.now() < deadline) {
       attempt += 1;
-      setHealthStatus({ state: "checking", attempt, error: "" });
+      if (visible) {
+        setHealthStatus({ state: "checking", attempt, error: "" });
+      }
 
       try {
         const payload = await fetchApiHealth({ timeoutMs: 12_000 });
@@ -56,7 +67,9 @@ const AuthPanel = ({ onAuthenticated }) => {
           return false;
         }
         if (payload?.ok) {
-          setHealthStatus({ state: "ok", attempt, error: "" });
+          if (visible) {
+            setHealthStatus({ state: "ok", attempt, error: "" });
+          }
           return true;
         }
         lastError = "Health check returned an unexpected response.";
@@ -67,14 +80,18 @@ const AuthPanel = ({ onAuthenticated }) => {
       if (wakeSeqRef.current !== seq) {
         return false;
       }
-      setHealthStatus({ state: "checking", attempt, error: lastError });
+      if (visible) {
+        setHealthStatus({ state: "checking", attempt, error: lastError });
+      }
       await sleep(2500);
     }
 
     if (wakeSeqRef.current !== seq) {
       return false;
     }
-    setHealthStatus({ state: "error", attempt, error: lastError || "Cannot reach the server." });
+    if (visible) {
+      setHealthStatus({ state: "error", attempt, error: lastError || "Cannot reach the server." });
+    }
     return false;
   };
 
@@ -125,7 +142,7 @@ const AuthPanel = ({ onAuthenticated }) => {
 
     setMode(publicPath === "/signup" ? "register" : "login");
     setAuthModalOpen(true);
-    void wakeBackend();
+    void wakeBackend({ visible: false });
   }, [publicPath]);
 
   const authTitle = useMemo(() => {
@@ -142,6 +159,11 @@ const AuthPanel = ({ onAuthenticated }) => {
     setConfirmPassword("");
   }, [mode]);
 
+  const runPrimaryAuthRequest = () =>
+    mode === "register"
+      ? registerUser({ name: name || "Trader", email, password })
+      : loginUser({ email, password });
+
   const handlePrimarySubmit = async (event) => {
     event.preventDefault();
     setLoading(true);
@@ -156,10 +178,23 @@ const AuthPanel = ({ onAuthenticated }) => {
         return;
       }
 
-      const payload =
-        mode === "register"
-          ? await registerUser({ name: name || "Trader", email, password })
-          : await loginUser({ email, password });
+      const warmPromise = wakeBackend({ maxMs: 25_000, visible: false });
+      let payload;
+
+      try {
+        payload = await runPrimaryAuthRequest();
+      } catch (submitError) {
+        if (!isWarmableNetworkError(submitError)) {
+          throw submitError;
+        }
+
+        const woke = await warmPromise;
+        if (!woke) {
+          throw submitError;
+        }
+
+        payload = await runPrimaryAuthRequest();
+      }
 
       if (payload.requiresTwoFactor) {
         setTwoFactorPending({
@@ -216,7 +251,7 @@ const AuthPanel = ({ onAuthenticated }) => {
     }
     setMode(resolvedMode);
     setAuthModalOpen(true);
-    void wakeBackend();
+    void wakeBackend({ visible: false });
   };
 
   const closeAuth = () => {

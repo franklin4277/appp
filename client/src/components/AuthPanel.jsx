@@ -521,6 +521,14 @@ const AuthPanel = ({ onAuthenticated }) => {
           Journex stores account details, trades, screenshots, and review notes so your workspace stays synced,
           available, and useful when it is time to review.
         </p>
+        <div className="landing-utility-actions">
+          <button type="button" className="landing-utility-action-primary" onClick={() => navigatePublic("/")}>
+            Back Home
+          </button>
+          <button type="button" className="landing-utility-action-secondary" onClick={() => navigatePublic("/features")}>
+            View Features
+          </button>
+        </div>
       </div>
       <div className="landing-legal-grid">
         <article className="panel landing-legal-card">
@@ -548,6 +556,14 @@ const AuthPanel = ({ onAuthenticated }) => {
           Journex is a journaling and analysis tool for traders. It is built to support review and organization, not to
           provide financial advice or trading guarantees.
         </p>
+        <div className="landing-utility-actions">
+          <button type="button" className="landing-utility-action-primary" onClick={() => navigatePublic("/")}>
+            Back Home
+          </button>
+          <button type="button" className="landing-utility-action-secondary" onClick={() => navigatePublic("/features")}>
+            View Features
+          </button>
+        </div>
       </div>
       <div className="landing-legal-grid">
         <article className="panel landing-legal-card">
@@ -572,6 +588,14 @@ const AuthPanel = ({ onAuthenticated }) => {
         <p className="landing-kicker">Contact</p>
         <h3>Get in touch with Journex</h3>
         <p>If you need help with access, product feedback, or setup questions, the details below will point you to the right place.</p>
+        <div className="landing-utility-actions">
+          <button type="button" className="landing-utility-action-primary" onClick={() => navigatePublic("/")}>
+            Back Home
+          </button>
+          <button type="button" className="landing-utility-action-secondary" onClick={() => navigatePublic("/features")}>
+            View Features
+          </button>
+        </div>
       </div>
       <div className="landing-contact-grid">
         <article className="panel landing-contact-card">

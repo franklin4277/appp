@@ -40,6 +40,7 @@ import { buildLocalDashboardAnalytics } from "./utils/offlineAnalytics";
 import { buildEdgeInsights } from "./utils/insights";
 import {
   ADVANCED_ANALYTICS_STORAGE_KEY,
+  NAV_PAGES,
   PAGES,
   PAGE_SHORTCUTS,
   PAGE_STORAGE_KEY,
@@ -142,9 +143,25 @@ const pageMeta = {
     title: "Performance Review",
     subtitle: "Weekly and monthly performance breakdown",
   },
+  replay: {
+    title: "Replay",
+    subtitle: "Review screenshots, calendar flow, and share-ready trade context",
+  },
+  playbooks: {
+    title: "Playbooks",
+    subtitle: "Manage your setup library, mistake tags, and execution standards",
+  },
+  risk: {
+    title: "Risk Center",
+    subtitle: "Keep account size, limits, goals, and funded rules in one place",
+  },
   settings: {
     title: "Settings",
     subtitle: "Manage workspace preferences and account actions",
+  },
+  "trade-detail": {
+    title: "Trade Detail",
+    subtitle: "Inspect one trade without crowding the review workflow",
   },
 };
 
@@ -344,8 +361,8 @@ const App = () => {
   const toastCounterRef = useRef(0);
   const reminderTickRef = useRef(null);
   const debouncedFilters = useDebouncedValue(filters, 180);
-  const includeDetailedTrades = activePage === "review";
-  const includeTotalTrades = activePage === "review";
+  const includeDetailedTrades = ["review", "replay", "trade-detail"].includes(activePage);
+  const includeTotalTrades = ["review", "replay", "trade-detail"].includes(activePage);
 
   const refreshOfflineQueue = useCallback(() => {
     setOfflineQueue(getOfflineQueue());
@@ -1682,12 +1699,12 @@ const App = () => {
       }
 
       const index = PAGE_SHORTCUTS.indexOf(event.key);
-      if (index < 0 || !PAGES[index]) {
+      if (index < 0 || !NAV_PAGES[index]) {
         return;
       }
 
       event.preventDefault();
-      setActivePage(PAGES[index].key);
+      setActivePage(NAV_PAGES[index].key);
     };
 
     window.addEventListener("keydown", onKeyDown);

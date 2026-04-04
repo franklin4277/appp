@@ -2073,6 +2073,26 @@ body::before {
 .saas-nav {
   margin-top: 1.3rem;
   display: grid;
+  gap: 1rem;
+}
+
+.saas-nav-group {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.saas-nav-group-label {
+  margin: 0;
+  padding: 0 0.7rem;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.saas-nav-group-items {
+  display: grid;
   gap: 0.5rem;
 }
 
@@ -2356,6 +2376,28 @@ body::before {
   margin-bottom: 1.2rem;
 }
 
+.saas-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.saas-breadcrumb-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.saas-breadcrumb-sep {
+  opacity: 0.55;
+}
+
 .saas-page-header h1 {
   margin: 0;
   color: var(--text-main);
@@ -2368,6 +2410,10 @@ body::before {
   margin: 0.24rem 0 0;
   color: var(--text-muted);
   font-size: 0.86rem;
+}
+
+.saas-page-header-action {
+  flex-shrink: 0;
 }
 
 .saas-alert {
@@ -4331,12 +4377,17 @@ body::before {
 
   .saas-mobile-drawer-nav {
     display: grid;
-    gap: 0.34rem;
+    gap: 0.75rem;
     margin-top: 0.22rem;
   }
 
   .saas-mobile-drawer-nav .saas-nav-item {
     justify-content: flex-start;
+  }
+
+  .saas-mobile-drawer-nav .saas-nav-group-label {
+    padding: 0 0.2rem;
+    font-size: 0.64rem;
   }
 
   .saas-mobile-drawer-footer {
@@ -4409,6 +4460,15 @@ body::before {
     align-items: flex-start;
     gap: 0.55rem;
     margin-bottom: 0.58rem;
+  }
+
+  .saas-breadcrumb {
+    font-size: 0.66rem;
+  }
+
+  .saas-page-header-action {
+    width: 100%;
+    justify-content: center;
   }
 
   .saas-profile-rail {

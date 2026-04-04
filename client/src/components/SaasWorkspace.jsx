@@ -3882,8 +3882,9 @@ const SaasWorkspace = ({
                 playbooks.map((playbook) => (
                   <article key={`playbook-card-${playbook.id}`} className="saas-note-card">
                     <h4>{playbook.name || "Untitled playbook"}</h4>
-                    <p className="saas-stat-label mt-2">
-                      {(playbook.setupType || "No setup")}{playbook.targetSession ? ` • ${playbook.targetSession}` : ""}
+                    <p className="saas-playbook-meta mt-2">
+                      <span>{playbook.setupType || "No setup"}</span>
+                      {playbook.targetSession ? <span>{playbook.targetSession}</span> : null}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {Array.isArray(playbook.confirmations)
@@ -5046,5 +5047,6 @@ const SaasWorkspace = ({
 };
 
 export default SaasWorkspace;
+
 
 

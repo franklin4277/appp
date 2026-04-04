@@ -3808,7 +3808,7 @@ const SaasWorkspace = ({
               </div>
               <div className="saas-note-card">
                 <h4>Test Next</h4>
-                <ul className="saas-note-list">
+                <ul className="saas-note-list saas-note-list-plain">
                   {coachingSummary.test.map((item) => (
                     <li key={`coach-test-${item}`}>
                       <span><strong>{item}</strong></span>

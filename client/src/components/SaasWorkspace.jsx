@@ -899,6 +899,8 @@ const SaasWorkspace = ({
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
   const activePageInfo = pages.find((page) => page.key === activePage) || null;
   const returnPageInfo = pages.find((page) => page.key === tradeDetailReturnPage) || null;
+  const activeGroup = activePage === "trade-detail" ? returnPageInfo?.group || "Review" : activePageInfo?.group || "Core";
+  const groupPages = navPages.filter((page) => page.group === activeGroup);
   const breadcrumbItems =
     activePage === "trade-detail"
       ? [activePageInfo?.group || "Review", returnPageInfo?.label || "Review", activeMeta.title]
@@ -1810,6 +1812,32 @@ const SaasWorkspace = ({
           </button>
         ) : null}
       </header>
+
+      {groupPages.length > 1 ? (
+        <section className="panel saas-section-switcher" aria-label={`${activeGroup} pages`}>
+          <div className="saas-section-switcher-head">
+            <strong>{activeGroup}</strong>
+            <span>{activePage === "trade-detail" ? "Return flow stays inside this section." : "Quickly move between related pages."}</span>
+          </div>
+          <div className="saas-section-switcher-tabs">
+            {groupPages.map((page) => {
+              const isCurrent =
+                activePage === page.key || (activePage === "trade-detail" && tradeDetailReturnPage === page.key);
+              return (
+                <button
+                  key={`section-switch-${page.key}`}
+                  type="button"
+                  className={`saas-section-tab ${isCurrent ? "saas-section-tab-active" : ""}`}
+                  onClick={() => setActivePage(page.key)}
+                  aria-current={isCurrent ? "page" : undefined}
+                >
+                  {page.label}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
       <section className="panel saas-profile-rail">
         <div className="saas-profile-rail-copy">

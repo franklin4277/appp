@@ -40,6 +40,7 @@ import { buildLocalDashboardAnalytics } from "./utils/offlineAnalytics";
 import { buildEdgeInsights } from "./utils/insights";
 import {
   ADVANCED_ANALYTICS_STORAGE_KEY,
+  GROUP_PAGE_STORAGE_KEY,
   NAV_PAGES,
   PAGES,
   PAGE_SHORTCUTS,
@@ -163,6 +164,21 @@ const pageMeta = {
     title: "Trade Detail",
     subtitle: "Inspect one trade without crowding the review workflow",
   },
+};
+
+const findPageByKey = (key) => PAGES.find((page) => page.key === key) || null;
+
+const readGroupPageMemory = () => {
+  try {
+    const raw = localStorage.getItem(GROUP_PAGE_STORAGE_KEY);
+    if (!raw) {
+      return {};
+    }
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
 };
 
 const toNumber = (value, fallback = 0) => {
@@ -341,7 +357,16 @@ const App = () => {
   const [reviewRange, setReviewRange] = useState("week");
   const [activePage, setActivePage] = useState(() => {
     const stored = localStorage.getItem(PAGE_STORAGE_KEY);
-    return PAGES.some((page) => page.key === stored) ? stored : "journal";
+    const storedPage = findPageByKey(stored);
+    if (storedPage?.nav !== false) {
+      return storedPage.key;
+    }
+    const groupPages = readGroupPageMemory();
+    const fallbackReviewPage = findPageByKey(groupPages.Review);
+    if (fallbackReviewPage?.nav !== false) {
+      return fallbackReviewPage.key;
+    }
+    return "journal";
   });
   const [isCompactMobile, setIsCompactMobile] = useState(() =>
     window.matchMedia ? window.matchMedia("(max-width: 768px)").matches : false
@@ -1673,7 +1698,16 @@ const App = () => {
   }, [equityCurvePoints]);
 
   useEffect(() => {
+    const activePageInfo = findPageByKey(activePage);
+    if (activePageInfo?.nav === false) {
+      return;
+    }
     localStorage.setItem(PAGE_STORAGE_KEY, activePage);
+    if (activePageInfo?.group) {
+      const currentMemory = readGroupPageMemory();
+      const nextMemory = { ...currentMemory, [activePageInfo.group]: activePageInfo.key };
+      localStorage.setItem(GROUP_PAGE_STORAGE_KEY, JSON.stringify(nextMemory));
+    }
   }, [activePage]);
 
   useEffect(() => {

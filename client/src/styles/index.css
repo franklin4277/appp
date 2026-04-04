@@ -2416,6 +2416,57 @@ body::before {
   flex-shrink: 0;
 }
 
+.saas-section-switcher {
+  display: grid;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+}
+
+.saas-section-switcher-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.saas-section-switcher-head strong {
+  color: var(--text-main);
+  font-size: 0.86rem;
+}
+
+.saas-section-switcher-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.saas-section-tab {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.45);
+  color: var(--text-muted);
+  padding: 0.55rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.saas-section-tab:hover {
+  border-color: rgb(var(--tw-accent) / 0.35);
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--text-main);
+  transform: translateY(-1px);
+}
+
+.saas-section-tab-active {
+  border-color: rgba(37, 99, 235, 0.55);
+  background: rgba(37, 99, 235, 0.18);
+  color: #f8fafc;
+}
+
 .saas-alert {
   border-radius: 9px;
   border: 1px solid rgb(var(--tw-border) / 0.32);
@@ -4464,6 +4515,27 @@ body::before {
 
   .saas-breadcrumb {
     font-size: 0.66rem;
+  }
+
+  .saas-section-switcher {
+    gap: 0.65rem;
+    padding: 0.75rem 0.8rem;
+  }
+
+  .saas-section-switcher-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+  }
+
+  .saas-section-switcher-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .saas-section-tab {
+    justify-content: center;
+    text-align: center;
   }
 
   .saas-page-header-action {

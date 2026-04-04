@@ -5266,6 +5266,39 @@ body::before {
   grid-column: 1 / -1;
 }
 
+.saas-collapsible {
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 18px;
+  background: var(--panel);
+}
+
+.saas-collapsible-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 1rem 1.1rem;
+  cursor: pointer;
+  list-style: none;
+  color: var(--text-main);
+  font-weight: 700;
+}
+
+.saas-collapsible-summary::-webkit-details-marker {
+  display: none;
+}
+
+.saas-collapsible-summary span {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.saas-collapsible-body {
+  display: grid;
+  gap: 0.9rem;
+  padding: 0 1.1rem 1.1rem;
+}
+
 .saas-calendar-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));

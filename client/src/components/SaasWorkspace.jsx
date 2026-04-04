@@ -2376,106 +2376,114 @@ const SaasWorkspace = ({
               </label>
             </div>
 
-            <article className="saas-note-card">
-              <div className="saas-card-head">
-                <div>
-                  <h3 className="saas-card-title">Lifecycle Tracking</h3>
-                  <p className="saas-card-subtitle">Track how the trade evolved after entry, not just how it ended.</p>
-                </div>
-              </div>
-              <div className="saas-form-grid">
-                <label>
-                  <span className="label">Scale-ins</span>
-                  <input
-                    className="input"
-                    type="number"
-                    min="0"
-                    value={quickTradeForm.scaleInCount}
-                    onChange={(event) => handleQuickTradeChange("scaleInCount", event.target.value)}
-                  />
-                </label>
-                <label>
-                  <span className="label">Scale-outs</span>
-                  <input
-                    className="input"
-                    type="number"
-                    min="0"
-                    value={quickTradeForm.scaleOutCount}
-                    onChange={(event) => handleQuickTradeChange("scaleOutCount", event.target.value)}
-                  />
-                </label>
-                <label>
-                  <span className="label">Partial closes</span>
-                  <input
-                    className="input"
-                    type="number"
-                    min="0"
-                    value={quickTradeForm.partialCloseCount}
-                    onChange={(event) => handleQuickTradeChange("partialCloseCount", event.target.value)}
-                  />
-                </label>
-                <label>
-                  <span className="label">Exit reason</span>
-                  <input
-                    className="input"
-                    value={quickTradeForm.exitReason}
-                    onChange={(event) => handleQuickTradeChange("exitReason", event.target.value)}
-                    placeholder="Target, manual close, stop, time-based..."
-                  />
-                </label>
-              </div>
-              <div className="chip-row mt-3">
-                <button
-                  type="button"
-                  className={`chip-btn ${quickTradeForm.movedStopToBreakeven ? "chip-btn-active" : ""}`}
-                  onClick={() =>
-                    handleQuickTradeChange("movedStopToBreakeven", !quickTradeForm.movedStopToBreakeven)
-                  }
-                >
-                  Moved to breakeven
-                </button>
-                <button
-                  type="button"
-                  className={`chip-btn ${quickTradeForm.trailingStopUsed ? "chip-btn-active" : ""}`}
-                  onClick={() => handleQuickTradeChange("trailingStopUsed", !quickTradeForm.trailingStopUsed)}
-                >
-                  Trailing stop used
-                </button>
-              </div>
-            </article>
-
-            {mistakeCatalog.length ? (
-              <article className="saas-note-card">
-                <div className="saas-card-head">
-                  <div>
-                    <h3 className="saas-card-title">Mistake Tracker</h3>
-                    <p className="saas-card-subtitle">Tag the leaks so review can rank what is costing you most.</p>
+            <details className="saas-collapsible">
+              <summary className="saas-collapsible-summary">
+                Advanced context
+                <span>Lifecycle, mistakes, and execution detail</span>
+              </summary>
+              <div className="saas-collapsible-body">
+                <article className="saas-note-card">
+                  <div className="saas-card-head">
+                    <div>
+                      <h3 className="saas-card-title">Trade Context</h3>
+                      <p className="saas-card-subtitle">Lifecycle and execution notes.</p>
+                    </div>
                   </div>
-                </div>
-                <div className="chip-row">
-                  {mistakeCatalog.map((mistake) => {
-                    const isActive = (quickTradeForm.mistakeTags || []).includes(mistake);
-                    return (
-                      <button
-                        key={`mistake-${mistake}`}
-                        type="button"
-                        className={`chip-btn ${isActive ? "chip-btn-active" : ""}`}
-                        onClick={() =>
-                          handleQuickTradeChange(
-                            "mistakeTags",
-                            isActive
-                              ? (quickTradeForm.mistakeTags || []).filter((item) => item !== mistake)
-                              : [...(quickTradeForm.mistakeTags || []), mistake]
-                          )
-                        }
-                      >
-                        {mistake}
-                      </button>
-                    );
-                  })}
-                </div>
-              </article>
-            ) : null}
+                  <div className="saas-form-grid">
+                    <label>
+                      <span className="label">Scale-ins</span>
+                      <input
+                        className="input"
+                        type="number"
+                        min="0"
+                        value={quickTradeForm.scaleInCount}
+                        onChange={(event) => handleQuickTradeChange("scaleInCount", event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      <span className="label">Scale-outs</span>
+                      <input
+                        className="input"
+                        type="number"
+                        min="0"
+                        value={quickTradeForm.scaleOutCount}
+                        onChange={(event) => handleQuickTradeChange("scaleOutCount", event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      <span className="label">Partial closes</span>
+                      <input
+                        className="input"
+                        type="number"
+                        min="0"
+                        value={quickTradeForm.partialCloseCount}
+                        onChange={(event) => handleQuickTradeChange("partialCloseCount", event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      <span className="label">Exit reason</span>
+                      <input
+                        className="input"
+                        value={quickTradeForm.exitReason}
+                        onChange={(event) => handleQuickTradeChange("exitReason", event.target.value)}
+                        placeholder="Target, manual close, stop, time-based..."
+                      />
+                    </label>
+                  </div>
+                  <div className="chip-row mt-3">
+                    <button
+                      type="button"
+                      className={`chip-btn ${quickTradeForm.movedStopToBreakeven ? "chip-btn-active" : ""}`}
+                      onClick={() =>
+                        handleQuickTradeChange("movedStopToBreakeven", !quickTradeForm.movedStopToBreakeven)
+                      }
+                    >
+                      Moved to breakeven
+                    </button>
+                    <button
+                      type="button"
+                      className={`chip-btn ${quickTradeForm.trailingStopUsed ? "chip-btn-active" : ""}`}
+                      onClick={() => handleQuickTradeChange("trailingStopUsed", !quickTradeForm.trailingStopUsed)}
+                    >
+                      Trailing stop used
+                    </button>
+                  </div>
+                </article>
+
+                {mistakeCatalog.length ? (
+                  <article className="saas-note-card">
+                    <div className="saas-card-head">
+                      <div>
+                        <h3 className="saas-card-title">Mistakes</h3>
+                        <p className="saas-card-subtitle">Tag any execution leak.</p>
+                      </div>
+                    </div>
+                    <div className="chip-row">
+                      {mistakeCatalog.map((mistake) => {
+                        const isActive = (quickTradeForm.mistakeTags || []).includes(mistake);
+                        return (
+                          <button
+                            key={`mistake-${mistake}`}
+                            type="button"
+                            className={`chip-btn ${isActive ? "chip-btn-active" : ""}`}
+                            onClick={() =>
+                              handleQuickTradeChange(
+                                "mistakeTags",
+                                isActive
+                                  ? (quickTradeForm.mistakeTags || []).filter((item) => item !== mistake)
+                                  : [...(quickTradeForm.mistakeTags || []), mistake]
+                              )
+                            }
+                          >
+                            {mistake}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </article>
+                ) : null}
+              </div>
+            </details>
 
             <div
               className={`saas-risk-panel ${
@@ -3218,8 +3226,8 @@ const SaasWorkspace = ({
             <article className="panel saas-card">
               <div className="saas-card-head">
                 <div>
-                  <h3 className="saas-card-title">Weekly Coaching</h3>
-                  <p className="saas-card-subtitle">A practical keep / stop / test brief from your current review range.</p>
+                  <h3 className="saas-card-title">Review Coach</h3>
+                  <p className="saas-card-subtitle">Keep, stop, and test next.</p>
                 </div>
                 <span className="chip text-textMain">Assistant</span>
               </div>
@@ -3260,222 +3268,201 @@ const SaasWorkspace = ({
                 </ul>
                 <p className="saas-stat-label mt-3">{coachingSummary.assistant}</p>
               </div>
-            </article>
-
-            <article className="panel saas-card">
-              <div className="saas-card-head">
-                <div>
-                  <h3 className="saas-card-title">Mistake Tracker</h3>
-                  <p className="saas-card-subtitle">Rank the execution leaks costing the most R.</p>
-                </div>
+              <div className="saas-note-card mt-3">
+                <h4>Top Leak</h4>
+                {reviewMistakeStats.length ? (
+                  <p className="saas-stat-label">
+                    <strong>{reviewMistakeStats[0].label}</strong> is costing <strong>-{reviewMistakeStats[0].costRR}R</strong> across{" "}
+                    {reviewMistakeStats[0].trades} tagged trades.
+                  </p>
+                ) : (
+                  <p className="saas-stat-label">No mistakes tagged in this review range yet.</p>
+                )}
               </div>
-              {reviewMistakeStats.length ? (
-                <div className="saas-ranking-list">
-                  {reviewMistakeStats.slice(0, 5).map((item) => (
-                    <div key={`mistake-stat-${item.label}`} className="saas-ranking-item">
-                      <div className="saas-ranking-top">
-                        <strong>{item.label}</strong>
-                        <span className="saas-rank-rate saas-rank-rate-low">-{item.costRR}R</span>
-                      </div>
-                      <div className="saas-ranking-sub">
-                        <p>{item.trades} tagged trades</p>
-                        <p>{item.losses} losing trades carried this leak</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="saas-risk-panel saas-risk-panel-muted">
-                  Tag mistakes when logging trades to see which behaviors are actually costing you.
-                </div>
-              )}
             </article>
           </div>
 
-          <article className="panel saas-card">
-            <div className="saas-card-head">
-              <div>
-                <h3 className="saas-card-title">Trading Calendar</h3>
-                <p className="saas-card-subtitle">A day-by-day view of when trades clustered and how each day closed.</p>
-              </div>
-            </div>
-            {reviewCalendarDays.length ? (
-              <div className="saas-calendar-grid">
-                {reviewCalendarDays.slice(0, 21).map((day) => (
-                  <button
-                    key={`calendar-${day.key}`}
-                    type="button"
-                    className={`saas-calendar-day ${day.netRR > 0 ? "saas-calendar-day-win" : day.netRR < 0 ? "saas-calendar-day-loss" : ""}`}
-                    onClick={() => {
-                      const match = activeReviewTrades.find(
-                        (trade) => String(trade?.tradeDate || "").slice(0, 10) === day.key
-                      );
-                      if (match) {
-                        openTradeFromReview(match);
-                      }
-                    }}
-                  >
-                    <span>{new Date(day.key).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
-                    <strong>{day.trades} trades</strong>
-                    <small>{day.netRR >= 0 ? "+" : ""}{day.netRR}R</small>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="saas-stat-label">No trades in this range yet.</p>
-            )}
-          </article>
-
-          <div className="saas-main-grid">
-            <article className="panel saas-card">
-              <div className="saas-card-head">
-                <div>
-                  <h3 className="saas-card-title">Session Replay</h3>
-                  <p className="saas-card-subtitle">Walk trades in chronological order to replay the flow of the session.</p>
+          <details className="panel saas-collapsible">
+            <summary className="saas-collapsible-summary">
+              More review tools
+              <span>Calendar, replay, sharing, and funded mode</span>
+            </summary>
+            <div className="saas-collapsible-body">
+              <article className="saas-card">
+                <div className="saas-card-head">
+                  <div>
+                    <h3 className="saas-card-title">Trading Calendar</h3>
+                    <p className="saas-card-subtitle">Day-by-day review map.</p>
+                  </div>
                 </div>
-              </div>
-              <div className="saas-settings-actions">
-                <button
-                  type="button"
-                  className="landing-cta-secondary"
-                  onClick={() => stepReplayTrade(-1)}
-                  disabled={!replayTrades.length || replayTradeIndex <= 0}
-                >
-                  Prev Trade
-                </button>
-                <span className="chip text-textMain">
-                  {replayTradeIndex >= 0 ? replayTradeIndex + 1 : 0}/{replayTrades.length}
-                </span>
-                <button
-                  type="button"
-                  className="landing-cta-secondary"
-                  onClick={() => stepReplayTrade(1)}
-                  disabled={!replayTrades.length || replayTradeIndex >= replayTrades.length - 1}
-                >
-                  Next Trade
-                </button>
-              </div>
-              {replayTrade ? (
-                <button
-                  type="button"
-                  className="saas-note-card mt-3 text-left"
-                  onClick={() => openTradeFromReview(replayTrade)}
-                >
-                  <h4>{replayTrade.pair} - {replayTrade.setupType}</h4>
-                  <p className="saas-stat-label mt-2">
-                    {formatTradeDate(replayTrade.tradeDate)} | {replayTrade.session} | {toNumber(replayTrade.rrAchieved).toFixed(2)}R
-                  </p>
-                </button>
-              ) : (
-                <p className="saas-stat-label">No trades available for replay.</p>
-              )}
-            </article>
+                {reviewCalendarDays.length ? (
+                  <div className="saas-calendar-grid">
+                    {reviewCalendarDays.slice(0, 21).map((day) => (
+                      <button
+                        key={`calendar-${day.key}`}
+                        type="button"
+                        className={`saas-calendar-day ${day.netRR > 0 ? "saas-calendar-day-win" : day.netRR < 0 ? "saas-calendar-day-loss" : ""}`}
+                        onClick={() => {
+                          const match = activeReviewTrades.find(
+                            (trade) => String(trade?.tradeDate || "").slice(0, 10) === day.key
+                          );
+                          if (match) {
+                            openTradeFromReview(match);
+                          }
+                        }}
+                      >
+                        <span>{new Date(day.key).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
+                        <strong>{day.trades} trades</strong>
+                        <small>{day.netRR >= 0 ? "+" : ""}{day.netRR}R</small>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="saas-stat-label">No trades in this range yet.</p>
+                )}
+              </article>
 
-            <article className="panel saas-card">
-              <div className="saas-card-head">
-                <div>
-                  <h3 className="saas-card-title">Sharing</h3>
-                  <p className="saas-card-subtitle">Create a weekly review share link or copy a trade summary for coaching and accountability.</p>
+              <article className="saas-card">
+                <div className="saas-card-head">
+                  <div>
+                    <h3 className="saas-card-title">Review Tools</h3>
+                    <p className="saas-card-subtitle">Replay and sharing.</p>
+                  </div>
                 </div>
-              </div>
-              <div className="saas-settings-actions">
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => void handleCreateReviewShare()}
-                  disabled={!isOnline || shareBusy}
-                >
-                  {shareBusy ? "Creating..." : "Create Review Share"}
-                </button>
-                {selectedTrade ? (
+                <div className="saas-settings-actions">
                   <button
                     type="button"
                     className="landing-cta-secondary"
-                    onClick={() => void copyTradeSummary(selectedTrade)}
+                    onClick={() => stepReplayTrade(-1)}
+                    disabled={!replayTrades.length || replayTradeIndex <= 0}
                   >
-                    Copy Trade Summary
+                    Prev Trade
                   </button>
-                ) : null}
-              </div>
-              {shareError ? <p className="saas-alert saas-alert-error mt-3">{shareError}</p> : null}
-              {shareMessage ? <p className="saas-alert mt-3">{shareMessage}</p> : null}
-              {loadingReviewShares ? (
-                <p className="saas-stat-label mt-3">Loading shares...</p>
-              ) : reviewShares.length ? (
-                <div className="saas-ranking-list mt-3">
-                  {reviewShares.slice(0, 4).map((share) => (
-                    <div key={share.id} className="saas-ranking-item">
-                      <div className="saas-ranking-top">
-                        <strong>{share.title}</strong>
-                        <span className="chip">{share.isExpired ? "Expired" : "Live"}</span>
-                      </div>
-                      <div className="saas-ranking-sub">
-                        <p>{share.periodStart} to {share.periodEnd}</p>
-                        <p>Expires {formatDateTime(share.expiresAt)}</p>
-                      </div>
-                      <div className="saas-settings-actions mt-2">
-                        <button
-                          type="button"
-                          className="chip text-textMain"
-                          onClick={() => void handleRevokeShare(share.id)}
-                        >
-                          Revoke
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                  <span className="chip text-textMain">
+                    {replayTradeIndex >= 0 ? replayTradeIndex + 1 : 0}/{replayTrades.length}
+                  </span>
+                  <button
+                    type="button"
+                    className="landing-cta-secondary"
+                    onClick={() => stepReplayTrade(1)}
+                    disabled={!replayTrades.length || replayTradeIndex >= replayTrades.length - 1}
+                  >
+                    Next Trade
+                  </button>
                 </div>
-              ) : (
-                <p className="saas-stat-label mt-3">No review shares created yet.</p>
-              )}
-            </article>
-          </div>
+                {replayTrade ? (
+                  <button
+                    type="button"
+                    className="saas-note-card mt-3 text-left"
+                    onClick={() => openTradeFromReview(replayTrade)}
+                  >
+                    <h4>{replayTrade.pair} - {replayTrade.setupType}</h4>
+                    <p className="saas-stat-label mt-2">
+                      {formatTradeDate(replayTrade.tradeDate)} | {replayTrade.session} | {toNumber(replayTrade.rrAchieved).toFixed(2)}R
+                    </p>
+                  </button>
+                ) : (
+                  <p className="saas-stat-label">No trades available for replay.</p>
+                )}
+                <div className="saas-settings-actions mt-3">
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => void handleCreateReviewShare()}
+                    disabled={!isOnline || shareBusy}
+                  >
+                    {shareBusy ? "Creating..." : "Create Review Share"}
+                  </button>
+                  {selectedTrade ? (
+                    <button
+                      type="button"
+                      className="landing-cta-secondary"
+                      onClick={() => void copyTradeSummary(selectedTrade)}
+                    >
+                      Copy Trade Summary
+                    </button>
+                  ) : null}
+                </div>
+                {shareError ? <p className="saas-alert saas-alert-error mt-3">{shareError}</p> : null}
+                {shareMessage ? <p className="saas-alert mt-3">{shareMessage}</p> : null}
+                {loadingReviewShares ? (
+                  <p className="saas-stat-label mt-3">Loading shares...</p>
+                ) : reviewShares.length ? (
+                  <div className="saas-ranking-list mt-3">
+                    {reviewShares.slice(0, 2).map((share) => (
+                      <div key={share.id} className="saas-ranking-item">
+                        <div className="saas-ranking-top">
+                          <strong>{share.title}</strong>
+                          <span className="chip">{share.isExpired ? "Expired" : "Live"}</span>
+                        </div>
+                        <div className="saas-ranking-sub">
+                          <p>{share.periodStart} to {share.periodEnd}</p>
+                          <p>Expires {formatDateTime(share.expiresAt)}</p>
+                        </div>
+                        <div className="saas-settings-actions mt-2">
+                          <button
+                            type="button"
+                            className="chip text-textMain"
+                            onClick={() => void handleRevokeShare(share.id)}
+                          >
+                            Revoke
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="saas-stat-label mt-3">No review shares created yet.</p>
+                )}
+              </article>
 
-          {fundedMode.enabled ? (
-            <article className="panel saas-card">
-              <div className="saas-card-head">
-                <div>
-                  <h3 className="saas-card-title">Funded Account Mode</h3>
-                  <p className="saas-card-subtitle">
-                    {fundedMode.provider || "Challenge rules"} tracked against your active profile performance.
-                  </p>
-                </div>
-              </div>
-              {fundedProgress ? (
-                <div className="saas-metric-list">
-                  <div className="saas-metric-item">
-                    <span>Profit target</span>
-                    <strong>{fundedMode.profitTargetPercent}%</strong>
+              {fundedMode.enabled ? (
+                <article className="saas-card">
+                  <div className="saas-card-head">
+                    <div>
+                      <h3 className="saas-card-title">Funded Account Mode</h3>
+                      <p className="saas-card-subtitle">
+                        {fundedMode.provider || "Challenge rules"} tracked against your active profile.
+                      </p>
+                    </div>
                   </div>
-                  <div className="saas-progress saas-progress-green">
-                    <span style={{ width: `${fundedProgress.profitProgress}%` }} />
-                  </div>
-                  <div className="saas-metric-item">
-                    <span>Total drawdown cap</span>
-                    <strong>{fundedMode.maxTotalDrawdownPercent}%</strong>
-                  </div>
-                  <div className="saas-progress saas-progress-red">
-                    <span style={{ width: `${fundedProgress.drawdownProgress}%` }} />
-                  </div>
-                  <div className="saas-metric-item">
-                    <span>Minimum trading days</span>
-                    <strong>{fundedProgress.tradingDays}/{fundedMode.minTradingDays || fundedProgress.tradingDays}</strong>
-                  </div>
-                  <p className="saas-metric-note">
-                    {fundedProgress.drawdownBreached
-                      ? "Drawdown limit breached. Review before continuing."
-                      : fundedProgress.targetReached
-                        ? "Target reached. Protect the account and keep consistency clean."
-                        : "Challenge still in progress. Keep execution clean and consistency controlled."}
-                  </p>
-                </div>
-              ) : (
-                <div className="saas-risk-panel saas-risk-panel-muted">
-                  Set account size and funded rules in Settings to track challenge progress here.
-                </div>
-              )}
-            </article>
-          ) : null}
+                  {fundedProgress ? (
+                    <div className="saas-metric-list">
+                      <div className="saas-metric-item">
+                        <span>Profit target</span>
+                        <strong>{fundedMode.profitTargetPercent}%</strong>
+                      </div>
+                      <div className="saas-progress saas-progress-green">
+                        <span style={{ width: `${fundedProgress.profitProgress}%` }} />
+                      </div>
+                      <div className="saas-metric-item">
+                        <span>Total drawdown cap</span>
+                        <strong>{fundedMode.maxTotalDrawdownPercent}%</strong>
+                      </div>
+                      <div className="saas-progress saas-progress-red">
+                        <span style={{ width: `${fundedProgress.drawdownProgress}%` }} />
+                      </div>
+                      <div className="saas-metric-item">
+                        <span>Minimum trading days</span>
+                        <strong>{fundedProgress.tradingDays}/{fundedMode.minTradingDays || fundedProgress.tradingDays}</strong>
+                      </div>
+                      <p className="saas-metric-note">
+                        {fundedProgress.drawdownBreached
+                          ? "Drawdown limit breached. Review before continuing."
+                          : fundedProgress.targetReached
+                            ? "Target reached. Protect the account and keep consistency clean."
+                            : "Challenge still in progress. Keep execution clean and consistency controlled."}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="saas-risk-panel saas-risk-panel-muted">
+                      Set account size and funded rules in Settings to track challenge progress here.
+                    </div>
+                  )}
+                </article>
+              ) : null}
+            </div>
+          </details>
 
           <article className="panel saas-card">
             <h3 className="saas-card-title">Trade Breakdown</h3>
@@ -3880,116 +3867,115 @@ const SaasWorkspace = ({
             </div>
           </article>
 
-          <article className="panel saas-card">
-            <div className="saas-section-header">
-              <span className="saas-stat-icon saas-stat-icon-blue">
-                <IconGlyph name="review" />
-              </span>
-              <div>
-                <h3 className="saas-card-title">Playbooks & Review Toolkit</h3>
-                <p className="saas-card-subtitle">Save playbooks, mistake labels, and funded-account rules in one place.</p>
-              </div>
+          <details className="panel saas-collapsible">
+            <summary className="saas-collapsible-summary">
+              Advanced strategy settings
+              <span>Playbooks, mistakes, and funded rules</span>
+            </summary>
+            <div className="saas-collapsible-body">
+              <article className="saas-card">
+                <div className="saas-settings-grid">
+                  <label className="saas-settings-span-full">
+                    <span className="label">Playbooks JSON</span>
+                    <textarea
+                      className="input font-mono text-xs"
+                      rows={10}
+                      value={settingsDraft.playbooksJson}
+                      onChange={(event) => setSettingsDraft((prev) => ({ ...prev, playbooksJson: event.target.value }))}
+                      placeholder='[{"id":"london-breakout","name":"London Breakout","setupType":"Breakout"}]'
+                      disabled={!isOnline || savingUserSettings}
+                    />
+                  </label>
+                  <label className="saas-settings-span-full">
+                    <span className="label">Mistake labels</span>
+                    <textarea
+                      className="input"
+                      rows={2}
+                      value={settingsDraft.mistakeTags}
+                      onChange={(event) => setSettingsDraft((prev) => ({ ...prev, mistakeTags: event.target.value }))}
+                      placeholder="Late entry, Oversized risk, Early close"
+                      disabled={!isOnline || savingUserSettings}
+                    />
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-textMain saas-settings-span-full">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(settingsDraft.fundedModeEnabled)}
+                      onChange={(event) => setSettingsDraft((prev) => ({ ...prev, fundedModeEnabled: event.target.checked }))}
+                      disabled={!isOnline || savingUserSettings}
+                    />
+                    Enable funded-account mode
+                  </label>
+                  <label>
+                    <span className="label">Funded provider</span>
+                    <input
+                      className="input"
+                      value={settingsDraft.fundedProvider}
+                      onChange={(event) => setSettingsDraft((prev) => ({ ...prev, fundedProvider: event.target.value }))}
+                      placeholder="FTMO / prop challenge / personal rules"
+                      disabled={!isOnline || savingUserSettings}
+                    />
+                  </label>
+                  <label>
+                    <span className="label">Profit target (%)</span>
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={settingsDraft.fundedProfitTargetPercent}
+                      onChange={(event) =>
+                        setSettingsDraft((prev) => ({ ...prev, fundedProfitTargetPercent: event.target.value }))
+                      }
+                      disabled={!isOnline || savingUserSettings}
+                    />
+                  </label>
+                  <label>
+                    <span className="label">Max total drawdown (%)</span>
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={settingsDraft.fundedMaxTotalDrawdownPercent}
+                      onChange={(event) =>
+                        setSettingsDraft((prev) => ({ ...prev, fundedMaxTotalDrawdownPercent: event.target.value }))
+                      }
+                      disabled={!isOnline || savingUserSettings}
+                    />
+                  </label>
+                  <label>
+                    <span className="label">Consistency cap (%)</span>
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={settingsDraft.fundedConsistencyPercent}
+                      onChange={(event) =>
+                        setSettingsDraft((prev) => ({ ...prev, fundedConsistencyPercent: event.target.value }))
+                      }
+                      disabled={!isOnline || savingUserSettings}
+                    />
+                  </label>
+                  <label>
+                    <span className="label">Minimum trading days</span>
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={settingsDraft.fundedMinTradingDays}
+                      onChange={(event) =>
+                        setSettingsDraft((prev) => ({ ...prev, fundedMinTradingDays: event.target.value }))
+                      }
+                      disabled={!isOnline || savingUserSettings}
+                    />
+                  </label>
+                </div>
+              </article>
             </div>
-            <div className="saas-settings-grid">
-              <label className="saas-settings-span-full">
-                <span className="label">Playbooks JSON</span>
-                <textarea
-                  className="input font-mono text-xs"
-                  rows={12}
-                  value={settingsDraft.playbooksJson}
-                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, playbooksJson: event.target.value }))}
-                  placeholder='[{"id":"london-breakout","name":"London Breakout","setupType":"Breakout"}]'
-                  disabled={!isOnline || savingUserSettings}
-                />
-              </label>
-              <label className="saas-settings-span-full">
-                <span className="label">Mistake labels</span>
-                <textarea
-                  className="input"
-                  rows={3}
-                  value={settingsDraft.mistakeTags}
-                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, mistakeTags: event.target.value }))}
-                  placeholder="Late entry, Oversized risk, Early close"
-                  disabled={!isOnline || savingUserSettings}
-                />
-              </label>
-              <label className="flex items-center gap-2 text-sm text-textMain saas-settings-span-full">
-                <input
-                  type="checkbox"
-                  checked={Boolean(settingsDraft.fundedModeEnabled)}
-                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, fundedModeEnabled: event.target.checked }))}
-                  disabled={!isOnline || savingUserSettings}
-                />
-                Enable funded-account mode
-              </label>
-              <label>
-                <span className="label">Funded provider</span>
-                <input
-                  className="input"
-                  value={settingsDraft.fundedProvider}
-                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, fundedProvider: event.target.value }))}
-                  placeholder="FTMO / prop challenge / personal rules"
-                  disabled={!isOnline || savingUserSettings}
-                />
-              </label>
-              <label>
-                <span className="label">Profit target (%)</span>
-                <input
-                  className="input"
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={settingsDraft.fundedProfitTargetPercent}
-                  onChange={(event) =>
-                    setSettingsDraft((prev) => ({ ...prev, fundedProfitTargetPercent: event.target.value }))
-                  }
-                  disabled={!isOnline || savingUserSettings}
-                />
-              </label>
-              <label>
-                <span className="label">Max total drawdown (%)</span>
-                <input
-                  className="input"
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={settingsDraft.fundedMaxTotalDrawdownPercent}
-                  onChange={(event) =>
-                    setSettingsDraft((prev) => ({ ...prev, fundedMaxTotalDrawdownPercent: event.target.value }))
-                  }
-                  disabled={!isOnline || savingUserSettings}
-                />
-              </label>
-              <label>
-                <span className="label">Consistency cap (%)</span>
-                <input
-                  className="input"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={settingsDraft.fundedConsistencyPercent}
-                  onChange={(event) =>
-                    setSettingsDraft((prev) => ({ ...prev, fundedConsistencyPercent: event.target.value }))
-                  }
-                  disabled={!isOnline || savingUserSettings}
-                />
-              </label>
-              <label>
-                <span className="label">Minimum trading days</span>
-                <input
-                  className="input"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={settingsDraft.fundedMinTradingDays}
-                  onChange={(event) =>
-                    setSettingsDraft((prev) => ({ ...prev, fundedMinTradingDays: event.target.value }))
-                  }
-                  disabled={!isOnline || savingUserSettings}
-                />
-              </label>
-            </div>
-          </article>
+          </details>
 
           <article className="panel saas-card">
             <div className="saas-section-header">

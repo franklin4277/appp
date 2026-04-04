@@ -334,6 +334,26 @@ const settingsSchema = new mongoose.Schema(
         type: Number,
         default: DEFAULT_RISK_CONTROLS.stopForDayLossRR,
       },
+      maxRiskPerTradePercent: {
+        type: Number,
+        default: DEFAULT_RISK_CONTROLS.maxRiskPerTradePercent,
+        min: 0,
+      },
+      dailyProfitTargetPercent: {
+        type: Number,
+        default: DEFAULT_RISK_CONTROLS.dailyProfitTargetPercent,
+        min: 0,
+      },
+      weeklyProfitTargetPercent: {
+        type: Number,
+        default: DEFAULT_RISK_CONTROLS.weeklyProfitTargetPercent,
+        min: 0,
+      },
+      maxDailyDrawdownPercent: {
+        type: Number,
+        default: DEFAULT_RISK_CONTROLS.maxDailyDrawdownPercent,
+        min: 0,
+      },
       strictChecklistGate: {
         type: Boolean,
         default: DEFAULT_RISK_CONTROLS.strictChecklistGate,

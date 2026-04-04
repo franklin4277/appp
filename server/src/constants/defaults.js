@@ -13,5 +13,9 @@ export const DEFAULT_RISK_CONTROLS = {
   maxTradesPerSession: 4,
   cooldownMinutesAfterLoss: 30,
   stopForDayLossRR: 3,
+  maxRiskPerTradePercent: 1,
+  dailyProfitTargetPercent: 1.5,
+  weeklyProfitTargetPercent: 4,
+  maxDailyDrawdownPercent: 2,
   strictChecklistGate: false,
 };

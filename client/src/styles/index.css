@@ -2153,6 +2153,100 @@ body::before {
   font-size: 0.74rem;
 }
 
+.saas-profile-rail {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+}
+
+.saas-profile-rail-copy {
+  display: grid;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.saas-profile-rail-copy strong {
+  font-size: 1rem;
+  color: var(--text-main);
+}
+
+.saas-profile-rail-copy span:last-child {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.saas-profile-rail-actions {
+  display: grid;
+  justify-items: end;
+  gap: 0.55rem;
+  min-width: min(440px, 100%);
+}
+
+.saas-profile-rail-actions .saas-profile-select {
+  min-width: 220px;
+}
+
+.saas-profile-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.saas-account-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.8rem;
+}
+
+.saas-account-panel {
+  gap: 1rem;
+}
+
+.saas-risk-panel {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 16px;
+  padding: 0.95rem 1rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.saas-risk-panel-muted {
+  background: rgba(30, 41, 59, 0.46);
+}
+
+.saas-risk-panel-warn {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.34);
+}
+
+.saas-risk-panel-danger {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.34);
+}
+
+.saas-risk-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.saas-risk-panel-head strong {
+  color: var(--text-main);
+}
+
+.saas-risk-panel-note {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
 .saas-signout {
   width: 100%;
   border: 1px solid rgb(var(--tw-border) / 0.32);
@@ -4317,6 +4411,27 @@ body::before {
     margin-bottom: 0.58rem;
   }
 
+  .saas-profile-rail {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.8rem;
+    padding: 0.82rem 0.86rem;
+  }
+
+  .saas-profile-rail-actions {
+    justify-items: stretch;
+    min-width: 0;
+  }
+
+  .saas-profile-rail-actions .saas-profile-select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .saas-profile-chip-row {
+    justify-content: flex-start;
+  }
+
   .saas-page-header h1 {
     font-size: 1.4rem;
   }
@@ -4348,6 +4463,19 @@ body::before {
 
   .saas-insights-row {
     grid-template-columns: 1fr;
+  }
+
+  .saas-account-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .saas-risk-panel {
+    padding: 0.82rem 0.86rem;
+  }
+
+  .saas-risk-panel-head {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .saas-main-grid {
@@ -4893,6 +5021,19 @@ body::before {
   .saas-user-meta span {
     max-width: 42vw;
     font-size: 0.7rem;
+  }
+
+  .saas-profile-rail-copy strong {
+    font-size: 0.94rem;
+  }
+
+  .saas-profile-rail-copy span:last-child,
+  .saas-risk-panel-note {
+    font-size: 0.74rem;
+  }
+
+  .saas-account-grid {
+    grid-template-columns: 1fr;
   }
 
   .landing-wrap,

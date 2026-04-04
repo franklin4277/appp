@@ -915,6 +915,17 @@ export const updateProfile = async (token, profileId, profilePayload) => {
   return parseResponse(response);
 };
 
+export const deleteProfile = async (token, profileId) => {
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/auth/profiles/${encodeURIComponent(profileId)}`,
+    {
+      method: "DELETE",
+    },
+    token
+  );
+  return parseResponse(response);
+};
+
 export const setActiveProfile = async (token, profileId) => {
   const response = await fetchWithAuthRetry(
     `${API_BASE}/api/auth/profiles/active`,

@@ -93,6 +93,7 @@ export const ensureUserProfiles = (user) => {
         id: DEFAULT_PROFILE_ID,
         name: "Main Profile",
         description: "Default journal profile",
+        accountSize: 0,
         isDefault: true,
         createdAt: new Date(),
       },

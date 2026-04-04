@@ -28,10 +28,12 @@ const createValidationError = (message) => {
 
 export const evaluateGuardrails = async ({
   user,
+  profileId,
   tradeDate,
   session,
   tags,
   ruleBreakReason,
+  riskPercent,
 }) => {
   const controls = user?.settings?.riskControls || {};
   const date = tradeDate ? new Date(tradeDate) : new Date();
@@ -45,15 +47,18 @@ export const evaluateGuardrails = async ({
   ] = await Promise.all([
     Trade.countDocuments({
       userId: user._id,
+      profileId,
       session,
       tradeDate: { $gte: rangeStart, $lte: rangeEnd },
     }),
     Trade.find({
       userId: user._id,
+      profileId,
       tradeDate: { $gte: rangeStart, $lte: rangeEnd },
     }).sort({ tradeDate: -1 }),
     Trade.findOne({
       userId: user._id,
+      profileId,
       tradeDate: { $lt: date },
     }).sort({ tradeDate: -1 }),
   ]);
@@ -112,6 +117,33 @@ export const evaluateGuardrails = async ({
     if (netDayRR <= -Math.abs(controls.stopForDayLossRR)) {
       warnings.push(
         `Stop-for-day warning: current day net RR is ${Math.round(netDayRR * 100) / 100}.`
+      );
+    }
+  }
+
+  const maxRiskPerTradePercent = toNumber(controls.maxRiskPerTradePercent, 0);
+  const submittedRiskPercent = toNumber(riskPercent, 0);
+  if (maxRiskPerTradePercent > 0 && submittedRiskPercent > maxRiskPerTradePercent) {
+    warnings.push(
+      `Risk warning: this trade risks ${Math.round(submittedRiskPercent * 100) / 100}% which exceeds your ${Math.round(
+        maxRiskPerTradePercent * 100
+      ) / 100}% cap.`
+    );
+  }
+
+  const maxDailyDrawdownPercent = toNumber(controls.maxDailyDrawdownPercent, 0);
+  const accountSize = Number(
+    (user?.profiles || []).find((profile) => profile.id === profileId)?.accountSize || 0
+  );
+  if (maxDailyDrawdownPercent > 0 && Number.isFinite(accountSize) && accountSize > 0) {
+    const dayPnlPercent = todayTrades.reduce((sum, trade) => {
+      const tradeRiskPercent = Math.max(toNumber(trade?.riskPercent, 0), 0);
+      const rrAchieved = toNumber(trade?.rrAchieved, 0);
+      return sum + tradeRiskPercent * rrAchieved;
+    }, 0);
+    if (dayPnlPercent <= -Math.abs(maxDailyDrawdownPercent)) {
+      warnings.push(
+        `Drawdown warning: this profile is down ${Math.abs(Math.round(dayPnlPercent * 100) / 100)}% today.`
       );
     }
   }

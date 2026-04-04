@@ -5,6 +5,7 @@ import {
   clearOfflineQueue,
   createProfile,
   createTrade,
+  deleteProfile,
   disableMt5Bridge,
   ensureLocalDeviceId,
   fetchAnalytics,
@@ -170,6 +171,28 @@ const round = (value, precision = 2) => {
   return Math.round((value + Number.EPSILON) * factor) / factor;
 };
 
+const calculateLotSize = ({ accountBalance, riskPercent, entryPrice, stopLoss, pair }) => {
+  const balance = Number(accountBalance);
+  const risk = Number(riskPercent);
+  const entry = Number(entryPrice);
+  const stop = Number(stopLoss);
+
+  if (!Number.isFinite(balance) || balance <= 0 || !Number.isFinite(risk) || risk <= 0) {
+    return 0;
+  }
+  if (!Number.isFinite(entry) || !Number.isFinite(stop) || entry === stop) {
+    return 0;
+  }
+
+  const pipMultiplier = String(pair || "").toUpperCase().endsWith("JPY") ? 100 : 10000;
+  const stopPips = Math.abs(entry - stop) * pipMultiplier;
+  if (!Number.isFinite(stopPips) || stopPips <= 0) {
+    return 0;
+  }
+
+  return round((balance * (risk / 100)) / (stopPips * 10), 2);
+};
+
 const computeWinRate = (trades = []) => {
   if (!trades.length) {
     return 0;
@@ -221,6 +244,8 @@ const buildQuickTradeForm = ({ setupOptions = [], sessionOptions = [], pairOptio
   stopLoss: "",
   takeProfit: "",
   plannedRR: "",
+  riskPercent: "1",
+  lotSize: "",
   setupType: setupOptions[0] || "",
   session: sessionOptions[0] || "",
   emotion: "",
@@ -1014,6 +1039,51 @@ const App = () => {
     }
   };
 
+  const handleProfileDelete = async (profileId) => {
+    const normalizedProfileId = String(profileId || "").trim();
+    if (!normalizedProfileId) {
+      setError("Select a profile first.");
+      return null;
+    }
+
+    if (!token) {
+      setError("You must be signed in to delete a profile.");
+      return null;
+    }
+
+    if (!isOnline) {
+      setError("You're offline. Connect to the internet to delete a profile.");
+      return null;
+    }
+
+    setSavingProfile(true);
+    setError("");
+    setStatusMessage("");
+
+    try {
+      const response = await deleteProfile(token, normalizedProfileId);
+      if (response?.token) {
+        setToken(response.token);
+      }
+      if (response?.user) {
+        setUser(response.user);
+        setFilters((prev) => ({
+          ...prev,
+          profileId: response.user?.activeProfileId || prev.profileId,
+        }));
+      }
+      setStatusMessage(
+        `Profile deleted. ${response?.reassignedTrades ? `${response.reassignedTrades} trade${response.reassignedTrades === 1 ? "" : "s"} moved to ${response?.fallbackProfileId}.` : "Your remaining profile is now active."}`
+      );
+      return response || null;
+    } catch (deleteError) {
+      setError(deleteError.message || "Could not delete profile.");
+      return null;
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
   const handleUpdateUserSettings = async (payload = {}) => {
     if (!token) {
       setError("You must be signed in to update settings.");
@@ -1248,12 +1318,17 @@ const App = () => {
       const stopLossValue = stopLossInput === "" ? NaN : toNumber(stopLossInput, NaN);
       const takeProfitValue = takeProfitInput === "" ? NaN : toNumber(takeProfitInput, NaN);
       const plannedRRInput = quickTradeForm.plannedRR === "" ? NaN : toNumber(quickTradeForm.plannedRR, NaN);
+      const riskPercentInput = quickTradeForm.riskPercent === "" ? NaN : toNumber(quickTradeForm.riskPercent, NaN);
       if (!pair || pair.length < 3 || pair.length > 15 || !Number.isFinite(entryPrice) || entryPrice <= 0) {
         setError("Pair and entry price are required.");
         return;
       }
       if (quickTradeForm.plannedRR !== "" && (!Number.isFinite(plannedRRInput) || plannedRRInput <= 0)) {
         setError("Planned R:R must be greater than 0.");
+        return;
+      }
+      if (quickTradeForm.riskPercent !== "" && (!Number.isFinite(riskPercentInput) || riskPercentInput < 0)) {
+        setError("Risk % must be 0 or greater.");
         return;
       }
 
@@ -1268,6 +1343,18 @@ const App = () => {
       const plannedRR = Number.isFinite(plannedRRInput) && plannedRRInput > 0
         ? round(plannedRRInput, 2)
         : round(Math.abs(takeProfit - entryPrice) / Math.max(Math.abs(entryPrice - stopLoss), 0.00001), 2);
+      const riskPercent =
+        Number.isFinite(riskPercentInput) && riskPercentInput >= 0 ? round(riskPercentInput, 2) : 1;
+      const activeProfileAccountSize = Number(
+        (user?.profiles || []).find((profile) => profile.id === (filters.profileId || user?.activeProfileId))?.accountSize || 0
+      );
+      const lotSize = calculateLotSize({
+        accountBalance: activeProfileAccountSize,
+        riskPercent,
+        entryPrice,
+        stopLoss,
+        pair,
+      });
       const isWinning = Number.isFinite(exitPrice) ? exitPrice >= entryPrice : false;
       const result = Number.isFinite(exitPrice) ? (isWinning ? "Win" : "Loss") : "BE";
       const rrAchieved = Number.isFinite(exitPrice)
@@ -1294,7 +1381,8 @@ const App = () => {
       data.append("stopLoss", String(stopLoss));
       data.append("takeProfit", String(takeProfit));
       data.append("plannedRR", String(plannedRR));
-      data.append("riskPercent", "1");
+      data.append("riskPercent", String(riskPercent));
+      data.append("lotSize", lotSize > 0 ? String(lotSize) : "");
       data.append("result", result);
       data.append("rrAchieved", String(rrAchieved));
       data.append("asiaHighLowUsed", "false");
@@ -1624,6 +1712,7 @@ const App = () => {
         handleProfileSwitch={handleProfileSwitch}
         handleProfileCreate={handleProfileCreate}
         handleProfileUpdate={handleProfileUpdate}
+        handleProfileDelete={handleProfileDelete}
         creatingProfile={creatingProfile}
         savingProfile={savingProfile}
         handleUpdateUserSettings={handleUpdateUserSettings}

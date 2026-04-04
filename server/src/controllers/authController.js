@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import User from "../models/User.js";
+import Trade from "../models/Trade.js";
 import { DEFAULT_RISK_CONTROLS, DEFAULT_STRATEGY_OPTIONS } from "../constants/defaults.js";
 import { recordAudit } from "../services/audit.js";
 import {
@@ -244,6 +245,26 @@ const mergeSettings = (current = {}, next = {}) => {
         0,
         toNumber(riskPayload.stopForDayLossRR, current.riskControls?.stopForDayLossRR) ??
           DEFAULT_RISK_CONTROLS.stopForDayLossRR
+      ),
+      maxRiskPerTradePercent: Math.max(
+        0,
+        toNumber(riskPayload.maxRiskPerTradePercent, current.riskControls?.maxRiskPerTradePercent) ??
+          DEFAULT_RISK_CONTROLS.maxRiskPerTradePercent
+      ),
+      dailyProfitTargetPercent: Math.max(
+        0,
+        toNumber(riskPayload.dailyProfitTargetPercent, current.riskControls?.dailyProfitTargetPercent) ??
+          DEFAULT_RISK_CONTROLS.dailyProfitTargetPercent
+      ),
+      weeklyProfitTargetPercent: Math.max(
+        0,
+        toNumber(riskPayload.weeklyProfitTargetPercent, current.riskControls?.weeklyProfitTargetPercent) ??
+          DEFAULT_RISK_CONTROLS.weeklyProfitTargetPercent
+      ),
+      maxDailyDrawdownPercent: Math.max(
+        0,
+        toNumber(riskPayload.maxDailyDrawdownPercent, current.riskControls?.maxDailyDrawdownPercent) ??
+          DEFAULT_RISK_CONTROLS.maxDailyDrawdownPercent
       ),
       strictChecklistGate:
         riskPayload.strictChecklistGate ??
@@ -1411,6 +1432,81 @@ export const updateProfile = async (req, res, next) => {
     res.json({
       user: toPublicUser(req.user),
       profile,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteProfile = async (req, res, next) => {
+  try {
+    const profileId = String(req.params.profileId || "").trim();
+    if (!profileId) {
+      throw badRequest("profileId is required.");
+    }
+
+    ensureUserProfiles(req.user);
+    const profiles = req.user.profiles || [];
+    const profile = profiles.find((entry) => entry.id === profileId);
+    if (!profile) {
+      const error = new Error("Profile not found.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (profile.isDefault) {
+      throw badRequest("Default profile cannot be deleted.");
+    }
+
+    if (profiles.length <= 1) {
+      throw badRequest("You must keep at least one profile.");
+    }
+
+    const fallbackProfile =
+      profiles.find((entry) => entry.isDefault && entry.id !== profileId) ||
+      profiles.find((entry) => entry.id !== profileId);
+
+    if (!fallbackProfile) {
+      throw badRequest("No fallback profile available.");
+    }
+
+    const reassignedCount = await Trade.updateMany(
+      {
+        userId: req.user._id,
+        profileId,
+      },
+      {
+        $set: {
+          profileId: fallbackProfile.id,
+        },
+      }
+    );
+
+    req.user.profiles = profiles.filter((entry) => entry.id !== profileId);
+    if (req.user.activeProfileId === profileId) {
+      req.user.activeProfileId = fallbackProfile.id;
+    }
+
+    await req.user.save();
+
+    await recordAudit({
+      req,
+      userId: req.user._id,
+      action: "profile.deleted",
+      targetType: "profile",
+      targetId: profileId,
+      metadata: {
+        fallbackProfileId: fallbackProfile.id,
+        reassignedTrades: Number(reassignedCount?.modifiedCount || 0),
+      },
+    });
+
+    res.json({
+      token: signAccessToken(req.user),
+      user: toPublicUser(req.user),
+      deletedProfileId: profileId,
+      fallbackProfileId: fallbackProfile.id,
+      reassignedTrades: Number(reassignedCount?.modifiedCount || 0),
     });
   } catch (error) {
     next(error);

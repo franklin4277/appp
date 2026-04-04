@@ -90,6 +90,256 @@ const computeMaxDrawdown = (trades = []) => {
   return round(maxDrawdown, 2);
 };
 
+const computePlannedRR = ({ entryPrice, stopLoss, takeProfit }) => {
+  const entry = toFinite(entryPrice);
+  const stop = toFinite(stopLoss);
+  const take = toFinite(takeProfit);
+  if (!Number.isFinite(entry) || !Number.isFinite(stop) || !Number.isFinite(take)) {
+    return 0;
+  }
+  const risk = Math.abs(entry - stop);
+  if (!risk) {
+    return 0;
+  }
+  return round(Math.abs(take - entry) / risk, 2);
+};
+
+const computeAccountPerformance = (trades = [], startingBalance = 0) => {
+  const baseBalance = Number(startingBalance);
+  if (!Number.isFinite(baseBalance) || baseBalance <= 0) {
+    return null;
+  }
+
+  const chronological = [...(Array.isArray(trades) ? trades : [])].sort(
+    (a, b) => new Date(a?.tradeDate || 0).getTime() - new Date(b?.tradeDate || 0).getTime()
+  );
+
+  let equity = baseBalance;
+  let peak = baseBalance;
+  let maxDrawdownAmount = 0;
+  let maxDrawdownPercent = 0;
+  let trackedTrades = 0;
+  let cumulativeRiskPercent = 0;
+
+  chronological.forEach((trade) => {
+    const riskPercent = Math.max(toNumber(trade?.riskPercent, 0), 0);
+    const rrAchieved = toNumber(trade?.rrAchieved, 0);
+    if (!riskPercent) {
+      return;
+    }
+
+    trackedTrades += 1;
+    cumulativeRiskPercent += riskPercent;
+    const pnl = equity * (riskPercent / 100) * rrAchieved;
+    equity += pnl;
+    peak = Math.max(peak, equity);
+    const drawdownAmount = peak - equity;
+    const drawdownPercent = peak > 0 ? (drawdownAmount / peak) * 100 : 0;
+    maxDrawdownAmount = Math.max(maxDrawdownAmount, drawdownAmount);
+    maxDrawdownPercent = Math.max(maxDrawdownPercent, drawdownPercent);
+  });
+
+  return {
+    startingBalance: round(baseBalance, 2),
+    currentBalance: round(equity, 2),
+    pnlAmount: round(equity - baseBalance, 2),
+    returnPercent: round(((equity - baseBalance) / baseBalance) * 100, 2),
+    maxDrawdownAmount: round(maxDrawdownAmount, 2),
+    maxDrawdownPercent: round(maxDrawdownPercent, 2),
+    trackedTrades,
+    avgRiskPercent: trackedTrades ? round(cumulativeRiskPercent / trackedTrades, 2) : 0,
+  };
+};
+
+const computeLotSize = ({ accountBalance, riskPercent, entryPrice, stopLoss, pair }) => {
+  const balance = Number(accountBalance);
+  const risk = Number(riskPercent);
+  const entry = Number(entryPrice);
+  const stop = Number(stopLoss);
+  if (!Number.isFinite(balance) || balance <= 0 || !Number.isFinite(risk) || risk <= 0) {
+    return 0;
+  }
+  if (!Number.isFinite(entry) || !Number.isFinite(stop) || entry === stop) {
+    return 0;
+  }
+
+  const pipMultiplier = String(pair || "").toUpperCase().endsWith("JPY") ? 100 : 10000;
+  const stopPips = Math.abs(entry - stop) * pipMultiplier;
+  if (!Number.isFinite(stopPips) || stopPips <= 0) {
+    return 0;
+  }
+
+  const riskAmount = balance * (risk / 100);
+  const lots = riskAmount / (stopPips * 10);
+  return round(lots, 2);
+};
+
+const confidenceForSample = (count = 0) => {
+  const trades = Number(count) || 0;
+  if (trades >= 12) {
+    return { label: "High confidence", tone: "good" };
+  }
+  if (trades >= 6) {
+    return { label: "Building confidence", tone: "muted" };
+  }
+  return { label: "Low sample size", tone: "warn" };
+};
+
+const gradeFromScore = (score = 0) => {
+  if (score >= 90) return "A";
+  if (score >= 80) return "B";
+  if (score >= 70) return "C";
+  return "D";
+};
+
+const buildAccountTimeline = (trades = [], startingBalance = 0) => {
+  const baseBalance = Number(startingBalance);
+  if (!Number.isFinite(baseBalance) || baseBalance <= 0) {
+    return { points: [], impactByTradeId: new Map() };
+  }
+
+  const chronological = [...(Array.isArray(trades) ? trades : [])].sort(
+    (a, b) => new Date(a?.tradeDate || 0).getTime() - new Date(b?.tradeDate || 0).getTime()
+  );
+  let balance = baseBalance;
+  const points = [{ x: 0, y: round(baseBalance, 2), label: "Start" }];
+  const impactByTradeId = new Map();
+
+  chronological.forEach((trade, index) => {
+    const riskPercent = Math.max(toNumber(trade?.riskPercent, 0), 0);
+    const rrAchieved = toNumber(trade?.rrAchieved, 0);
+    const balanceBefore = balance;
+    const riskAmount = round(balanceBefore * (riskPercent / 100), 2);
+    const pnlAmount = round(riskAmount * rrAchieved, 2);
+    const balanceAfter = round(balanceBefore + pnlAmount, 2);
+    const pnlPercent = balanceBefore > 0 ? round((pnlAmount / balanceBefore) * 100, 2) : 0;
+    balance = balanceAfter;
+
+    const tradeId = String(trade?._id || trade?.clientTradeId || `${trade?.tradeDate || index}-${index}`);
+    impactByTradeId.set(tradeId, {
+      balanceBefore,
+      balanceAfter,
+      riskAmount,
+      pnlAmount,
+      pnlPercent,
+      riskPercent: round(riskPercent, 2),
+    });
+    points.push({
+      x: index + 1,
+      y: balanceAfter,
+      label: String(trade?.tradeDate || trade?.createdAt || ""),
+    });
+  });
+
+  return { points, impactByTradeId };
+};
+
+const buildPolyline = (points = [], { width = 640, height = 260 } = {}) => {
+  if (!Array.isArray(points) || points.length <= 1) {
+    return `0,${height} ${width},${height}`;
+  }
+  const values = points.map((point) => toNumber(point?.y));
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = Math.max(max - min, 0.01);
+
+  return points
+    .map((point, index) => {
+      const x = (index / Math.max(points.length - 1, 1)) * width;
+      const y = height - ((toNumber(point?.y) - min) / range) * height;
+      return `${round(x, 2)},${round(y, 2)}`;
+    })
+    .join(" ");
+};
+
+const buildTradeJournalLabels = ({ trade, maxRiskPerTradePercent = 0, impact = null }) => {
+  const labels = [];
+  const riskPercent = Math.max(toNumber(trade?.riskPercent, 0), 0);
+  const plannedRR = toNumber(trade?.plannedRR, 0);
+
+  if (trade?.tags?.cleanSetup && !trade?.ruleBreakReason) {
+    labels.push("A+ setup");
+  }
+  if (trade?.ruleBreakReason) {
+    labels.push("Rule override");
+  }
+  if (maxRiskPerTradePercent > 0 && riskPercent > maxRiskPerTradePercent) {
+    labels.push("Over-risk");
+  } else if (riskPercent > 0 && maxRiskPerTradePercent > 0 && riskPercent >= maxRiskPerTradePercent * 0.85) {
+    labels.push("Near max risk");
+  }
+  if (!trade?.screenshots?.before && !trade?.screenshots?.after) {
+    labels.push("No screenshots");
+  }
+  if (plannedRR >= 2) {
+    labels.push("2R+ plan");
+  }
+  if (impact && impact.pnlAmount > 0) {
+    labels.push("Account growth");
+  }
+  return labels.slice(0, 6);
+};
+
+const buildReviewScores = ({
+  trades = [],
+  screenshotCoverage = 0,
+  maxRiskPerTradePercent = 0,
+}) => {
+  if (!Array.isArray(trades) || !trades.length) {
+    return {
+      discipline: 0,
+      riskControl: 0,
+      execution: 0,
+      overall: 0,
+      grade: "D",
+    };
+  }
+
+  const cleanTrades = trades.filter((trade) => trade?.tags?.cleanSetup).length;
+  const noOverrideTrades = trades.filter((trade) => !String(trade?.ruleBreakReason || "").trim()).length;
+  const underRiskTrades =
+    maxRiskPerTradePercent > 0
+      ? trades.filter((trade) => Math.max(toNumber(trade?.riskPercent, 0), 0) <= maxRiskPerTradePercent).length
+      : trades.length;
+  const notesCompleteTrades = trades.filter(
+    (trade) =>
+      String(trade?.notes?.executionReview || "").trim() ||
+      String(trade?.notes?.priceAction || "").trim() ||
+      String(trade?.notes?.emotionalState || "").trim()
+  ).length;
+  const strongPlanTrades = trades.filter((trade) => toNumber(trade?.plannedRR, 0) >= 1.5).length;
+
+  const discipline = round((cleanTrades / trades.length) * 60 + (noOverrideTrades / trades.length) * 40, 1);
+  const riskControl = round((underRiskTrades / trades.length) * 70 + Math.min(screenshotCoverage, 100) * 0.3, 1);
+  const execution = round(
+    (notesCompleteTrades / trades.length) * 40 +
+      (strongPlanTrades / trades.length) * 30 +
+      Math.min(screenshotCoverage, 100) * 0.3,
+    1
+  );
+  const overall = round((discipline + riskControl + execution) / 3, 1);
+
+  return {
+    discipline,
+    riskControl,
+    execution,
+    overall,
+    grade: gradeFromScore(overall),
+  };
+};
+
+const formatCurrency = (value) => {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) {
+    return "-";
+  }
+  return amount.toLocaleString(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  });
+};
+
 const formatTradeDate = (value) => {
   const date = new Date(value || Date.now());
   if (Number.isNaN(date.getTime())) {
@@ -264,6 +514,7 @@ const SaasWorkspace = ({
   handleProfileSwitch,
   handleProfileCreate,
   handleProfileUpdate,
+  handleProfileDelete,
   creatingProfile,
   savingProfile,
   handleUpdateUserSettings,
@@ -479,6 +730,8 @@ const SaasWorkspace = ({
   const [tradeDetailsBusy, setTradeDetailsBusy] = useState(false);
   const [tradeDetailsError, setTradeDetailsError] = useState("");
   const [settingsDraft, setSettingsDraft] = useState({
+    profileName: "",
+    profileDescription: "",
     pairs: "",
     sessions: "",
     setupTypes: "",
@@ -486,6 +739,10 @@ const SaasWorkspace = ({
     maxTradesPerSession: 4,
     cooldownMinutesAfterLoss: 30,
     stopForDayLossRR: 3,
+    maxRiskPerTradePercent: 1,
+    dailyProfitTargetPercent: 1.5,
+    weeklyProfitTargetPercent: 4,
+    maxDailyDrawdownPercent: 2,
     strictChecklistGate: false,
     accountSize: "",
   });
@@ -502,8 +759,12 @@ const SaasWorkspace = ({
   }, [user?.email, user?.name]);
 
   useEffect(() => {
+    const resolvedActiveProfile =
+      (user?.profiles || []).find((profile) => profile.id === (user?.activeProfileId || "main")) || null;
     const toCsv = (value = []) => (Array.isArray(value) ? value.join(", ") : "");
     setSettingsDraft({
+      profileName: resolvedActiveProfile?.name || "",
+      profileDescription: resolvedActiveProfile?.description || "",
       pairs: toCsv(user?.settings?.options?.pairs || []),
       sessions: toCsv(user?.settings?.options?.sessions || []),
       setupTypes: toCsv(user?.settings?.options?.setupTypes || []),
@@ -511,9 +772,12 @@ const SaasWorkspace = ({
       maxTradesPerSession: user?.settings?.riskControls?.maxTradesPerSession ?? 4,
       cooldownMinutesAfterLoss: user?.settings?.riskControls?.cooldownMinutesAfterLoss ?? 30,
       stopForDayLossRR: user?.settings?.riskControls?.stopForDayLossRR ?? 3,
+      maxRiskPerTradePercent: user?.settings?.riskControls?.maxRiskPerTradePercent ?? 1,
+      dailyProfitTargetPercent: user?.settings?.riskControls?.dailyProfitTargetPercent ?? 1.5,
+      weeklyProfitTargetPercent: user?.settings?.riskControls?.weeklyProfitTargetPercent ?? 4,
+      maxDailyDrawdownPercent: user?.settings?.riskControls?.maxDailyDrawdownPercent ?? 2,
       strictChecklistGate: Boolean(user?.settings?.riskControls?.strictChecklistGate),
-      accountSize:
-        (user?.profiles || []).find((profile) => profile.id === (user?.activeProfileId || "main"))?.accountSize ?? 0,
+      accountSize: resolvedActiveProfile?.accountSize ?? 0,
     });
   }, [user]);
 
@@ -521,6 +785,140 @@ const SaasWorkspace = ({
     () => (user?.profiles || []).find((profile) => profile.id === (filters.profileId || user?.activeProfileId)),
     [filters.profileId, user?.activeProfileId, user?.profiles]
   );
+  const activeProfileAccountSize = Math.max(Number(activeProfile?.accountSize || 0), 0);
+  const maxRiskPerTradePercent = Math.max(Number(user?.settings?.riskControls?.maxRiskPerTradePercent || 0), 0);
+  const dailyProfitTargetPercent = Math.max(Number(user?.settings?.riskControls?.dailyProfitTargetPercent || 0), 0);
+  const weeklyProfitTargetPercent = Math.max(Number(user?.settings?.riskControls?.weeklyProfitTargetPercent || 0), 0);
+  const maxDailyDrawdownPercent = Math.max(Number(user?.settings?.riskControls?.maxDailyDrawdownPercent || 0), 0);
+  const activeAccountPerformance = useMemo(
+    () => computeAccountPerformance(allTrades, activeProfileAccountSize),
+    [activeProfileAccountSize, allTrades]
+  );
+  const accountTimeline = useMemo(
+    () => buildAccountTimeline(allTrades, activeProfileAccountSize),
+    [activeProfileAccountSize, allTrades]
+  );
+  const accountImpactByTradeId = accountTimeline.impactByTradeId;
+  const accountBalancePolyline = useMemo(() => buildPolyline(accountTimeline.points), [accountTimeline.points]);
+  const todayStart = useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return now.getTime();
+  }, []);
+  const dailyTrades = useMemo(
+    () => allTrades.filter((trade) => new Date(trade?.tradeDate || 0).getTime() >= todayStart),
+    [allTrades, todayStart]
+  );
+  const dailyAccountPerformance = useMemo(
+    () => computeAccountPerformance(dailyTrades, activeProfileAccountSize),
+    [activeProfileAccountSize, dailyTrades]
+  );
+  const weeklyAccountPerformance = useMemo(
+    () => computeAccountPerformance(weeklyTrades, activeProfileAccountSize),
+    [activeProfileAccountSize, weeklyTrades]
+  );
+  const quickTradeRiskSnapshot = useMemo(() => {
+    const riskPercent = Math.max(toNumber(quickTradeForm?.riskPercent, 0), 0);
+    const entryPrice = toFinite(quickTradeForm?.entryPrice);
+    const defaultStop = Number.isFinite(entryPrice) ? round(entryPrice * 0.995, 5) : Number.NaN;
+    const defaultTake = Number.isFinite(entryPrice) ? round(entryPrice * 1.01, 5) : Number.NaN;
+    const stopLoss = Number.isFinite(toFinite(quickTradeForm?.stopLoss))
+      ? toFinite(quickTradeForm?.stopLoss)
+      : defaultStop;
+    const takeProfit = Number.isFinite(toFinite(quickTradeForm?.takeProfit))
+      ? toFinite(quickTradeForm?.takeProfit)
+      : defaultTake;
+    const plannedRR = quickTradeForm?.plannedRR
+      ? Math.max(toNumber(quickTradeForm.plannedRR, 0), 0)
+      : computePlannedRR({ entryPrice, stopLoss, takeProfit });
+    const riskAmount = activeProfileAccountSize > 0 ? round(activeProfileAccountSize * (riskPercent / 100), 2) : 0;
+    const projectedRewardAmount = riskAmount > 0 && plannedRR > 0 ? round(riskAmount * plannedRR, 2) : 0;
+    const suggestedLotSize = computeLotSize({
+      accountBalance: activeProfileAccountSize,
+      riskPercent,
+      entryPrice,
+      stopLoss,
+      pair: quickTradeForm?.pair,
+    });
+    const isOverMaxRisk = maxRiskPerTradePercent > 0 && riskPercent > maxRiskPerTradePercent;
+    const isNearMaxRisk =
+      !isOverMaxRisk &&
+      maxRiskPerTradePercent > 0 &&
+      riskPercent > 0 &&
+      riskPercent >= maxRiskPerTradePercent * 0.85;
+
+    return {
+      riskPercent: round(riskPercent, 2),
+      plannedRR: round(plannedRR, 2),
+      riskAmount,
+      projectedRewardAmount,
+      suggestedLotSize,
+      isOverMaxRisk,
+      isNearMaxRisk,
+      hasAccountSize: activeProfileAccountSize > 0,
+    };
+  }, [activeProfileAccountSize, maxRiskPerTradePercent, quickTradeForm]);
+  const topSetupConfidence = confidenceForSample(resolvedSetupTop[0]?.trades || 0);
+  const topSessionConfidence = confidenceForSample(resolvedSessionTop[0]?.trades || 0);
+  const reviewScores = useMemo(
+    () =>
+      buildReviewScores({
+        trades: activeReviewTrades,
+        screenshotCoverage: reviewScreenshotCoverage,
+        maxRiskPerTradePercent,
+      }),
+    [activeReviewTrades, maxRiskPerTradePercent, reviewScreenshotCoverage]
+  );
+  const selectedTradeImpact = useMemo(() => {
+    if (!selectedTrade) {
+      return null;
+    }
+    const key = String(selectedTrade?._id || selectedTrade?.clientTradeId || "");
+    return accountImpactByTradeId.get(key) || null;
+  }, [accountImpactByTradeId, selectedTrade]);
+  const selectedTradeJournalLabels = useMemo(
+    () =>
+      selectedTrade
+        ? buildTradeJournalLabels({
+            trade: selectedTrade,
+            maxRiskPerTradePercent,
+            impact: selectedTradeImpact,
+          })
+        : [],
+    [maxRiskPerTradePercent, selectedTrade, selectedTradeImpact]
+  );
+  const dailyGoalProgress = useMemo(() => {
+    if (!dailyAccountPerformance || dailyProfitTargetPercent <= 0) {
+      return null;
+    }
+    return {
+      targetPercent: dailyProfitTargetPercent,
+      currentPercent: dailyAccountPerformance.returnPercent,
+      progressPercent: Math.min(Math.max((dailyAccountPerformance.returnPercent / dailyProfitTargetPercent) * 100, 0), 100),
+    };
+  }, [dailyAccountPerformance, dailyProfitTargetPercent]);
+  const weeklyGoalProgress = useMemo(() => {
+    if (!weeklyAccountPerformance || weeklyProfitTargetPercent <= 0) {
+      return null;
+    }
+    return {
+      targetPercent: weeklyProfitTargetPercent,
+      currentPercent: weeklyAccountPerformance.returnPercent,
+      progressPercent: Math.min(Math.max((weeklyAccountPerformance.returnPercent / weeklyProfitTargetPercent) * 100, 0), 100),
+    };
+  }, [weeklyAccountPerformance, weeklyProfitTargetPercent]);
+  const dailyDrawdownProgress = useMemo(() => {
+    if (!dailyAccountPerformance || maxDailyDrawdownPercent <= 0) {
+      return null;
+    }
+    const drawdownPercent = Math.max(-dailyAccountPerformance.returnPercent, 0);
+    return {
+      capPercent: maxDailyDrawdownPercent,
+      currentPercent: drawdownPercent,
+      progressPercent: Math.min(Math.max((drawdownPercent / maxDailyDrawdownPercent) * 100, 0), 100),
+      breached: drawdownPercent >= maxDailyDrawdownPercent,
+    };
+  }, [dailyAccountPerformance, maxDailyDrawdownPercent]);
 
   const formatAccountSize = useCallback((value) => {
     const amount = Number(value);
@@ -533,6 +931,18 @@ const SaasWorkspace = ({
       maximumFractionDigits: 2,
     });
   }, []);
+
+  useEffect(() => {
+    if (!activeProfile) {
+      return;
+    }
+    setSettingsDraft((prev) => ({
+      ...prev,
+      profileName: activeProfile.name || "",
+      profileDescription: activeProfile.description || "",
+      accountSize: activeProfile.accountSize ?? 0,
+    }));
+  }, [activeProfile]);
 
   useEffect(() => {
     setBridgeLabel(user?.integrations?.mt5?.label || "MT5 Bridge");
@@ -907,6 +1317,43 @@ const SaasWorkspace = ({
         </div>
       </header>
 
+      <section className="panel saas-profile-rail">
+        <div className="saas-profile-rail-copy">
+          <span className="chip">Active profile</span>
+          <strong>{activeProfile?.name || "Main Profile"}</strong>
+          <span>
+            {activeProfileAccountSize > 0
+              ? `${formatAccountSize(activeProfileAccountSize)} starting balance`
+              : "Set account size in Settings to unlock real risk and growth tracking."}
+          </span>
+        </div>
+        <div className="saas-profile-rail-actions">
+          <select
+            className="input saas-profile-select"
+            value={filters.profileId || user.activeProfileId || ""}
+            onChange={(event) => handleProfileSwitch(event.target.value)}
+          >
+            {(user.profiles || []).map((profile) => (
+              <option key={profile.id} value={profile.id}>
+                {profile.name}
+              </option>
+            ))}
+          </select>
+          <div className="saas-profile-chip-row">
+            {(user.profiles || []).slice(0, 4).map((profile) => (
+              <button
+                key={`profile-chip-${profile.id}`}
+                type="button"
+                className={`chip-btn ${(filters.profileId || user.activeProfileId) === profile.id ? "chip-btn-active" : ""}`}
+                onClick={() => handleProfileSwitch(profile.id)}
+              >
+                {profile.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {error ? (
         <p className="saas-alert saas-alert-error" role="alert" aria-live="assertive">
           {error}
@@ -951,7 +1398,7 @@ const SaasWorkspace = ({
               <h3>{resolvedSetupTop[0]?.label || "—"}</h3>
               <p className="saas-stat-label">
                 {resolvedSetupTop[0]
-                  ? `${resolvedSetupTop[0].winRate}% win rate`
+                  ? `${resolvedSetupTop[0].winRate}% win rate | ${topSetupConfidence.label}`
                   : "Start logging trades to reveal your edge"}
               </p>
             </article>
@@ -960,7 +1407,7 @@ const SaasWorkspace = ({
               <h3>{resolvedSessionTop[0]?.label || "—"}</h3>
               <p className="saas-stat-label">
                 {resolvedSessionTop[0]
-                  ? `${resolvedSessionTop[0].winRate}% win rate`
+                  ? `${resolvedSessionTop[0].winRate}% win rate | ${topSessionConfidence.label}`
                   : "Session performance appears after more trades"}
               </p>
             </article>
@@ -971,6 +1418,19 @@ const SaasWorkspace = ({
                 {resolvedFollowedPlanTrades.length
                   ? `${resolvedFollowedPlanTrades.length} clean trades`
                   : "Track clean setups to measure discipline"}
+              </p>
+            </article>
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Account return</p>
+              <h3>
+                {activeAccountPerformance
+                  ? `${activeAccountPerformance.returnPercent >= 0 ? "+" : ""}${activeAccountPerformance.returnPercent}%`
+                  : "Set size"}
+              </h3>
+              <p className="saas-stat-label">
+                {activeAccountPerformance
+                  ? `${formatCurrency(activeAccountPerformance.currentBalance)} current balance`
+                  : "Add account size in Settings to unlock balance-based reporting"}
               </p>
             </article>
           </div>
@@ -1019,6 +1479,102 @@ const SaasWorkspace = ({
             </article>
           </div>
 
+          <article className="panel saas-card saas-account-panel">
+            <div className="saas-card-head">
+              <div>
+                <h3 className="saas-card-title">Profile Performance</h3>
+                <p className="saas-card-subtitle">
+                  {activeProfile?.name || "Active profile"} performance translated into account growth using your saved risk % per trade.
+                </p>
+              </div>
+              {activeAccountPerformance ? <span className="chip">{activeAccountPerformance.trackedTrades} risk-tracked trades</span> : null}
+            </div>
+            {activeAccountPerformance ? (
+              <div className="saas-account-grid">
+                <div className="saas-metric-item">
+                  <span>Start Balance</span>
+                  <strong>{formatCurrency(activeAccountPerformance.startingBalance)}</strong>
+                </div>
+                <div className="saas-metric-item">
+                  <span>Estimated P/L</span>
+                  <strong>
+                    {activeAccountPerformance.pnlAmount >= 0 ? "+" : "-"}
+                    {formatCurrency(Math.abs(activeAccountPerformance.pnlAmount))}
+                  </strong>
+                </div>
+                <div className="saas-metric-item">
+                  <span>Current Balance</span>
+                  <strong>{formatCurrency(activeAccountPerformance.currentBalance)}</strong>
+                </div>
+                <div className="saas-metric-item">
+                  <span>Max Drawdown</span>
+                  <strong>
+                    -{activeAccountPerformance.maxDrawdownPercent}% ({formatCurrency(activeAccountPerformance.maxDrawdownAmount)})
+                  </strong>
+                </div>
+              </div>
+            ) : (
+              <div className="saas-risk-panel saas-risk-panel-muted">
+                Add an account size to the active profile in Settings so Journex can convert R-multiple performance into estimated balance growth and drawdown.
+              </div>
+            )}
+          </article>
+
+          <article className="panel saas-card">
+            <div className="saas-card-head">
+              <div>
+                <h3 className="saas-card-title">Account Goals</h3>
+                <p className="saas-card-subtitle">Daily and weekly targets based on the active profile's saved account size.</p>
+              </div>
+            </div>
+            {activeProfileAccountSize > 0 ? (
+              <div className="saas-metric-list">
+                <div className="saas-metric-item">
+                  <span>Daily profit target</span>
+                  <strong>
+                    {dailyGoalProgress
+                      ? `${dailyGoalProgress.currentPercent >= 0 ? "+" : ""}${dailyGoalProgress.currentPercent}% / ${dailyGoalProgress.targetPercent}%`
+                      : "Not set"}
+                  </strong>
+                </div>
+                <div className="saas-progress saas-progress-green">
+                  <span style={{ width: `${dailyGoalProgress?.progressPercent || 0}%` }} />
+                </div>
+                <div className="saas-metric-item">
+                  <span>Weekly profit target</span>
+                  <strong>
+                    {weeklyGoalProgress
+                      ? `${weeklyGoalProgress.currentPercent >= 0 ? "+" : ""}${weeklyGoalProgress.currentPercent}% / ${weeklyGoalProgress.targetPercent}%`
+                      : "Not set"}
+                  </strong>
+                </div>
+                <div className="saas-progress saas-progress-blue">
+                  <span style={{ width: `${weeklyGoalProgress?.progressPercent || 0}%` }} />
+                </div>
+                <div className="saas-metric-item">
+                  <span>Daily drawdown cap</span>
+                  <strong>
+                    {dailyDrawdownProgress
+                      ? `${dailyDrawdownProgress.currentPercent}% / ${dailyDrawdownProgress.capPercent}%`
+                      : "Not set"}
+                  </strong>
+                </div>
+                <div className="saas-progress saas-progress-red">
+                  <span style={{ width: `${dailyDrawdownProgress?.progressPercent || 0}%` }} />
+                </div>
+                <p className="saas-metric-note">
+                  {dailyDrawdownProgress?.breached
+                    ? "Daily drawdown limit breached. Step back and review before taking another trade."
+                    : "Goal progress updates from risk-adjusted performance on this profile."}
+                </p>
+              </div>
+            ) : (
+              <div className="saas-risk-panel saas-risk-panel-muted">
+                Save an account size first, then Journex will track progress against your daily and weekly account goals.
+              </div>
+            )}
+          </article>
+
           <article className="panel saas-edge-banner">
             <div className="saas-banner-head">
               <span className="saas-stat-icon saas-stat-icon-blue">
@@ -1061,6 +1617,27 @@ const SaasWorkspace = ({
                   strokeLinejoin="round"
                 />
               </svg>
+              {accountTimeline.points.length > 1 ? (
+                <>
+                  <div className="saas-card-head mt-4">
+                    <div>
+                      <h3 className="saas-card-title">Profile Equity Curve</h3>
+                      <p className="saas-card-subtitle">Estimated account balance using saved risk % per trade.</p>
+                    </div>
+                    <span className="chip text-textMain">{formatCurrency(activeAccountPerformance?.currentBalance)}</span>
+                  </div>
+                  <svg viewBox="0 0 640 220" className="saas-line-chart saas-line-chart-account" aria-hidden="true">
+                    <polyline
+                      points={accountBalancePolyline}
+                      fill="none"
+                      stroke="#22c55e"
+                      strokeWidth="4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </>
+              ) : null}
             </article>
 
             <article className="panel saas-card">
@@ -1263,6 +1840,19 @@ const SaasWorkspace = ({
                 <p className="input-hint">If blank, Journex calculates using stop and take profit.</p>
               </label>
               <label>
+                <span className="label">Risk %</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={quickTradeForm.riskPercent}
+                  onChange={(event) => handleQuickTradeChange("riskPercent", event.target.value)}
+                  placeholder="1"
+                />
+                <p className="input-hint">Used for account-based growth, drawdown, and risk warnings.</p>
+              </label>
+              <label>
                 <span className="label">Setup</span>
                 <select
                   className="input"
@@ -1323,6 +1913,62 @@ const SaasWorkspace = ({
                   placeholder="Confident"
                 />
               </label>
+            </div>
+
+            <div
+              className={`saas-risk-panel ${
+                quickTradeRiskSnapshot.isOverMaxRisk
+                  ? "saas-risk-panel-danger"
+                  : quickTradeRiskSnapshot.isNearMaxRisk
+                    ? "saas-risk-panel-warn"
+                    : "saas-risk-panel-muted"
+              }`}
+            >
+              <div className="saas-risk-panel-head">
+                <strong>Risk check</strong>
+                {maxRiskPerTradePercent > 0 ? <span>Max {maxRiskPerTradePercent}% per trade</span> : null}
+              </div>
+              <div className="saas-account-grid">
+                <div className="saas-metric-item">
+                  <span>Account Size</span>
+                  <strong>{activeProfileAccountSize > 0 ? formatCurrency(activeProfileAccountSize) : "Not set"}</strong>
+                </div>
+                <div className="saas-metric-item">
+                  <span>Risk Planned</span>
+                  <strong>
+                    {quickTradeRiskSnapshot.riskPercent > 0
+                      ? `${quickTradeRiskSnapshot.riskPercent}% (${formatCurrency(quickTradeRiskSnapshot.riskAmount)})`
+                      : "0%"}
+                  </strong>
+                </div>
+                <div className="saas-metric-item">
+                  <span>Planned R:R</span>
+                  <strong>{quickTradeRiskSnapshot.plannedRR > 0 ? `${quickTradeRiskSnapshot.plannedRR}x` : "Waiting for stop + take profit"}</strong>
+                </div>
+                <div className="saas-metric-item">
+                  <span>Projected Reward</span>
+                  <strong>{quickTradeRiskSnapshot.projectedRewardAmount > 0 ? formatCurrency(quickTradeRiskSnapshot.projectedRewardAmount) : "-"}</strong>
+                </div>
+                <div className="saas-metric-item">
+                  <span>Suggested Lot Size</span>
+                  <strong>{quickTradeRiskSnapshot.suggestedLotSize > 0 ? quickTradeRiskSnapshot.suggestedLotSize : "-"}</strong>
+                </div>
+              </div>
+              {!quickTradeRiskSnapshot.hasAccountSize ? (
+                <p className="saas-risk-panel-note">
+                  Add an account size in Settings so Journex can translate this trade into real money risk and account growth.
+                </p>
+              ) : null}
+              {quickTradeRiskSnapshot.isOverMaxRisk ? (
+                <p className="saas-risk-panel-note">
+                  This trade exceeds your saved max risk cap. You can still save it, but it will be flagged in guardrails.
+                </p>
+              ) : null}
+              {!quickTradeRiskSnapshot.isOverMaxRisk && quickTradeRiskSnapshot.isNearMaxRisk ? (
+                <p className="saas-risk-panel-note">
+                  This trade is close to your max risk cap. Double-check position size before saving.
+                </p>
+              ) : null}
             </div>
 
             <label className="saas-toggle-row">
@@ -1396,7 +2042,7 @@ const SaasWorkspace = ({
           <div className="saas-insights-row saas-insights-row-analytics">
             <article className="panel saas-card saas-insight-card">
               <p className="saas-stat-kicker">Best pair</p>
-              <h3>{pairRankings[0]?.label || "—"}</h3>
+              <h3>{pairRankings[0]?.label || "-"}</h3>
               <p className="saas-stat-label">
                 {pairRankings[0]
                   ? `${pairRankings[0].winRate}% win rate across ${pairRankings[0].trades} trades`
@@ -1419,6 +2065,30 @@ const SaasWorkspace = ({
                 {Math.abs(monthNetRR).toFixed(2)}R
               </h3>
               <p className="saas-stat-label">{monthLabel}</p>
+            </article>
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Account drawdown</p>
+              <h3>
+                {activeAccountPerformance ? `-${activeAccountPerformance.maxDrawdownPercent}%` : "Set size"}
+              </h3>
+              <p className="saas-stat-label">
+                {activeAccountPerformance
+                  ? `${formatCurrency(activeAccountPerformance.maxDrawdownAmount)} peak-to-trough`
+                  : "Add account size to convert RR into drawdown by profile"}
+              </p>
+            </article>
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Account return</p>
+              <h3>
+                {activeAccountPerformance
+                  ? `${activeAccountPerformance.returnPercent >= 0 ? "+" : ""}${activeAccountPerformance.returnPercent}%`
+                  : "Set size"}
+              </h3>
+              <p className="saas-stat-label">
+                {activeAccountPerformance
+                  ? `${formatCurrency(activeAccountPerformance.currentBalance)} estimated balance`
+                  : "Save account size to unlock balance-based reporting"}
+              </p>
             </article>
           </div>
 
@@ -1547,6 +2217,38 @@ const SaasWorkspace = ({
               </p>
               <p className="saas-stat-label">Net R</p>
             </article>
+            <article className="panel saas-card">
+              <div className="saas-section-header">
+                <span className="saas-stat-icon saas-stat-icon-blue">
+                  <IconGlyph name="pulse" />
+                </span>
+                <div>
+                  <h3 className="saas-card-title">Profile Equity</h3>
+                  <p className="saas-card-subtitle">Estimated balance growth for the active profile.</p>
+                </div>
+              </div>
+              {accountTimeline.points.length > 1 ? (
+                <>
+                  <svg viewBox="0 0 640 220" className="saas-line-chart saas-line-chart-account" aria-hidden="true">
+                    <polyline
+                      points={accountBalancePolyline}
+                      fill="none"
+                      stroke="#22c55e"
+                      strokeWidth="4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <p className="saas-stat-label mt-3">
+                    {formatCurrency(activeAccountPerformance?.startingBalance)} to {formatCurrency(activeAccountPerformance?.currentBalance)}
+                  </p>
+                </>
+              ) : (
+                <div className="saas-risk-panel saas-risk-panel-muted">
+                  Save an account size to unlock equity-by-profile analytics.
+                </div>
+              )}
+            </article>
           </div>
         </section>
       ) : null}
@@ -1563,6 +2265,9 @@ const SaasWorkspace = ({
             <p>
               Best Setup: <span>{resolvedSetupTop[0]?.label || "N/A"}</span> ({resolvedSetupTop[0]?.winRate ?? 0}% WR)
               <span className="ml-3">Best Session: {resolvedSessionTop[0]?.label || "N/A"} ({resolvedSessionTop[0]?.winRate ?? 0}% WR)</span>
+            </p>
+            <p className="saas-stat-label">
+              Confidence: setup {topSetupConfidence.label.toLowerCase()} | session {topSessionConfidence.label.toLowerCase()}
             </p>
           </article>
 
@@ -1665,7 +2370,7 @@ const SaasWorkspace = ({
                     <div className="saas-ranking-sub">
                       <p>{item.trades} trades</p>
                       <p>
-                        Avg R:R {toNumber(item.avgRR).toFixed(2)}x
+                        Avg R:R {toNumber(item.avgRR).toFixed(2)}x | {confidenceForSample(item.trades).label}
                       </p>
                     </div>
                     <div className={`saas-progress ${item.winRate < 40 ? "saas-progress-muted" : "saas-progress-green"}`}>
@@ -1690,7 +2395,7 @@ const SaasWorkspace = ({
                     <div className="saas-ranking-sub">
                       <p>{item.trades} trades</p>
                       <p>
-                        Avg R:R {toNumber(item.avgRR).toFixed(2)}x
+                        Avg R:R {toNumber(item.avgRR).toFixed(2)}x | {confidenceForSample(item.trades).label}
                       </p>
                     </div>
                     <div className={`saas-progress ${item.winRate < 40 ? "saas-progress-muted" : "saas-progress-green"}`}>
@@ -1820,6 +2525,24 @@ const SaasWorkspace = ({
               <article className="saas-mini-stat"><p>Win Rate</p><strong>{activeReview.winRate}%</strong></article>
               <article className="saas-mini-stat"><p>Avg R:R</p><strong>{activeReview.avgRR}x</strong></article>
               <article className="saas-mini-stat saas-mini-stat-profit"><p>Net R</p><strong>{activeReviewNetRR >= 0 ? "+" : "-"}{Math.abs(activeReviewNetRR).toFixed(2)}R</strong></article>
+            </div>
+            <div className="saas-stats-grid mt-3">
+              <article className="saas-mini-stat">
+                <p>Discipline</p>
+                <strong>{reviewScores.discipline}%</strong>
+              </article>
+              <article className="saas-mini-stat">
+                <p>Risk Control</p>
+                <strong>{reviewScores.riskControl}%</strong>
+              </article>
+              <article className="saas-mini-stat">
+                <p>Execution</p>
+                <strong>{reviewScores.execution}%</strong>
+              </article>
+              <article className="saas-mini-stat saas-mini-stat-profit">
+                <p>Review Grade</p>
+                <strong>{reviewScores.grade}</strong>
+              </article>
             </div>
             {!activeReviewTrades.length ? (
               <p className="saas-stat-label mt-3">No closed trades in {activeReview.label.toLowerCase()} yet.</p>
@@ -2068,7 +2791,11 @@ const SaasWorkspace = ({
               <p className="saas-stat-kicker">Active profile</p>
               <h3>{activeProfile?.name || "Workspace"}</h3>
               <p className="saas-stat-label">
-                {activeProfile?.accountSize > 0 ? `Account size ${formatAccountSize(activeProfile.accountSize)}` : "Your current trading workspace and saved configuration."}
+                {activeAccountPerformance
+                  ? `${formatAccountSize(activeProfile.accountSize)} start | ${activeAccountPerformance.returnPercent >= 0 ? "+" : ""}${activeAccountPerformance.returnPercent}% return`
+                  : activeProfile?.accountSize > 0
+                    ? `Account size ${formatAccountSize(activeProfile.accountSize)}`
+                    : "Your current trading workspace and saved configuration."}
               </p>
             </article>
             <article className="panel saas-card saas-insight-card">
@@ -2158,6 +2885,28 @@ const SaasWorkspace = ({
                 </div>
               </div>
               <label>
+                <span className="label">Active profile name</span>
+                <input
+                  className="input"
+                  value={settingsDraft.profileName}
+                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, profileName: event.target.value }))}
+                  placeholder="Main Profile"
+                  maxLength={80}
+                  disabled={!isOnline || savingProfile}
+                />
+              </label>
+              <label>
+                <span className="label">Active profile description</span>
+                <input
+                  className="input"
+                  value={settingsDraft.profileDescription}
+                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, profileDescription: event.target.value }))}
+                  placeholder="Describe this account or strategy profile"
+                  maxLength={200}
+                  disabled={!isOnline || savingProfile}
+                />
+              </label>
+              <label>
                 <span className="label">Active profile account size</span>
                 <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
                   <input
@@ -2179,6 +2928,8 @@ const SaasWorkspace = ({
                         return;
                       }
                       void handleProfileUpdate(activeProfile.id, {
+                        name: settingsDraft.profileName,
+                        description: settingsDraft.profileDescription,
                         accountSize: Number(settingsDraft.accountSize) || 0,
                       });
                     }}
@@ -2187,6 +2938,66 @@ const SaasWorkspace = ({
                   </button>
                 </div>
               </label>
+              <div className="saas-settings-theme-row">
+                <span className="label">Delete profile</span>
+                <div className="flex w-full flex-wrap items-center justify-end gap-2">
+                  <span className="saas-stat-label">
+                    {activeProfile?.isDefault
+                      ? "Default profile cannot be deleted."
+                      : (user?.profiles || []).length <= 1
+                        ? "Keep at least one profile."
+                        : "Trades will move to your default profile."}
+                  </span>
+                  <button
+                    type="button"
+                    className="landing-cta-secondary"
+                    disabled={
+                      !isOnline ||
+                      savingProfile ||
+                      typeof handleProfileDelete !== "function" ||
+                      !activeProfile?.id ||
+                      activeProfile?.isDefault ||
+                      (user?.profiles || []).length <= 1
+                    }
+                    onClick={() => {
+                      if (
+                        typeof handleProfileDelete !== "function" ||
+                        !activeProfile?.id ||
+                        activeProfile?.isDefault ||
+                        (user?.profiles || []).length <= 1
+                      ) {
+                        return;
+                      }
+                      const confirmed = window.confirm(
+                        `Delete profile "${activeProfile.name}"? Trades will move to your default profile.`
+                      );
+                      if (!confirmed) {
+                        return;
+                      }
+                      void handleProfileDelete(activeProfile.id);
+                    }}
+                  >
+                    {savingProfile ? "Working..." : "Delete profile"}
+                  </button>
+                </div>
+              </div>
+              <div className="saas-settings-theme-row">
+                <span className="label">Profile performance</span>
+                <div className="flex w-full flex-wrap items-center justify-end gap-2">
+                  {activeAccountPerformance ? (
+                    <>
+                      <span className="chip text-textMain">
+                        Return {activeAccountPerformance.returnPercent >= 0 ? "+" : ""}{activeAccountPerformance.returnPercent}%
+                      </span>
+                      <span className="chip text-textMain">
+                        DD -{activeAccountPerformance.maxDrawdownPercent}%
+                      </span>
+                    </>
+                  ) : (
+                    <span className="saas-stat-label">Save an account size to unlock balance-based metrics.</span>
+                  )}
+                </div>
+              </div>
               <div className="saas-settings-theme-row">
                 <span className="label">Theme</span>
                 <ThemeToggle
@@ -2307,6 +3118,62 @@ const SaasWorkspace = ({
                   disabled={!isOnline || savingUserSettings}
                 />
               </label>
+              <label>
+                <span className="label">Max risk per trade (%)</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={settingsDraft.maxRiskPerTradePercent}
+                  onChange={(event) =>
+                    setSettingsDraft((prev) => ({ ...prev, maxRiskPerTradePercent: event.target.value }))
+                  }
+                  disabled={!isOnline || savingUserSettings}
+                />
+              </label>
+              <label>
+                <span className="label">Daily profit target (%)</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={settingsDraft.dailyProfitTargetPercent}
+                  onChange={(event) =>
+                    setSettingsDraft((prev) => ({ ...prev, dailyProfitTargetPercent: event.target.value }))
+                  }
+                  disabled={!isOnline || savingUserSettings}
+                />
+              </label>
+              <label>
+                <span className="label">Weekly profit target (%)</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={settingsDraft.weeklyProfitTargetPercent}
+                  onChange={(event) =>
+                    setSettingsDraft((prev) => ({ ...prev, weeklyProfitTargetPercent: event.target.value }))
+                  }
+                  disabled={!isOnline || savingUserSettings}
+                />
+              </label>
+              <label>
+                <span className="label">Max daily drawdown (%)</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={settingsDraft.maxDailyDrawdownPercent}
+                  onChange={(event) =>
+                    setSettingsDraft((prev) => ({ ...prev, maxDailyDrawdownPercent: event.target.value }))
+                  }
+                  disabled={!isOnline || savingUserSettings}
+                />
+              </label>
             </div>
             <button
               type="button"
@@ -2350,6 +3217,10 @@ const SaasWorkspace = ({
                     maxTradesPerSession: Number(settingsDraft.maxTradesPerSession) || 0,
                     cooldownMinutesAfterLoss: Number(settingsDraft.cooldownMinutesAfterLoss) || 0,
                     stopForDayLossRR: Number(settingsDraft.stopForDayLossRR) || 0,
+                    maxRiskPerTradePercent: Number(settingsDraft.maxRiskPerTradePercent) || 0,
+                    dailyProfitTargetPercent: Number(settingsDraft.dailyProfitTargetPercent) || 0,
+                    weeklyProfitTargetPercent: Number(settingsDraft.weeklyProfitTargetPercent) || 0,
+                    maxDailyDrawdownPercent: Number(settingsDraft.maxDailyDrawdownPercent) || 0,
                   },
                 });
               }}
@@ -2639,6 +3510,26 @@ const SaasWorkspace = ({
                 </strong>
               </li>
               <li>
+                <span>Amount risked</span>
+                <strong>{selectedTradeImpact ? formatCurrency(selectedTradeImpact.riskAmount) : "-"}</strong>
+              </li>
+              <li>
+                <span>Account P/L</span>
+                <strong>
+                  {selectedTradeImpact
+                    ? `${selectedTradeImpact.pnlAmount >= 0 ? "+" : "-"}${formatCurrency(Math.abs(selectedTradeImpact.pnlAmount))}`
+                    : "-"}
+                </strong>
+              </li>
+              <li>
+                <span>Account impact</span>
+                <strong>{selectedTradeImpact ? `${selectedTradeImpact.pnlPercent >= 0 ? "+" : ""}${selectedTradeImpact.pnlPercent}%` : "-"}</strong>
+              </li>
+              <li>
+                <span>Balance after</span>
+                <strong>{selectedTradeImpact ? formatCurrency(selectedTradeImpact.balanceAfter) : "-"}</strong>
+              </li>
+              <li>
                 <span>Source</span>
                 <strong>{selectedTrade.automation?.source || selectedTrade.importSource || "manual"}</strong>
               </li>
@@ -2653,6 +3544,11 @@ const SaasWorkspace = ({
               {selectedTrade.tags?.pocInteraction ? <span className="chip">POC</span> : null}
               {selectedTrade.tags?.cleanSetup ? <span className="chip">Clean</span> : null}
               {selectedTrade.tags?.pocOutcome ? <span className="chip">{selectedTrade.tags.pocOutcome}</span> : null}
+              {selectedTradeJournalLabels.map((label) => (
+                <span key={`journal-label-${label}`} className="chip">
+                  {label}
+                </span>
+              ))}
               {Array.isArray(selectedTrade.qualityFlags)
                 ? selectedTrade.qualityFlags.slice(0, 6).map((flag) => (
                     <span key={`qf-${flag}`} className="chip">

@@ -2,6 +2,7 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import {
   createProfile,
+  deleteProfile,
   disableMt5Integration,
   disableTwoFactor,
   enableTwoFactor,
@@ -95,6 +96,7 @@ router.post("/integrations/mt5/key", requireAuth, authLimiter, generateMt5Integr
 router.post("/integrations/mt5/disable", requireAuth, authLimiter, disableMt5Integration);
 router.post("/profiles", requireAuth, createProfile);
 router.patch("/profiles/:profileId", requireAuth, updateProfile);
+router.delete("/profiles/:profileId", requireAuth, deleteProfile);
 router.patch("/profiles/active", requireAuth, setActiveProfile);
 router.post("/email-verification/request", requireAuth, recoveryLimiter, requestEmailVerification);
 router.get("/email-delivery/status", requireAuth, getEmailDeliveryStatus);

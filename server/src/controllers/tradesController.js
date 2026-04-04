@@ -883,10 +883,12 @@ export const createTrade = async (req, res, next) => {
 
     const guardrails = await evaluateGuardrails({
       user: req.user,
+      profileId: payload.profileId,
       tradeDate: payload.tradeDate,
       session: payload.session,
       tags: payload.tags,
       ruleBreakReason: payload.ruleBreakReason,
+      riskPercent: payload.riskPercent,
     });
 
     if (guardrails.warnings.length && !acceptOverride) {
@@ -1186,10 +1188,12 @@ export const createTradeFromBridge = async (req, res, next) => {
 
     const guardrails = await evaluateGuardrails({
       user,
+      profileId: payload.profileId,
       tradeDate: payload.tradeDate,
       session: payload.session,
       tags: payload.tags,
       ruleBreakReason: payload.ruleBreakReason,
+      riskPercent: payload.riskPercent,
     });
 
     const now = new Date();

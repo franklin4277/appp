@@ -3786,7 +3786,7 @@ const SaasWorkspace = ({
               <span className="chip text-textMain">Assistant</span>
             </div>
             <div className="saas-coaching-grid mt-4">
-              <div className="saas-note-card">
+              <div className="saas-note-card saas-coaching-card">
                 <h4>Keep</h4>
                 <ul className="saas-note-list saas-note-list-plain">
                   {coachingSummary.keep.map((item) => (
@@ -3796,7 +3796,7 @@ const SaasWorkspace = ({
                   ))}
                 </ul>
               </div>
-              <div className="saas-note-card">
+              <div className="saas-note-card saas-coaching-card">
                 <h4>Stop</h4>
                 <ul className="saas-note-list saas-note-list-plain">
                   {coachingSummary.stop.map((item) => (
@@ -3806,7 +3806,7 @@ const SaasWorkspace = ({
                   ))}
                 </ul>
               </div>
-              <div className="saas-note-card">
+              <div className="saas-note-card saas-coaching-card saas-coaching-card-emphasis">
                 <h4>Test Next</h4>
                 <ul className="saas-note-list saas-note-list-plain">
                   {coachingSummary.test.map((item) => (

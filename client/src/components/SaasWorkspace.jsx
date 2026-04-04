@@ -1924,7 +1924,7 @@ const SaasWorkspace = ({
           <div className="saas-insights-row">
             <article className="panel saas-card saas-insight-card">
               <p className="saas-stat-kicker">Best setup</p>
-              <h3>{resolvedSetupTop[0]?.label || "—"}</h3>
+              <h3>{resolvedSetupTop[0]?.label || "-"}</h3>
               <p className="saas-stat-label">
                 {resolvedSetupTop[0]
                   ? `${resolvedSetupTop[0].winRate}% win rate | ${topSetupConfidence.label}`
@@ -1933,7 +1933,7 @@ const SaasWorkspace = ({
             </article>
             <article className="panel saas-card saas-insight-card">
               <p className="saas-stat-kicker">Best session</p>
-              <h3>{resolvedSessionTop[0]?.label || "—"}</h3>
+              <h3>{resolvedSessionTop[0]?.label || "-"}</h3>
               <p className="saas-stat-label">
                 {resolvedSessionTop[0]
                   ? `${resolvedSessionTop[0].winRate}% win rate | ${topSessionConfidence.label}`
@@ -1942,7 +1942,7 @@ const SaasWorkspace = ({
             </article>
             <article className="panel saas-card saas-insight-card">
               <p className="saas-stat-kicker">Most consistent</p>
-              <h3>{followedPlanWinRate ? `${followedPlanWinRate}%` : "—"}</h3>
+              <h3>{followedPlanWinRate ? `${followedPlanWinRate}%` : "-"}</h3>
               <p className="saas-stat-label">
                 {resolvedFollowedPlanTrades.length
                   ? `${resolvedFollowedPlanTrades.length} clean trades`
@@ -2320,7 +2320,7 @@ const SaasWorkspace = ({
       ) : null}
 
       {activePage === "journal" ? (
-        <section className="space-y-4">
+        <section className="space-y-4 saas-page-section saas-page-journal">
           <button type="button" className="saas-back-link" onClick={() => setActivePage("dashboard")}>
             <span aria-hidden="true">&lt;</span> Back to Dashboard
           </button>
@@ -2813,7 +2813,7 @@ const SaasWorkspace = ({
             </article>
             <article className="panel saas-card saas-insight-card">
               <p className="saas-stat-kicker">Top session</p>
-              <h3>{resolvedSessionTop[0]?.label || "—"}</h3>
+              <h3>{resolvedSessionTop[0]?.label || "-"}</h3>
               <p className="saas-stat-label">
                 {resolvedSessionTop[0]
                   ? `${resolvedSessionTop[0].avgRR.toFixed(2)}x average R:R`
@@ -3016,7 +3016,7 @@ const SaasWorkspace = ({
       ) : null}
 
       {activePage === "edge" ? (
-        <section className="space-y-4">
+        <section className="space-y-4 saas-page-section saas-page-edge">
           <article className="panel saas-edge-banner saas-edge-banner-primary">
             <div className="saas-banner-head">
               <span className="saas-stat-icon saas-stat-icon-blue">
@@ -3172,7 +3172,7 @@ const SaasWorkspace = ({
       ) : null}
 
       {activePage === "behavior" ? (
-        <section className="space-y-4">
+        <section className="space-y-4 saas-page-section saas-page-behavior">
           <article className="panel saas-behavior-banner">
             <div className="saas-banner-head">
               <span className="saas-stat-icon saas-stat-icon-gold">
@@ -3257,7 +3257,7 @@ const SaasWorkspace = ({
       ) : null}
 
       {activePage === "review" ? (
-        <section className="space-y-4">
+        <section className="space-y-4 saas-page-section saas-page-review">
           <div className="saas-tabs">
             {Object.values(reviewConfig).map((tab) => (
               <button
@@ -3307,7 +3307,10 @@ const SaasWorkspace = ({
               </article>
             </div>
             {!activeReviewTrades.length ? (
-              <p className="saas-stat-label mt-3">No closed trades in {activeReview.label.toLowerCase()} yet.</p>
+              <div className="saas-empty-state mt-3">
+                <strong>No closed trades yet</strong>
+                <p>Nothing is available for the {activeReview.label.toLowerCase()} review range yet. Log a few closed trades and Journex will build the summary here.</p>
+              </div>
             ) : null}
 
             <div className="saas-main-grid mt-4">
@@ -3405,7 +3408,7 @@ const SaasWorkspace = ({
             </article>
             <article className="panel saas-card saas-insight-card">
               <p className="saas-stat-kicker">Best execution</p>
-              <h3>{activeBestTrade?.pair || "—"}</h3>
+              <h3>{activeBestTrade?.pair || "-"}</h3>
               <p className="saas-stat-label">
                 {activeBestTrade
                   ? `${toNumber(activeBestTrade.rrAchieved).toFixed(2)}R on ${formatTradeDate(activeBestTrade.tradeDate)}`
@@ -3552,7 +3555,10 @@ const SaasWorkspace = ({
             </div>
             <p className="saas-stat-label mt-2">Tap a row to revisit the full trade details.</p>
             {!filteredReviewTrades.length ? (
-              <p className="saas-stat-label mt-3">No trades match this search.</p>
+              <div className="saas-empty-state mt-3">
+                <strong>No trades match this search</strong>
+                <p>Try a broader pair, setup, or session query to bring the trade list back into view.</p>
+              </div>
             ) : (
               <div className="saas-table-wrap mt-3">
                 <table className="saas-table" aria-describedby="review-trades-caption">
@@ -3613,7 +3619,7 @@ const SaasWorkspace = ({
       ) : null}
 
       {activePage === "coaching" ? (
-        <section className="space-y-4 saas-page-section">
+        <section className="space-y-4 saas-page-section saas-page-coaching">
           <div className="saas-insights-row">
             <article className="panel saas-card saas-insight-card">
               <p className="saas-stat-kicker">Discipline</p>
@@ -3680,7 +3686,10 @@ const SaasWorkspace = ({
                   <strong>{reviewMistakeStats[0].label}</strong> is costing <strong>-{reviewMistakeStats[0].costRR}R</strong> across {reviewMistakeStats[0].trades} tagged trades.
                 </p>
               ) : (
-                <p className="saas-stat-label mt-2">No mistakes tagged in this review range yet.</p>
+                <div className="saas-empty-state mt-2">
+                  <strong>No mistakes tagged yet</strong>
+                  <p>Once you tag mistakes during review or trade entry, the coach will surface the biggest leak here.</p>
+                </div>
               )}
             </div>
           </article>
@@ -3688,7 +3697,7 @@ const SaasWorkspace = ({
       ) : null}
 
       {activePage === "replay" ? (
-        <section className="space-y-4 saas-page-section">
+        <section className="space-y-4 saas-page-section saas-page-replay">
           <div className="saas-insights-row">
             <article className="panel saas-card saas-insight-card">
               <p className="saas-stat-kicker">Replay trades</p>
@@ -3753,7 +3762,10 @@ const SaasWorkspace = ({
                 </p>
               </button>
             ) : (
-              <p className="saas-stat-label mt-3">No trades available for replay in this range yet.</p>
+              <div className="saas-empty-state mt-3">
+                <strong>No replay trades yet</strong>
+                <p>Replay becomes available once the selected review range has saved trades with screenshots or detail to inspect.</p>
+              </div>
             )}
             {shareError ? <p className="saas-alert saas-alert-error mt-3">{shareError}</p> : null}
             {shareMessage ? <p className="saas-alert mt-3">{shareMessage}</p> : null}
@@ -3789,7 +3801,10 @@ const SaasWorkspace = ({
                 ))}
               </div>
             ) : (
-              <p className="saas-stat-label mt-3">No trades in this range yet.</p>
+              <div className="saas-empty-state mt-3">
+                <strong>No calendar activity yet</strong>
+                <p>Trading days will appear here automatically once this review range has activity.</p>
+              </div>
             )}
           </article>
 
@@ -3836,14 +3851,17 @@ const SaasWorkspace = ({
                 ))}
               </div>
             ) : (
-              <p className="saas-stat-label mt-3">No review shares created yet.</p>
+              <div className="saas-empty-state mt-3">
+                <strong>No review shares yet</strong>
+                <p>Create a review share from this page when you want to send a weekly snapshot without exposing the whole app.</p>
+              </div>
             )}
           </article>
         </section>
       ) : null}
 
       {activePage === "playbooks" ? (
-        <section className="space-y-4 saas-page-section">
+        <section className="space-y-4 saas-page-section saas-page-playbooks">
           <div className="saas-insights-row">
             <article className="panel saas-card saas-insight-card">
               <p className="saas-stat-kicker">Saved playbooks</p>
@@ -3904,9 +3922,9 @@ const SaasWorkspace = ({
                   </article>
                 ))
               ) : (
-                <div className="saas-note-card">
-                  <h4>No playbooks yet</h4>
-                  <p className="saas-stat-label mt-2">Create one in advanced editor or import your existing JSON below.</p>
+                <div className="saas-empty-state">
+                  <strong>No playbooks yet</strong>
+                  <p>Create one in the advanced editor or import your existing JSON to start comparing live execution against your playbook library.</p>
                 </div>
               )}
             </div>
@@ -3958,7 +3976,7 @@ const SaasWorkspace = ({
       ) : null}
 
       {activePage === "risk" ? (
-        <section className="space-y-4 saas-page-section">
+        <section className="space-y-4 saas-page-section saas-page-risk">
           <div className="saas-insights-row">
             <article className="panel saas-card saas-insight-card">
               <p className="saas-stat-kicker">Account size</p>
@@ -4148,7 +4166,7 @@ const SaasWorkspace = ({
       ) : null}
 
       {activePage === "trade-detail" ? (
-        <section className="space-y-4 saas-page-section">
+          <section className="space-y-4 saas-page-section saas-page-trade-detail">
           {selectedTrade ? (
             <article className="panel saas-card">
               <div className="saas-trade-modal-head">
@@ -4264,8 +4282,10 @@ const SaasWorkspace = ({
             </article>
           ) : (
             <article className="panel saas-card">
-              <h3 className="saas-card-title">No trade selected</h3>
-              <p className="saas-stat-label mt-2">Open a trade from Review or Replay to inspect it here.</p>
+              <div className="saas-empty-state">
+                <strong>No trade selected</strong>
+                <p>Open a trade from Review or Replay and Journex will load the full detail view here.</p>
+              </div>
               <div className="saas-settings-actions mt-4">
                 <button type="button" className="btn-primary" onClick={() => setActivePage(tradeDetailReturnPage || "review")}>
                   Back
@@ -4656,21 +4676,21 @@ const SaasWorkspace = ({
               {user?.integrations?.mt5?.createdAt ? (
                 <div className="saas-settings-theme-row">
                   <span className="label">Created</span>
-                  <span className="saas-stat-label">{formatDateTime(user.integrations.mt5.createdAt) || "—"}</span>
+                  <span className="saas-stat-label">{formatDateTime(user.integrations.mt5.createdAt) || "-"}</span>
                 </div>
               ) : null}
               {user?.integrations?.mt5?.lastUsedAt ? (
                 <div className="saas-settings-theme-row">
                   <span className="label">Last used</span>
-                  <span className="saas-stat-label">{formatDateTime(user.integrations.mt5.lastUsedAt) || "—"}</span>
+                  <span className="saas-stat-label">{formatDateTime(user.integrations.mt5.lastUsedAt) || "-"}</span>
                 </div>
               ) : null}
               {user?.integrations?.mt5?.lastEventAt ? (
                 <div className="saas-settings-theme-row">
                   <span className="label">Last event</span>
                   <span className="saas-stat-label">
-                    {formatDateTime(user.integrations.mt5.lastEventAt) || "—"}
-                    {user?.integrations?.mt5?.lastEventType ? ` • ${user.integrations.mt5.lastEventType}` : ""}
+                    {formatDateTime(user.integrations.mt5.lastEventAt) || "-"}
+                    {user?.integrations?.mt5?.lastEventType ? ` | ${user.integrations.mt5.lastEventType}` : ""}
                   </span>
                 </div>
               ) : null}

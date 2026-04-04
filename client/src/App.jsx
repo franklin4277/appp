@@ -1377,23 +1377,6 @@ const App = () => {
     });
   }, [user?.settings?.playbooks]);
 
-  const resetQuickTradeForm = useCallback(() => {
-    setQuickTradeForm(buildQuickTradeForm({ setupOptions, sessionOptions, pairOptions, defaults: recentQuickTradeDefaults }));
-  }, [pairOptions, recentQuickTradeDefaults, sessionOptions, setupOptions]);
-
-  const applyRecentTradeDefaults = useCallback(() => {
-    setQuickTradeForm((prev) => ({
-      ...prev,
-      pair: recentQuickTradeDefaults.pair || prev.pair,
-      setupType: recentQuickTradeDefaults.setupType || prev.setupType,
-      playbookId: recentQuickTradeDefaults.playbookId || prev.playbookId,
-      session: recentQuickTradeDefaults.session || prev.session,
-      riskPercent: recentQuickTradeDefaults.riskPercent || prev.riskPercent,
-      emotion: recentQuickTradeDefaults.emotion || prev.emotion,
-      followedPlan: recentQuickTradeDefaults.followedPlan ?? prev.followedPlan,
-    }));
-  }, [recentQuickTradeDefaults]);
-
   const handleQuickTradeSubmit = useCallback(
     async (event) => {
       event.preventDefault();
@@ -1721,6 +1704,22 @@ const App = () => {
         typeof lastTrade?.tags?.cleanSetup === "boolean" ? Boolean(lastTrade.tags.cleanSetup) : true,
     };
   }, [recentTrades]);
+  const resetQuickTradeForm = useCallback(() => {
+    setQuickTradeForm(buildQuickTradeForm({ setupOptions, sessionOptions, pairOptions, defaults: recentQuickTradeDefaults }));
+  }, [pairOptions, recentQuickTradeDefaults, sessionOptions, setupOptions]);
+
+  const applyRecentTradeDefaults = useCallback(() => {
+    setQuickTradeForm((prev) => ({
+      ...prev,
+      pair: recentQuickTradeDefaults.pair || prev.pair,
+      setupType: recentQuickTradeDefaults.setupType || prev.setupType,
+      playbookId: recentQuickTradeDefaults.playbookId || prev.playbookId,
+      session: recentQuickTradeDefaults.session || prev.session,
+      riskPercent: recentQuickTradeDefaults.riskPercent || prev.riskPercent,
+      emotion: recentQuickTradeDefaults.emotion || prev.emotion,
+      followedPlan: recentQuickTradeDefaults.followedPlan ?? prev.followedPlan,
+    }));
+  }, [recentQuickTradeDefaults]);
 
   const activeMeta = pageMeta[activePage] || pageMeta.dashboard;
   const setupTop = setupRankings.slice(0, 6);

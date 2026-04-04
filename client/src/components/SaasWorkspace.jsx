@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, useCallback } from "react";
 import {
   createWeeklyReviewShare,
   listWeeklyReviewShares,
@@ -6,8 +6,9 @@ import {
 } from "../api/tradesApi";
 import ThemeToggle from "./ThemeToggle";
 import BrandLogo from "./BrandLogo";
-import ScreenshotReplay from "./ScreenshotReplay";
 import { PAIRS } from "../utils/options";
+
+const ScreenshotReplay = lazy(() => import("./ScreenshotReplay"));
 
 const toNumber = (value, fallback = 0) => {
   const parsed = Number(value);
@@ -26,6 +27,12 @@ const round = (value, precision = 2) => {
   const factor = 10 ** precision;
   return Math.round((value + Number.EPSILON) * factor) / factor;
 };
+
+const LazyPanelFallback = ({ message = "Loading..." }) => (
+  <div className="panel saas-card">
+    <p className="saas-stat-label">{message}</p>
+  </div>
+);
 
 const computeWinRate = (trades = []) => {
   if (!Array.isArray(trades) || !trades.length) {
@@ -3948,12 +3955,14 @@ const SaasWorkspace = ({
           </article>
 
           <div id="review-screenshot-replay">
-            <ScreenshotReplay
-              trades={activeReviewTrades}
-              selectedTradeId={reviewReplayTarget}
-              onSelectTrade={openTradeFromReview}
-              onOpenInspect={openInspectView}
-            />
+            <Suspense fallback={<LazyPanelFallback message="Loading replay workspace..." />}>
+              <ScreenshotReplay
+                trades={activeReviewTrades}
+                selectedTradeId={reviewReplayTarget}
+                onSelectTrade={openTradeFromReview}
+                onOpenInspect={openInspectView}
+              />
+            </Suspense>
           </div>
 
           <article className="panel saas-card">

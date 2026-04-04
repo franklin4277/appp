@@ -422,7 +422,14 @@ const tradeSchema = new mongoose.Schema(
 tradeSchema.index({ userId: 1, profileId: 1, pair: 1, session: 1, setupType: 1, tradeDate: -1 });
 tradeSchema.index({ userId: 1, profileId: 1, "tags.cleanSetup": 1, tradeDate: -1 });
 tradeSchema.index({ userId: 1, profileId: 1, tradeDate: -1 });
+tradeSchema.index({ userId: 1, profileId: 1, result: 1, tradeDate: -1 });
 tradeSchema.index({ userId: 1, profileId: 1, strategyFingerprint: 1, tradeDate: -1 });
+tradeSchema.index(
+  { userId: 1, profileId: 1, playbookId: 1, tradeDate: -1 },
+  {
+    partialFilterExpression: { playbookId: { $exists: true, $ne: "" } },
+  }
+);
 tradeSchema.index({ userId: 1, profileId: 1, "automation.source": 1, tradeDate: -1 });
 tradeSchema.index({ userId: 1, profileId: 1, "automation.status": 1, tradeDate: -1 });
 tradeSchema.index(

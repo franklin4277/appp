@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   clearCachedAuthProfile,
   clearAuthSession,
@@ -30,12 +30,7 @@ import {
   unlockTrustedDevice,
 } from "./api/tradesApi";
 import { PAIRS } from "./utils/options";
-import AuthPanel from "./components/AuthPanel";
-import ResetPasswordView from "./components/ResetPasswordView";
-import SharedWeeklyView from "./components/SharedWeeklyView";
 import SaasWorkspace from "./components/SaasWorkspace";
-import VerifyEmailView from "./components/VerifyEmailView";
-import ScreenshotInspectView from "./components/ScreenshotInspectView";
 import { buildLocalDashboardAnalytics } from "./utils/offlineAnalytics";
 import { buildEdgeInsights } from "./utils/insights";
 import {
@@ -50,6 +45,12 @@ import { formatSyncTime, matchesTradeFilters } from "./utils/tradeFilters";
 import ToastStack from "./components/ToastStack";
 import { dayKey, dayNameToIndex, readRetentionPreferences, weekKey } from "./utils/retention";
 import { applyTheme, resolveInitialTheme } from "./utils/theme";
+
+const AuthPanel = lazy(() => import("./components/AuthPanel"));
+const ResetPasswordView = lazy(() => import("./components/ResetPasswordView"));
+const SharedWeeklyView = lazy(() => import("./components/SharedWeeklyView"));
+const VerifyEmailView = lazy(() => import("./components/VerifyEmailView"));
+const ScreenshotInspectView = lazy(() => import("./components/ScreenshotInspectView"));
 
 const emptySummary = {
   totalTrades: 0,
@@ -169,6 +170,12 @@ const pageMeta = {
     subtitle: "Inspect one trade without crowding the review workflow",
   },
 };
+
+const RouteLoader = ({ message = "Loading..." }) => (
+  <main className="mx-auto flex min-h-screen w-full max-w-[560px] items-center justify-center p-4">
+    <section className="panel text-sm text-textMuted">{message}</section>
+  </main>
+);
 
 const findPageByKey = (key) => PAGES.find((page) => page.key === key) || null;
 
@@ -1809,15 +1816,27 @@ const App = () => {
   }, []);
 
   if (sharedToken) {
-    return <SharedWeeklyView shareToken={sharedToken} />;
+    return (
+      <Suspense fallback={<RouteLoader message="Loading shared review..." />}>
+        <SharedWeeklyView shareToken={sharedToken} />
+      </Suspense>
+    );
   }
 
   if (urlRoute.path === "/verify-email") {
-    return <VerifyEmailView token={urlRoute.urlToken} />;
+    return (
+      <Suspense fallback={<RouteLoader message="Loading verification..." />}>
+        <VerifyEmailView token={urlRoute.urlToken} />
+      </Suspense>
+    );
   }
 
   if (urlRoute.path === "/reset-password") {
-    return <ResetPasswordView initialToken={urlRoute.urlToken} />;
+    return (
+      <Suspense fallback={<RouteLoader message="Loading reset form..." />}>
+        <ResetPasswordView initialToken={urlRoute.urlToken} />
+      </Suspense>
+    );
   }
 
   if (authLoading) {
@@ -1829,11 +1848,19 @@ const App = () => {
   }
 
   if (!token || !user) {
-    return <AuthPanel onAuthenticated={onAuthenticated} />;
+    return (
+      <Suspense fallback={<RouteLoader message="Loading Journex..." />}>
+        <AuthPanel onAuthenticated={onAuthenticated} />
+      </Suspense>
+    );
   }
 
   if (urlRoute.path.startsWith("/screenshot/")) {
-    return <ScreenshotInspectView tradeId={urlRoute.path.replace("/screenshot/", "").trim()} token={token} />;
+    return (
+      <Suspense fallback={<RouteLoader message="Loading screenshot view..." />}>
+        <ScreenshotInspectView tradeId={urlRoute.path.replace("/screenshot/", "").trim()} token={token} />
+      </Suspense>
+    );
   }
 
   return (

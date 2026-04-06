@@ -54,6 +54,7 @@ Minimal, fast, session-based Forex journal with per-user accounts and behavior c
 ```text
 client/   # React app
 server/   # Express API + MongoDB models/services
+ai/       # Separate Journex AI service (your own AI gateway)
 docs/     # Architecture + deployment reference
 ```
 
@@ -118,6 +119,26 @@ npm run dev
 Frontend env:
 
 - `VITE_API_URL` (example: `http://localhost:5000`)
+- `VITE_AI_URL` (example: `http://localhost:8080`)
+
+### 3) AI Service
+
+```powershell
+cd ai
+copy .env.example .env
+npm install
+npm start
+```
+
+AI service env:
+
+- `AI_BASE_URL` (OpenAI-compatible open-source endpoint, e.g. Ollama or vLLM)
+- `AI_MODEL` (example: `deepseek-r1:8b`)
+- `AI_API_KEY` (for Ollama you can use any placeholder value like `ollama`)
+- `CLIENT_URL`
+- `SEARCH_BASE_URL` (optional, for live web search via your own SearXNG instance)
+
+Reference: [`docs/AI_SERVICE.md`](docs/AI_SERVICE.md)
 
 ## Tests
 

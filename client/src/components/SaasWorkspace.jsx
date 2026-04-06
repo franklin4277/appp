@@ -6,6 +6,7 @@ import {
 } from "../api/tradesApi";
 import ThemeToggle from "./ThemeToggle";
 import BrandLogo from "./BrandLogo";
+import AiCoachPanel from "./AiCoachPanel";
 import { PAIRS } from "../utils/options";
 
 const ScreenshotReplay = lazy(() => import("./ScreenshotReplay"));
@@ -622,6 +623,7 @@ const navIconMap = {
   edge: "edge",
   behavior: "behavior",
   review: "review",
+  ai: "behavior",
   coaching: "behavior",
   replay: "review",
   playbooks: "edge",
@@ -857,6 +859,7 @@ const SaasWorkspace = ({
     edge: "Edge",
     behavior: "Behavior",
     review: "Review",
+    ai: "AI",
     coaching: "Coaching",
     replay: "Replay",
     playbooks: "Playbooks",
@@ -1194,6 +1197,96 @@ const SaasWorkspace = ({
       reviewBestSetup,
       reviewMistakeStats,
       reviewScreenshotCoverage,
+    ]
+  );
+  const aiCoachContext = useMemo(
+    () => ({
+      profile: {
+        name: activeProfile?.name || previewProfileName,
+        description: activeProfile?.description || previewProfileDescription,
+        accountSize: activeProfileAccountSize || null,
+      },
+      overview: {
+        totalTrades,
+        totalWins,
+        totalLosses,
+        totalBreakEven,
+        overallWinRate,
+        overallAvgRR,
+        netRR,
+        expectancyValue: round(expectancyValue, 2),
+      },
+      review: {
+        range: activeReview.label,
+        trades: activeReviewTrades.length,
+        winRate: activeReview.winRate,
+        averageRR: activeReview.avgRR,
+        netRR: activeReviewNetRR,
+        screenshotCoverage: reviewScreenshotCoverage,
+        bestSetup: reviewBestSetup,
+        bestSession: reviewBestSession,
+        topMistake: reviewMistakeStats[0] || null,
+        scores: reviewScores,
+        coaching: coachingSummary,
+      },
+      risk: {
+        maxRiskPerTradePercent,
+        dailyProfitTargetPercent,
+        weeklyProfitTargetPercent,
+        maxDailyDrawdownPercent,
+      },
+      topPatterns: {
+        setups: resolvedSetupTop.slice(0, 3),
+        sessions: resolvedSessionTop.slice(0, 3),
+        emotions: Array.isArray(emotionTop) ? emotionTop.slice(0, 3) : [],
+        playbooks: playbookStats.slice(0, 3),
+      },
+      recentTrades: (recentTrades || []).slice(0, 6).map((trade) => ({
+        id: trade?._id || trade?.clientTradeId || "",
+        date: trade?.tradeDate || trade?.createdAt || "",
+        pair: trade?.pair || "",
+        session: trade?.session || "",
+        setupType: trade?.setupType || "",
+        result: trade?.result || "",
+        rrAchieved: toNumber(trade?.rrAchieved),
+        notes: String(trade?.notes?.executionReview || trade?.notes?.priceAction || "").trim(),
+      })),
+    }),
+    [
+      activeProfile?.description,
+      activeProfile?.name,
+      activeProfileAccountSize,
+      activeReview.avgRR,
+      activeReview.label,
+      activeReview.winRate,
+      activeReviewNetRR,
+      activeReviewTrades.length,
+      coachingSummary,
+      dailyProfitTargetPercent,
+      emotionTop,
+      expectancyValue,
+      maxDailyDrawdownPercent,
+      maxRiskPerTradePercent,
+      netRR,
+      overallAvgRR,
+      overallWinRate,
+      playbookStats,
+      previewProfileDescription,
+      previewProfileName,
+      recentTrades,
+      resolvedSessionTop,
+      resolvedSetupTop,
+      reviewBestSession,
+      reviewBestSetup,
+      reviewMistakeStats,
+      reviewScores,
+      reviewScreenshotCoverage,
+      sessionTop,
+      totalBreakEven,
+      totalLosses,
+      totalTrades,
+      totalWins,
+      weeklyProfitTargetPercent,
     ]
   );
   const dailyGoalProgress = useMemo(() => {
@@ -3761,6 +3854,44 @@ const SaasWorkspace = ({
               </p>
             ) : null}
           </article>
+        </section>
+      ) : null}
+
+      {activePage === "ai" ? (
+        <section className="space-y-4 saas-page-section saas-page-ai">
+          <div className="saas-insights-row">
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Current review</p>
+              <h3>{activeReview.label}</h3>
+              <p className="saas-stat-label">
+                {activeReviewTrades.length
+                  ? `${activeReviewTrades.length} trades, ${activeReview.winRate}% win rate, ${activeReview.avgRR}x average R:R`
+                  : "No closed trades in the current review range yet."}
+              </p>
+            </article>
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Coach focus</p>
+              <h3>{reviewMistakeStats[0]?.label || reviewBestSetup?.label || "Build sample"}</h3>
+              <p className="saas-stat-label">
+                {reviewMistakeStats[0]
+                  ? `${reviewMistakeStats[0].costRR}R leaked across ${reviewMistakeStats[0].trades} tagged trades.`
+                  : coachingSummary.assistant}
+              </p>
+            </article>
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Best pattern</p>
+              <h3>{reviewBestSetup?.label || reviewBestSession?.label || "-"}</h3>
+              <p className="saas-stat-label">
+                {reviewBestSetup
+                  ? `${reviewBestSetup.winRate}% win rate in ${reviewBestSetup.trades} trades`
+                  : reviewBestSession
+                    ? `${reviewBestSession.winRate}% win rate in ${reviewBestSession.trades} trades`
+                    : "Ask Journex AI to help surface the strongest pattern once more data is logged."}
+              </p>
+            </article>
+          </div>
+
+          <AiCoachPanel context={aiCoachContext} activeProfileName={activeProfile?.name || previewProfileName} />
         </section>
       ) : null}
 

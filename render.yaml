@@ -42,7 +42,34 @@ services:
     envVars:
       - key: VITE_API_URL
         sync: false
+      - key: VITE_AI_URL
+        sync: false
       - key: VITE_APP_URL
         sync: false
       - key: VITE_ENABLE_PWA
         value: "true"
+
+  - type: web
+    name: journex-ai
+    runtime: node
+    rootDir: ai
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CLIENT_URL
+        sync: false
+      - key: AI_BASE_URL
+        sync: false
+      - key: AI_MODEL
+        sync: false
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_PROVIDER_LABEL
+        sync: false
+      - key: SEARCH_BASE_URL
+        sync: false
+      - key: SEARCH_TIMEOUT_MS
+        value: "12000"

@@ -145,6 +145,10 @@ const pageMeta = {
     title: "Performance Review",
     subtitle: "Weekly and monthly performance breakdown",
   },
+  ai: {
+    title: "AI Coach",
+    subtitle: "Ask Journex about your trading process, performance, and what to improve next",
+  },
   coaching: {
     title: "Review Coaching",
     subtitle: "Keep, stop, and test next without crowding the main review page",

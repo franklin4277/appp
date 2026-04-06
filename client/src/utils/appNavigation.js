@@ -5,6 +5,7 @@ export const PAGES = [
   { key: "edge", label: "Edge Detection", group: "Review", nav: true, mobile: true },
   { key: "behavior", label: "Behavior", group: "Review", nav: true, mobile: true },
   { key: "review", label: "Review", group: "Review", nav: true, mobile: true },
+  { key: "ai", label: "AI Coach", group: "Review", nav: true, mobile: true },
   { key: "coaching", label: "Coaching", group: "Review", nav: true, mobile: true },
   { key: "replay", label: "Replay", group: "Review", nav: true, mobile: true },
   { key: "playbooks", label: "Playbooks", group: "Setup", nav: true, mobile: true },

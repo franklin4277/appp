@@ -7,13 +7,19 @@ const AI_MODEL = String(process.env.AI_MODEL || "deepseek-r1:8b").trim();
 const AI_API_KEY = String(process.env.AI_API_KEY || "ollama").trim() || "ollama";
 const AI_TIMEOUT_MS = Math.max(Number(process.env.AI_TIMEOUT_MS || 90000) || 90000, 10000);
 
-const JOURNEX_SYSTEM_PROMPT = `You are Journex Coach, an AI assistant for a trading journal.
+const JOURNEX_BASE_PROMPT = `You are Journex Coach, an AI assistant for a trading journal.
 You help traders review behavior, risk, execution, and process.
 Be practical, concise, and specific.
 Do not give financial guarantees or hype.
-Prefer actionable coaching over generic motivation.
-When fresh web results are provided, use them carefully and mention when you are relying on them.
-Return plain JSON when asked.`;
+Prefer actionable coaching over generic motivation.`;
+
+const JOURNEX_STRUCTURED_PROMPT = `${JOURNEX_BASE_PROMPT}
+Return strict JSON only when the user explicitly asks for structured coaching output.`;
+
+const JOURNEX_CHAT_PROMPT = `${JOURNEX_BASE_PROMPT}
+Respond like a normal helpful assistant in plain natural language.
+Do not wrap normal chat replies in JSON.
+When fresh web results are provided, use them carefully and mention when you are relying on them.`;
 
 const truncateText = (value = "", max = 400) => {
   const text = String(value || "").trim();
@@ -81,6 +87,28 @@ const safeJsonParse = (value = "") => {
       return null;
     }
   }
+};
+
+const normalizeChatReply = (value = "") => {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "";
+  }
+
+  const parsed = safeJsonParse(raw);
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    const preferred =
+      parsed.reply ||
+      parsed.message ||
+      parsed.answer ||
+      parsed.content ||
+      "";
+    if (typeof preferred === "string" && preferred.trim()) {
+      return preferred.trim();
+    }
+  }
+
+  return raw;
 };
 
 const createAbortSignal = (timeoutMs) => {
@@ -157,7 +185,7 @@ export const requestStructuredCoachResponse = async ({ mode, payload }) => {
 
   const response = await requestChatCompletion({
     messages: [
-      { role: "system", content: JOURNEX_SYSTEM_PROMPT },
+      { role: "system", content: JOURNEX_STRUCTURED_PROMPT },
       { role: "user", content: userPrompt },
     ],
   });
@@ -183,7 +211,7 @@ export const requestChatResponse = async ({ messages = [], context = null, useWe
     : [];
 
   const compactContext = prunePayload(context);
-  const systemParts = [JOURNEX_SYSTEM_PROMPT];
+  const systemParts = [JOURNEX_CHAT_PROMPT];
   if (compactContext && Object.keys(compactContext).length) {
     systemParts.push(`Current Journex context:\n${JSON.stringify(compactContext, null, 2)}`);
   }
@@ -204,5 +232,8 @@ export const requestChatResponse = async ({ messages = [], context = null, useWe
     maxTokens: 900,
   });
 
-  return response;
+  return {
+    ...response,
+    raw: normalizeChatReply(response.raw),
+  };
 };

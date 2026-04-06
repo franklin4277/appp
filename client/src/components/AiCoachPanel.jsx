@@ -1,30 +1,29 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchAiConfig, isAiConfigured, sendAiChat } from "../api/aiApi";
-
-const STORAGE_KEY = "journex-ai-chat-history";
-
-const readStoredMessages = () => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
-const persistMessages = (messages = []) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-20)));
-};
+import {
+  clearAiConversation,
+  fetchAiConfig,
+  fetchAiConversation,
+  isAiConfigured,
+  sendAiChat,
+} from "../api/aiApi";
 
 const QUICK_PROMPTS = [
-  "Review my current performance and tell me the biggest leak.",
-  "What should I improve in my risk management next?",
-  "What setup or session looks strongest right now?",
-  "Give me a weekly coaching summary in plain language.",
+  {
+    label: "Review My Week",
+    prompt: "Review my current week and tell me the biggest leak, the strongest pattern, and the next adjustment to make.",
+  },
+  {
+    label: "Biggest Leak",
+    prompt: "Explain my biggest performance leak clearly and tell me how to stop repeating it.",
+  },
+  {
+    label: "Strongest Edge",
+    prompt: "What setup, session, or behavior currently looks strongest and why?",
+  },
+  {
+    label: "Trade Summary",
+    prompt: "Summarize my recent trades in plain language and tell me what matters most right now.",
+  },
 ];
 
 const Bubble = ({ role, content }) => (
@@ -34,17 +33,14 @@ const Bubble = ({ role, content }) => (
   </article>
 );
 
-const AiCoachPanel = ({ context, activeProfileName = "Workspace" }) => {
-  const [messages, setMessages] = useState(() => readStoredMessages());
+const AiCoachPanel = ({ context, activeProfileName = "Workspace", profileId = "main" }) => {
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [serviceInfo, setServiceInfo] = useState(null);
   const [useWeb, setUseWeb] = useState(false);
-
-  useEffect(() => {
-    persistMessages(messages);
-  }, [messages]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   useEffect(() => {
     if (!isAiConfigured()) {
@@ -68,6 +64,37 @@ const AiCoachPanel = ({ context, activeProfileName = "Workspace" }) => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isAiConfigured() || !profileId) {
+      return;
+    }
+    let alive = true;
+    setLoadingHistory(true);
+    fetchAiConversation({ profileId })
+      .then((data) => {
+        if (!alive) {
+          return;
+        }
+        setMessages(Array.isArray(data?.messages) ? data.messages : []);
+      })
+      .catch((loadError) => {
+        if (!alive) {
+          return;
+        }
+        setMessages([]);
+        setError(loadError.message || "Could not load AI conversation.");
+      })
+      .finally(() => {
+        if (alive) {
+          setLoadingHistory(false);
+        }
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [profileId]);
+
   const canSend = useMemo(() => input.trim().length >= 2 && !sending, [input, sending]);
 
   const handleSend = async (content) => {
@@ -84,11 +111,12 @@ const AiCoachPanel = ({ context, activeProfileName = "Workspace" }) => {
 
     try {
       const response = await sendAiChat({
+        profileId,
         messages: nextMessages,
         context,
         useWeb,
       });
-      setMessages((prev) => [...prev, { role: "assistant", content: response.reply || "No reply returned." }]);
+      setMessages(Array.isArray(response?.messages) ? response.messages : [...nextMessages, { role: "assistant", content: response.reply || "No reply returned." }]);
     } catch (sendError) {
       setError(sendError.message || "Could not reach Journex AI.");
     } finally {
@@ -151,14 +179,19 @@ const AiCoachPanel = ({ context, activeProfileName = "Workspace" }) => {
 
         <div className="ai-chat-quick-prompts mt-4">
           {QUICK_PROMPTS.map((prompt) => (
-            <button key={prompt} type="button" className="chip text-textMain" onClick={() => void handleSend(prompt)} disabled={sending}>
-              {prompt}
+            <button key={prompt.label} type="button" className="chip text-textMain" onClick={() => void handleSend(prompt.prompt)} disabled={sending}>
+              {prompt.label}
             </button>
           ))}
         </div>
 
         <div className="ai-chat-thread mt-4">
-          {messages.length ? (
+          {loadingHistory ? (
+            <div className="saas-empty-state">
+              <strong>Loading conversation</strong>
+              <p>Pulling your saved AI chat for {activeProfileName}.</p>
+            </div>
+          ) : messages.length ? (
             messages.map((message, index) => <Bubble key={`${message.role}-${index}`} role={message.role} content={message.content} />)
           ) : (
             <div className="saas-empty-state">
@@ -184,14 +217,21 @@ const AiCoachPanel = ({ context, activeProfileName = "Workspace" }) => {
             <button
               type="button"
               className="landing-cta-secondary"
-              onClick={() => {
-                setMessages([]);
-                setError("");
-                localStorage.removeItem(STORAGE_KEY);
+              onClick={async () => {
+                try {
+                  setSending(true);
+                  setError("");
+                  await clearAiConversation({ profileId });
+                  setMessages([]);
+                } catch (clearError) {
+                  setError(clearError.message || "Could not clear AI conversation.");
+                } finally {
+                  setSending(false);
+                }
               }}
               disabled={sending}
             >
-              Clear Chat
+              Clear Profile Chat
             </button>
           </div>
           {error ? <p className="saas-alert saas-alert-error mt-3">{error}</p> : null}

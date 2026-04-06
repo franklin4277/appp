@@ -387,6 +387,53 @@ const reviewToolkitSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const aiMessageSchema = new mongoose.Schema(
+  {
+    role: {
+      type: String,
+      enum: ["user", "assistant"],
+      required: true,
+    },
+    content: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 4000,
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: false }
+);
+
+const aiThreadSchema = new mongoose.Schema(
+  {
+    profileId: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 64,
+    },
+    title: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 120,
+    },
+    messages: {
+      type: [aiMessageSchema],
+      default: [],
+    },
+    updatedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: false }
+);
+
 const buildDefaultSettings = () => ({
   options: {
     pairs: cloneList(DEFAULT_STRATEGY_OPTIONS.pairs),
@@ -538,6 +585,12 @@ const userSchema = new mongoose.Schema(
       type: subscriptionSchema,
       default: () => ({ ...DEFAULT_SUBSCRIPTION }),
     },
+    aiAssistant: {
+      profileThreads: {
+        type: [aiThreadSchema],
+        default: [],
+      },
+    },
     lastLoginAt: {
       type: Date,
       default: null,
@@ -630,6 +683,12 @@ userSchema.pre("save", function normalizeProfiles(next) {
   if (!this.subscription || typeof this.subscription !== "object") {
     this.subscription = { ...DEFAULT_SUBSCRIPTION };
   }
+  if (!this.aiAssistant || typeof this.aiAssistant !== "object") {
+    this.aiAssistant = { profileThreads: [] };
+  }
+  if (!Array.isArray(this.aiAssistant.profileThreads)) {
+    this.aiAssistant.profileThreads = [];
+  }
   if (!this.settings || typeof this.settings !== "object") {
     this.settings = buildDefaultSettings();
   }
@@ -694,6 +753,38 @@ userSchema.pre("save", function normalizeProfiles(next) {
     ...DEFAULT_REVIEW_TOOLKIT.fundedMode,
     ...(this.settings.reviewToolkit.fundedMode || {}),
   };
+  this.aiAssistant.profileThreads = this.aiAssistant.profileThreads
+    .map((thread) => {
+      const profileId = normalizeProfileId(thread?.profileId, "");
+      if (!profileId) {
+        return null;
+      }
+      const messages = Array.isArray(thread?.messages)
+        ? thread.messages
+            .map((message) => {
+              const role = String(message?.role || "").trim() === "assistant" ? "assistant" : "user";
+              const content = normalizeText(message?.content || "").slice(0, 4000);
+              if (!content) {
+                return null;
+              }
+              return {
+                role,
+                content,
+                createdAt: ensureValidDate(message?.createdAt),
+              };
+            })
+            .filter(Boolean)
+            .slice(-20)
+        : [];
+      return {
+        profileId,
+        title: normalizeText(thread?.title || "").slice(0, 120),
+        messages,
+        updatedAt: ensureValidDate(thread?.updatedAt),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 24);
   this.subscription.planId = this.subscription.planId || DEFAULT_SUBSCRIPTION.planId;
   this.subscription.status = this.subscription.status || DEFAULT_SUBSCRIPTION.status;
   this.subscription.provider = this.subscription.provider || DEFAULT_SUBSCRIPTION.provider;

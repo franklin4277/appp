@@ -96,6 +96,7 @@ Optional env:
 - `EXPOSE_LOCAL_UPLOADS` (`false` recommended in production when using cloud storage)
 - `SMTP_URL` (optional URI format) or `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` (required for 2FA email delivery in production)
 - `JSON_BODY_LIMIT` (default `12mb`, used for bridge base64 screenshot payloads)
+- `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`, `AI_PROXY_TIMEOUT_MS` (secure AI proxy configuration)
 - `MT5_BRIDGE_REQUIRE_HMAC`, `MT5_BRIDGE_TIMESTAMP_TOLERANCE_SECONDS`, `MT5_BRIDGE_IP_ALLOWLIST`
 - `BRIDGE_EVENT_RETENTION_DAYS`, `BRIDGE_RATE_LIMIT_PER_MINUTE`, `BRIDGE_RECONCILE_INTERVAL_SECONDS`, `BRIDGE_STALE_OPEN_TRADE_MINUTES`
 - `BRIDGE_ENABLE_RECORDINGS`, `BRIDGE_MAX_RECORDING_SECONDS`, `RECORDING_RETENTION_DAYS`
@@ -119,7 +120,6 @@ npm run dev
 Frontend env:
 
 - `VITE_API_URL` (example: `http://localhost:5000`)
-- `VITE_AI_URL` (example: `http://localhost:8080`)
 
 ### 3) AI Service
 
@@ -136,6 +136,7 @@ AI service env:
 - `AI_MODEL` (example: `deepseek-r1:8b`)
 - `AI_API_KEY` (for Ollama you can use any placeholder value like `ollama`)
 - `CLIENT_URL`
+- `AI_SERVICE_TOKEN` (shared secret used by the main API when proxying AI requests)
 - `SEARCH_BASE_URL` (optional, for live web search via your own SearXNG instance)
 
 Reference: [`docs/AI_SERVICE.md`](docs/AI_SERVICE.md)

@@ -1,11 +1,15 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import {
+  chatWithAi,
   createProfile,
+  clearAiConversation,
   deleteProfile,
   disableMt5Integration,
   disableTwoFactor,
   enableTwoFactor,
+  getAiConfig,
+  getAiConversation,
   getEmailDeliveryStatus,
   generateMt5IntegrationKey,
   getMe,
@@ -98,6 +102,10 @@ router.post("/profiles", requireAuth, createProfile);
 router.patch("/profiles/:profileId", requireAuth, updateProfile);
 router.delete("/profiles/:profileId", requireAuth, deleteProfile);
 router.patch("/profiles/active", requireAuth, setActiveProfile);
+router.get("/ai/config", requireAuth, getAiConfig);
+router.get("/ai/conversations/:profileId", requireAuth, getAiConversation);
+router.delete("/ai/conversations/:profileId", requireAuth, clearAiConversation);
+router.post("/ai/chat", requireAuth, authLimiter, chatWithAi);
 router.post("/email-verification/request", requireAuth, recoveryLimiter, requestEmailVerification);
 router.get("/email-delivery/status", requireAuth, getEmailDeliveryStatus);
 router.post("/email-delivery/test", requireAuth, recoveryLimiter, sendEmailDeliveryTest);

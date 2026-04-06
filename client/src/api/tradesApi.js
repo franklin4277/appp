@@ -785,6 +785,46 @@ export const updateUserSettings = async (token, settingsPayload) => {
   return parseResponse(response);
 };
 
+export const fetchAiCoachConfig = async (token) => {
+  const response = await fetchWithAuthRetry(`${API_BASE}/api/auth/ai/config`, {}, token);
+  return parseResponse(response);
+};
+
+export const fetchAiConversation = async (token, profileId) => {
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/auth/ai/conversations/${encodeURIComponent(profileId)}`,
+    {},
+    token
+  );
+  return parseResponse(response);
+};
+
+export const clearAiConversation = async (token, profileId) => {
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/auth/ai/conversations/${encodeURIComponent(profileId)}`,
+    {
+      method: "DELETE",
+    },
+    token
+  );
+  return parseResponse(response);
+};
+
+export const sendAiChat = async (token, payload) => {
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/auth/ai/chat`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload || {}),
+    },
+    token
+  );
+  return parseResponse(response);
+};
+
 export const generateMt5BridgeKey = async (token, payload = {}) => {
   const response = await fetchWithAuthRetry(
     `${API_BASE}/api/auth/integrations/mt5/key`,

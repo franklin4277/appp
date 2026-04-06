@@ -3891,7 +3891,11 @@ const SaasWorkspace = ({
             </article>
           </div>
 
-          <AiCoachPanel context={aiCoachContext} activeProfileName={activeProfile?.name || previewProfileName} />
+          <AiCoachPanel
+            context={aiCoachContext}
+            activeProfileName={activeProfile?.name || previewProfileName}
+            profileId={activeProfile?.id || user?.activeProfileId || "main"}
+          />
         </section>
       ) : null}
 

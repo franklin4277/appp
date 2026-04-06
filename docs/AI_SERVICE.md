@@ -49,6 +49,7 @@ AI_BASE_URL=http://localhost:11434/v1
 AI_MODEL=deepseek-r1:8b
 AI_API_KEY=ollama
 AI_PROVIDER_LABEL=ollama
+AI_SERVICE_TOKEN=replace-with-a-shared-secret
 SEARCH_BASE_URL=http://localhost:8081
 ```
 
@@ -81,15 +82,16 @@ SEARCH_BASE_URL=http://localhost:8081
 
 Recommended pattern:
 
-1. Journex frontend or main API sends **summarized review/trade context** to the AI service
+1. Journex main API sends **authenticated summarized review/trade context** to the AI service
 2. AI service calls the open-source model endpoint
 3. AI service returns structured coaching JSON
 4. Journex renders the result in Coaching / Review / Trade Detail
 
-Frontend connection:
+Backend connection:
 
 ```env
-VITE_AI_URL=https://your-journex-ai-service.onrender.com
+AI_SERVICE_URL=https://your-journex-ai-service.onrender.com
+AI_SERVICE_TOKEN=replace-with-the-same-shared-secret
 ```
 
 Keep raw trade history out of the prompt unless needed. Send summaries first.

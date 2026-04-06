@@ -16,6 +16,7 @@ export const createApp = () => {
   const app = express();
   const allowedOrigins = parseOrigins(process.env.CLIENT_URL).map(normalizeOrigin);
   const allowAnyOrigin = !allowedOrigins.length || allowedOrigins.includes("*");
+  const serviceToken = String(process.env.AI_SERVICE_TOKEN || "").trim();
 
   app.use(
     cors({
@@ -48,6 +49,25 @@ export const createApp = () => {
       model: String(process.env.AI_MODEL || "").trim() || "unset",
       time: new Date().toISOString(),
     });
+  });
+
+  app.use("/api/coach", (req, _res, next) => {
+    if (!serviceToken) {
+      next();
+      return;
+    }
+    const headerToken =
+      String(req.headers["x-ai-service-token"] || "").trim() ||
+      String(req.headers.authorization || "")
+        .replace(/^Bearer\s+/i, "")
+        .trim();
+    if (!headerToken || headerToken !== serviceToken) {
+      const error = new Error("AI service token is invalid.");
+      error.statusCode = 401;
+      next(error);
+      return;
+    }
+    next();
   });
 
   app.use("/api/coach", coachRouter);

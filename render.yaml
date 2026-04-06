@@ -21,6 +21,10 @@ services:
         sync: false
       - key: CLIENT_URL
         sync: false
+      - key: AI_SERVICE_URL
+        sync: false
+      - key: AI_SERVICE_TOKEN
+        sync: false
       - key: EXPOSE_LOCAL_UPLOADS
         value: "false"
       - key: SMTP_HOST
@@ -41,8 +45,6 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
-        sync: false
-      - key: VITE_AI_URL
         sync: false
       - key: VITE_APP_URL
         sync: false
@@ -68,6 +70,8 @@ services:
       - key: AI_API_KEY
         sync: false
       - key: AI_PROVIDER_LABEL
+        sync: false
+      - key: AI_SERVICE_TOKEN
         sync: false
       - key: SEARCH_BASE_URL
         sync: false

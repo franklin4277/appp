@@ -1,15 +1,11 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import {
-  chatWithAi,
   createProfile,
-  clearAiConversation,
   deleteProfile,
   disableMt5Integration,
   disableTwoFactor,
   enableTwoFactor,
-  getAiConfig,
-  getAiConversation,
   getEmailDeliveryStatus,
   generateMt5IntegrationKey,
   getMe,
@@ -27,6 +23,12 @@ import {
   setActiveProfile,
   updateSettings,
 } from "../controllers/authController.js";
+import {
+  chatWithAi,
+  clearAiConversation,
+  getAiConfig,
+  getAiConversation,
+} from "../controllers/aiController.js";
 import { requireAuth } from "../middleware/auth.js";
 import {
   sanitizeInput,

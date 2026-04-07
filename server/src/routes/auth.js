@@ -76,6 +76,25 @@ const recoveryLimiter = rateLimit({
   message: { message: "Too many recovery attempts. Please try again later." },
 });
 
+const aiChatLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.AI_CHAT_RATE_LIMIT_MAX) || 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many AI chat requests. Please wait a moment and try again." },
+  handler: (req, res) => {
+    sendAlert({
+      level: "warn",
+      event: "ai.chat.rate.limit.hit",
+      message: "AI chat rate limit exceeded.",
+      details: {
+        route: req.originalUrl,
+      },
+    });
+    res.status(429).json({ message: "Too many AI chat requests. Please wait a moment and try again." });
+  },
+});
+
 router.post("/register", registerLimiter, sanitizeInput, validateRegisterPayload, register);
 router.post("/login", authLimiter, sanitizeInput, validateLoginPayload, login);
 router.post("/2fa/verify-login", authLimiter, verifyTwoFactorLogin);
@@ -107,7 +126,7 @@ router.patch("/profiles/active", requireAuth, setActiveProfile);
 router.get("/ai/config", requireAuth, getAiConfig);
 router.get("/ai/conversations/:profileId", requireAuth, getAiConversation);
 router.delete("/ai/conversations/:profileId", requireAuth, clearAiConversation);
-router.post("/ai/chat", requireAuth, authLimiter, chatWithAi);
+router.post("/ai/chat", requireAuth, aiChatLimiter, chatWithAi);
 router.post("/email-verification/request", requireAuth, recoveryLimiter, requestEmailVerification);
 router.get("/email-delivery/status", requireAuth, getEmailDeliveryStatus);
 router.post("/email-delivery/test", requireAuth, recoveryLimiter, sendEmailDeliveryTest);

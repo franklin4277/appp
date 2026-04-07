@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   clearAiConversation,
   fetchAiConfig,
@@ -41,6 +41,7 @@ const AiCoachPanel = ({ context, activeProfileName = "Workspace", profileId = "m
   const [serviceInfo, setServiceInfo] = useState(null);
   const [useWeb, setUseWeb] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const threadEndRef = useRef(null);
 
   useEffect(() => {
     if (!isAiConfigured()) {
@@ -94,6 +95,13 @@ const AiCoachPanel = ({ context, activeProfileName = "Workspace", profileId = "m
       alive = false;
     };
   }, [profileId]);
+
+  useEffect(() => {
+    threadEndRef.current?.scrollIntoView({
+      block: "end",
+      behavior: "smooth",
+    });
+  }, [loadingHistory, messages, sending]);
 
   const canSend = useMemo(() => input.trim().length >= 2 && !sending, [input, sending]);
 
@@ -158,83 +166,96 @@ const AiCoachPanel = ({ context, activeProfileName = "Workspace", profileId = "m
           </div>
         </div>
 
-        <div className="ai-chat-toolbar mt-4">
-          <div className="ai-chat-toolbar-copy">
-            <strong>{useWeb ? "Web search on" : "Web search off"}</strong>
-            <span>
-              {serviceInfo?.webSearch
-                ? "Use fresh search results when you want market context, definitions, or current references."
-                : "Add SEARCH_BASE_URL in the AI service to enable live browsing."}
-            </span>
-          </div>
-          <button
-            type="button"
-            className={`chip text-textMain ${useWeb ? "chip-btn-active" : ""}`}
-            onClick={() => setUseWeb((current) => !current)}
-            disabled={!serviceInfo?.webSearch || sending}
-          >
-            {useWeb ? "Using Web" : "Use Web"}
-          </button>
-        </div>
-
-        <div className="ai-chat-quick-prompts mt-4">
-          {QUICK_PROMPTS.map((prompt) => (
-            <button key={prompt.label} type="button" className="chip text-textMain" onClick={() => void handleSend(prompt.prompt)} disabled={sending}>
-              {prompt.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="ai-chat-thread mt-4">
-          {loadingHistory ? (
-            <div className="saas-empty-state">
-              <strong>Loading conversation</strong>
-              <p>Pulling your saved AI chat for {activeProfileName}.</p>
+        <div className="ai-chat-shell mt-4">
+          <div className="ai-chat-shell-head">
+            <div className="ai-chat-toolbar">
+              <div className="ai-chat-toolbar-copy">
+                <strong>{useWeb ? "Web search on" : "Web search off"}</strong>
+                <span>
+                  {serviceInfo?.webSearch
+                    ? "Use fresh search results when you want market context, definitions, or current references."
+                    : "Add SEARCH_BASE_URL in the AI service to enable live browsing."}
+                </span>
+              </div>
+              <button
+                type="button"
+                className={`chip text-textMain ${useWeb ? "chip-btn-active" : ""}`}
+                onClick={() => setUseWeb((current) => !current)}
+                disabled={!serviceInfo?.webSearch || sending}
+              >
+                {useWeb ? "Using Web" : "Use Web"}
+              </button>
             </div>
-          ) : messages.length ? (
-            messages.map((message, index) => <Bubble key={`${message.role}-${index}`} role={message.role} content={message.content} />)
-          ) : (
-            <div className="saas-empty-state">
-              <strong>No chat yet</strong>
-              <p>Ask Journex AI about your current performance, risk, playbooks, or what to improve next.</p>
-            </div>
-          )}
-          {sending ? <Bubble role="assistant" content="Thinking..." /> : null}
-        </div>
 
-        <div className="ai-chat-composer mt-4">
-          <textarea
-            className="input"
-            rows={4}
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder="Ask about your trades, risk, review, playbooks, or what to improve next..."
-          />
-          <div className="saas-settings-actions mt-3">
-            <button type="button" className="btn-primary" disabled={!canSend} onClick={() => void handleSend()}>
-              {sending ? "Sending..." : "Send"}
-            </button>
-            <button
-              type="button"
-              className="landing-cta-secondary"
-              onClick={async () => {
-                try {
-                  setSending(true);
-                  setError("");
-                  await clearAiConversation({ profileId });
-                  setMessages([]);
-                } catch (clearError) {
-                  setError(clearError.message || "Could not clear AI conversation.");
-                } finally {
-                  setSending(false);
-                }
-              }}
-              disabled={sending}
-            >
-              Clear Profile Chat
-            </button>
+            <div className="ai-chat-quick-prompts">
+              {QUICK_PROMPTS.map((prompt) => (
+                <button
+                  key={prompt.label}
+                  type="button"
+                  className="chip text-textMain"
+                  onClick={() => void handleSend(prompt.prompt)}
+                  disabled={sending}
+                >
+                  {prompt.label}
+                </button>
+              ))}
+            </div>
           </div>
-          {error ? <p className="saas-alert saas-alert-error mt-3">{error}</p> : null}
+
+          <div className="ai-chat-thread-wrap">
+            <div className="ai-chat-thread">
+              {loadingHistory ? (
+                <div className="saas-empty-state">
+                  <strong>Loading conversation</strong>
+                  <p>Pulling your saved AI chat for {activeProfileName}.</p>
+                </div>
+              ) : messages.length ? (
+                messages.map((message, index) => <Bubble key={`${message.role}-${index}`} role={message.role} content={message.content} />)
+              ) : (
+                <div className="saas-empty-state">
+                  <strong>No chat yet</strong>
+                  <p>Ask Journex AI about your current performance, risk, playbooks, or what to improve next.</p>
+                </div>
+              )}
+              {sending ? <Bubble role="assistant" content="Thinking..." /> : null}
+              <div ref={threadEndRef} />
+            </div>
+          </div>
+
+          <div className="ai-chat-composer">
+            <textarea
+              className="input"
+              rows={3}
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder="Ask about your trades, risk, review, playbooks, or what to improve next..."
+            />
+            <div className="saas-settings-actions mt-3">
+              <button type="button" className="btn-primary" disabled={!canSend} onClick={() => void handleSend()}>
+                {sending ? "Sending..." : "Send"}
+              </button>
+              <button
+                type="button"
+                className="landing-cta-secondary"
+                onClick={async () => {
+                  try {
+                    setSending(true);
+                    setError("");
+                    await clearAiConversation({ profileId });
+                    setMessages([]);
+                  } catch (clearError) {
+                    setError(clearError.message || "Could not clear AI conversation.");
+                  } finally {
+                    setSending(false);
+                  }
+                }}
+                disabled={sending}
+              >
+                Clear Profile Chat
+              </button>
+            </div>
+            {error ? <p className="saas-alert saas-alert-error mt-3">{error}</p> : null}
+          </div>
         </div>
       </article>
     </section>

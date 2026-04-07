@@ -6040,6 +6040,20 @@ body::before {
   background: linear-gradient(180deg, rgba(15, 23, 42, 0.86), rgba(15, 23, 42, 0.68));
 }
 
+.ai-chat-shell {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 22px;
+  padding: 1rem;
+  background: linear-gradient(180deg, rgba(2, 6, 23, 0.54), rgba(15, 23, 42, 0.44));
+}
+
+.ai-chat-shell-head {
+  display: grid;
+  gap: 0.8rem;
+}
+
 .ai-chat-toolbar-copy {
   display: grid;
   gap: 0.18rem;
@@ -6062,9 +6076,17 @@ body::before {
   gap: 0.65rem;
 }
 
+.ai-chat-thread-wrap {
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 20px;
+  background: rgba(2, 6, 23, 0.3);
+  padding: 0.9rem;
+}
+
 .ai-chat-thread {
   display: grid;
   gap: 0.85rem;
+  min-height: 360px;
   max-height: 560px;
   overflow: auto;
   padding-right: 0.15rem;
@@ -6110,22 +6132,49 @@ body::before {
 
 .ai-chat-composer {
   display: grid;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 20px;
+  padding: 0.95rem;
+  background: rgba(15, 23, 42, 0.66);
 }
 
 .ai-chat-composer textarea.input {
-  min-height: 132px;
+  min-height: 102px;
+  max-height: 180px;
   resize: vertical;
 }
 
 @media (max-width: 768px) {
+  .ai-chat-shell {
+    padding: 0.82rem;
+    border-radius: 18px;
+  }
+
   .ai-chat-toolbar {
     display: grid;
     grid-template-columns: 1fr;
     align-items: stretch;
   }
 
+  .ai-chat-quick-prompts {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.2rem;
+  }
+
+  .ai-chat-quick-prompts .chip {
+    white-space: nowrap;
+  }
+
+  .ai-chat-thread-wrap,
+  .ai-chat-composer {
+    border-radius: 16px;
+    padding: 0.8rem;
+  }
+
   .ai-chat-thread {
-    max-height: none;
+    min-height: 300px;
+    max-height: 48vh;
   }
 
   .ai-chat-bubble,

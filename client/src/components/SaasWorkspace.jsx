@@ -623,9 +623,7 @@ const navIconMap = {
   edge: "edge",
   behavior: "behavior",
   review: "review",
-  ai: "behavior",
   coaching: "behavior",
-  replay: "review",
   playbooks: "edge",
   risk: "warn",
   settings: "settings",
@@ -859,9 +857,7 @@ const SaasWorkspace = ({
     edge: "Edge",
     behavior: "Behavior",
     review: "Review",
-    ai: "AI",
     coaching: "Coaching",
-    replay: "Replay",
     playbooks: "Playbooks",
     risk: "Risk",
     settings: "Settings",
@@ -871,6 +867,7 @@ const SaasWorkspace = ({
   const [newProfileAccountSize, setNewProfileAccountSize] = useState("");
   const [selectedTrade, setSelectedTrade] = useState(null);
   const [tradeDetailReturnPage, setTradeDetailReturnPage] = useState("review");
+  const [tradeReplayOpen, setTradeReplayOpen] = useState(false);
   const [reviewReplayTarget, setReviewReplayTarget] = useState("");
   const [tradeDetailsBusy, setTradeDetailsBusy] = useState(false);
   const [tradeDetailsError, setTradeDetailsError] = useState("");
@@ -1564,6 +1561,10 @@ const SaasWorkspace = ({
     setTradeDetailsBusy(false);
     setTradeDetailsError("");
   }, [selectedTrade]);
+
+  useEffect(() => {
+    setTradeReplayOpen(false);
+  }, [selectedTrade?._id]);
 
   const handleSaveSettings = useCallback(() => {
     if (typeof handleUpdateUserSettings !== "function") {
@@ -3660,7 +3661,7 @@ const SaasWorkspace = ({
             <div className="saas-card-head">
               <div>
                 <h3 className="saas-card-title">Review Coach</h3>
-                <p className="saas-card-subtitle">Keep the main review page lighter and open coaching only when you need it.</p>
+                <p className="saas-card-subtitle">Open one coaching workspace for keep, stop, test next, and AI support.</p>
               </div>
               <span className="chip text-textMain">Assistant</span>
             </div>
@@ -3676,10 +3677,10 @@ const SaasWorkspace = ({
               </div>
               <div className="saas-note-card">
                 <h4>Next step</h4>
-                <p className="saas-stat-label mt-2">Open the dedicated coaching page to see keep, stop, and test guidance without crowding review.</p>
+                <p className="saas-stat-label mt-2">Open Coaching to review guidance and ask Journex AI questions in the same place.</p>
                 <div className="saas-settings-actions mt-3">
                   <button type="button" className="btn-primary" onClick={() => setActivePage("coaching")}>
-                    Open Coaching
+                    Open Coaching + AI
                   </button>
                 </div>
               </div>
@@ -3688,30 +3689,30 @@ const SaasWorkspace = ({
 
           <div className="saas-insights-row">
             <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Replay workspace</p>
-              <h3>{replayTrades.length}</h3>
+              <p className="saas-stat-kicker">Screenshot trades</p>
+              <h3>{reviewTradesWithScreenshots}</h3>
               <p className="saas-stat-label">
                 {replayTrade
-                  ? `Current replay focus: ${replayTrade.pair || "-"} ${replayTrade.setupType || ""}`.trim()
-                  : "No replay-ready trades in this range yet."}
+                  ? `Open ${replayTrade.pair || "-"} ${replayTrade.setupType || ""}`.trim()
+                  : "No screenshot-ready trades in this range yet."}
               </p>
               <div className="saas-settings-actions mt-3">
-                <button type="button" className="btn-primary" onClick={() => setActivePage("replay")}>
-                  Open Replay
+                <button type="button" className="btn-primary" onClick={() => void openTrade(replayTrade)} disabled={!replayTrade}>
+                  Open Trade Replay
                 </button>
               </div>
             </article>
             <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Calendar coverage</p>
-              <h3>{reviewCalendarDays.length}</h3>
+              <p className="saas-stat-kicker">Review shares</p>
+              <h3>{reviewShares.length}</h3>
               <p className="saas-stat-label">
-                {reviewCalendarDays.length
-                  ? `${reviewCalendarDays.length} active review days mapped for this range.`
-                  : "Trading days will appear here once this range has activity."}
+                {reviewShares.length
+                  ? "Share links for this review are ready to reuse or revoke."
+                  : "Create a weekly share link without leaving the review page."}
               </p>
               <div className="saas-settings-actions mt-3">
-                <button type="button" className="landing-cta-secondary" onClick={() => setActivePage("replay")}>
-                  View Calendar
+                <button type="button" className="landing-cta-secondary" onClick={() => void handleCreateReviewShare()} disabled={!isOnline || shareBusy}>
+                  {shareBusy ? "Creating..." : "Create Review Share"}
                 </button>
               </div>
             </article>
@@ -3857,48 +3858,6 @@ const SaasWorkspace = ({
         </section>
       ) : null}
 
-      {activePage === "ai" ? (
-        <section className="space-y-4 saas-page-section saas-page-ai">
-          <div className="saas-insights-row">
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Current review</p>
-              <h3>{activeReview.label}</h3>
-              <p className="saas-stat-label">
-                {activeReviewTrades.length
-                  ? `${activeReviewTrades.length} trades, ${activeReview.winRate}% win rate, ${activeReview.avgRR}x average R:R`
-                  : "No closed trades in the current review range yet."}
-              </p>
-            </article>
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Coach focus</p>
-              <h3>{reviewMistakeStats[0]?.label || reviewBestSetup?.label || "Build sample"}</h3>
-              <p className="saas-stat-label">
-                {reviewMistakeStats[0]
-                  ? `${reviewMistakeStats[0].costRR}R leaked across ${reviewMistakeStats[0].trades} tagged trades.`
-                  : coachingSummary.assistant}
-              </p>
-            </article>
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Best pattern</p>
-              <h3>{reviewBestSetup?.label || reviewBestSession?.label || "-"}</h3>
-              <p className="saas-stat-label">
-                {reviewBestSetup
-                  ? `${reviewBestSetup.winRate}% win rate in ${reviewBestSetup.trades} trades`
-                  : reviewBestSession
-                    ? `${reviewBestSession.winRate}% win rate in ${reviewBestSession.trades} trades`
-                    : "Ask Journex AI to help surface the strongest pattern once more data is logged."}
-              </p>
-            </article>
-          </div>
-
-          <AiCoachPanel
-            context={aiCoachContext}
-            activeProfileName={activeProfile?.name || previewProfileName}
-            profileId={activeProfile?.id || user?.activeProfileId || "main"}
-          />
-        </section>
-      ) : null}
-
       {activePage === "coaching" ? (
         <section className="space-y-4 saas-page-section saas-page-coaching">
           <div className="saas-insights-row">
@@ -3923,7 +3882,7 @@ const SaasWorkspace = ({
             <div className="saas-card-head">
               <div>
                 <h3 className="saas-card-title">Review Coach</h3>
-                <p className="saas-card-subtitle">Keep, stop, and test next based on the current review range.</p>
+                <p className="saas-card-subtitle">Keep, stop, test next, and use AI in one coaching workspace.</p>
               </div>
               <span className="chip text-textMain">Assistant</span>
             </div>
@@ -3974,172 +3933,12 @@ const SaasWorkspace = ({
               )}
             </div>
           </article>
-        </section>
-      ) : null}
 
-      {activePage === "replay" ? (
-        <section className="space-y-4 saas-page-section saas-page-replay">
-          <div className="saas-insights-row">
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Replay trades</p>
-              <h3>{replayTrades.length}</h3>
-              <p className="saas-stat-label">Chronological screenshot review for the current review range.</p>
-            </article>
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Screenshot coverage</p>
-              <h3>{reviewScreenshotCoverage}%</h3>
-              <p className="saas-stat-label">{reviewTradesWithScreenshots} trades have at least one screenshot.</p>
-            </article>
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Shares</p>
-              <h3>{reviewShares.length}</h3>
-              <p className="saas-stat-label">Reusable weekly review links live here instead of cluttering Review.</p>
-            </article>
-          </div>
-
-          <article className="panel saas-card">
-            <div className="saas-card-head">
-              <div>
-                <h3 className="saas-card-title">Replay Controls</h3>
-                <p className="saas-card-subtitle">Step trade by trade and open detail pages only when needed.</p>
-              </div>
-              <span className="chip text-textMain">{replayTradeIndex >= 0 ? replayTradeIndex + 1 : 0}/{replayTrades.length}</span>
-            </div>
-            <div className="saas-settings-actions mt-3">
-              <button
-                type="button"
-                className="landing-cta-secondary"
-                onClick={() => stepReplayTrade(-1)}
-                disabled={!replayTrades.length || replayTradeIndex <= 0}
-              >
-                Prev Trade
-              </button>
-              <button
-                type="button"
-                className="landing-cta-secondary"
-                onClick={() => stepReplayTrade(1)}
-                disabled={!replayTrades.length || replayTradeIndex >= replayTrades.length - 1}
-              >
-                Next Trade
-              </button>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => void handleCreateReviewShare()}
-                disabled={!isOnline || shareBusy}
-              >
-                {shareBusy ? "Creating..." : "Create Review Share"}
-              </button>
-            </div>
-            {replayTrade ? (
-              <button
-                type="button"
-                className="saas-note-card mt-3 text-left"
-                onClick={() => openTrade(replayTrade)}
-              >
-                <h4>{replayTrade.pair} - {replayTrade.setupType}</h4>
-                <p className="saas-stat-label mt-2">
-                  {formatTradeDate(replayTrade.tradeDate)} | {replayTrade.session} | {toNumber(replayTrade.rrAchieved).toFixed(2)}R
-                </p>
-              </button>
-            ) : (
-              <div className="saas-empty-state mt-3">
-                <strong>No replay trades yet</strong>
-                <p>Replay becomes available once the selected review range has saved trades with screenshots or detail to inspect.</p>
-              </div>
-            )}
-            {shareError ? <p className="saas-alert saas-alert-error mt-3">{shareError}</p> : null}
-            {shareMessage ? <p className="saas-alert mt-3">{shareMessage}</p> : null}
-          </article>
-
-          <article className="panel saas-card">
-            <div className="saas-card-head">
-              <div>
-                <h3 className="saas-card-title">Trading Calendar</h3>
-                <p className="saas-card-subtitle">Day-by-day review map that opens trade detail directly.</p>
-              </div>
-            </div>
-            {reviewCalendarDays.length ? (
-              <div className="saas-calendar-grid mt-3">
-                {reviewCalendarDays.map((day) => (
-                  <button
-                    key={`replay-calendar-${day.key}`}
-                    type="button"
-                    className={`saas-calendar-day ${day.netRR > 0 ? "saas-calendar-day-win" : day.netRR < 0 ? "saas-calendar-day-loss" : ""}`}
-                    onClick={() => {
-                      const match = activeReviewTrades.find(
-                        (trade) => String(trade?.tradeDate || "").slice(0, 10) === day.key
-                      );
-                      if (match) {
-                        openTrade(match);
-                      }
-                    }}
-                  >
-                    <span>{new Date(day.key).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
-                    <strong>{day.trades} trades</strong>
-                    <small>{day.netRR >= 0 ? "+" : ""}{day.netRR}R</small>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="saas-empty-state mt-3">
-                <strong>No calendar activity yet</strong>
-                <p>Trading days will appear here automatically once this review range has activity.</p>
-              </div>
-            )}
-          </article>
-
-          <div id="review-screenshot-replay">
-            <Suspense fallback={<LazyPanelFallback message="Loading replay workspace..." />}>
-              <ScreenshotReplay
-                trades={activeReviewTrades}
-                selectedTradeId={reviewReplayTarget}
-                onSelectTrade={openTradeFromReview}
-                onOpenInspect={openInspectView}
-              />
-            </Suspense>
-          </div>
-
-          <article className="panel saas-card">
-            <div className="saas-card-head">
-              <div>
-                <h3 className="saas-card-title">Review Shares</h3>
-                <p className="saas-card-subtitle">Keep share links and revocations in the replay workspace.</p>
-              </div>
-            </div>
-            {loadingReviewShares ? (
-              <p className="saas-stat-label mt-3">Loading shares...</p>
-            ) : reviewShares.length ? (
-              <div className="saas-ranking-list mt-3">
-                {reviewShares.map((share) => (
-                  <div key={share.id} className="saas-ranking-item">
-                    <div className="saas-ranking-top">
-                      <strong>{share.title}</strong>
-                      <span className="chip">{share.isExpired ? "Expired" : "Live"}</span>
-                    </div>
-                    <div className="saas-ranking-sub">
-                      <p>{share.periodStart} to {share.periodEnd}</p>
-                      <p>Expires {formatDateTime(share.expiresAt)}</p>
-                    </div>
-                    <div className="saas-settings-actions mt-2">
-                      <button
-                        type="button"
-                        className="chip text-textMain"
-                        onClick={() => void handleRevokeShare(share.id)}
-                      >
-                        Revoke
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="saas-empty-state mt-3">
-                <strong>No review shares yet</strong>
-                <p>Create a review share from this page when you want to send a weekly snapshot without exposing the whole app.</p>
-              </div>
-            )}
-          </article>
+          <AiCoachPanel
+            context={aiCoachContext}
+            activeProfileName={activeProfile?.name || previewProfileName}
+            profileId={activeProfile?.id || user?.activeProfileId || "main"}
+          />
         </section>
       ) : null}
 
@@ -4568,13 +4367,33 @@ const SaasWorkspace = ({
                     </div>
                   </div>
                 ) : null}
+                {tradeReplayOpen && (selectedTrade?.screenshots?.before || selectedTrade?.screenshots?.after) ? (
+                  <div className="mt-3">
+                    <Suspense fallback={<LazyPanelFallback message="Loading screenshot replay..." />}>
+                      <ScreenshotReplay
+                        trades={[selectedTrade]}
+                        selectedTradeId={selectedTrade?._id || ""}
+                        onOpenInspect={openInspectView}
+                      />
+                    </Suspense>
+                  </div>
+                ) : null}
                 <div className="saas-settings-actions mt-4">
                   <button type="button" className="btn-primary" onClick={() => setActivePage(tradeDetailReturnPage || "review")}>
                     Back
                   </button>
                   {selectedTrade?.screenshots?.before || selectedTrade?.screenshots?.after ? (
+                    <button
+                      type="button"
+                      className="landing-cta-secondary"
+                      onClick={() => setTradeReplayOpen((current) => !current)}
+                    >
+                      {tradeReplayOpen ? "Hide Replay" : "Replay Screenshots"}
+                    </button>
+                  ) : null}
+                  {selectedTrade?.screenshots?.before || selectedTrade?.screenshots?.after ? (
                     <button type="button" className="landing-cta-secondary" onClick={() => openInspectView(selectedTrade, selectedTrade?.screenshots?.before ? "before" : "after")}>
-                      Inspect Screenshots
+                      Inspect Fullscreen
                     </button>
                   ) : null}
                   <button type="button" className="landing-cta-secondary" onClick={() => void copyTradeSummary(selectedTrade)}>

@@ -145,17 +145,9 @@ const pageMeta = {
     title: "Performance Review",
     subtitle: "Weekly and monthly performance breakdown",
   },
-  ai: {
-    title: "AI Coach",
-    subtitle: "Ask Journex about your trading process, performance, and what to improve next",
-  },
   coaching: {
     title: "Review Coaching",
-    subtitle: "Keep, stop, and test next without crowding the main review page",
-  },
-  replay: {
-    title: "Replay",
-    subtitle: "Review screenshots, calendar flow, and share-ready trade context",
+    subtitle: "Keep, stop, test next, and ask AI without leaving your coaching flow",
   },
   playbooks: {
     title: "Playbooks",
@@ -401,8 +393,8 @@ const App = () => {
   const toastCounterRef = useRef(0);
   const reminderTickRef = useRef(null);
   const debouncedFilters = useDebouncedValue(filters, 180);
-  const includeDetailedTrades = ["review", "replay", "trade-detail"].includes(activePage);
-  const includeTotalTrades = ["review", "replay", "trade-detail"].includes(activePage);
+  const includeDetailedTrades = ["review", "coaching", "trade-detail"].includes(activePage);
+  const includeTotalTrades = ["review", "coaching", "trade-detail"].includes(activePage);
 
   const refreshOfflineQueue = useCallback(() => {
     setOfflineQueue(getOfflineQueue());
@@ -417,7 +409,7 @@ const App = () => {
   }, [theme]);
 
   useEffect(() => {
-    if (activePage !== "review" && reviewRange !== "week") {
+    if (!["review", "coaching", "trade-detail"].includes(activePage) && reviewRange !== "week") {
       setReviewRange("week");
     }
   }, [activePage, reviewRange]);

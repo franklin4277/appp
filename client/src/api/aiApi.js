@@ -1,4 +1,5 @@
 import {
+  applyAiAction as applyAiActionRequest,
   clearAiConversation as clearAiConversationRequest,
   fetchAiCoachConfig,
   fetchAiConversation as fetchAiConversationRequest,
@@ -26,3 +27,9 @@ export const sendAiChat = async ({ profileId, messages = [], context = null, use
     useWeb,
   });
 
+export const applyAiAction = async ({ profileId, action, context = null }) =>
+  applyAiActionRequest(resolveToken(), {
+    profileId,
+    action,
+    context,
+  });

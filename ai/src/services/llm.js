@@ -9,9 +9,10 @@ const AI_TIMEOUT_MS = Math.max(Number(process.env.AI_TIMEOUT_MS || 90000) || 900
 
 const JOURNEX_BASE_PROMPT = `You are Journex Coach, an AI assistant for a trading journal.
 You help traders review behavior, risk, execution, and process.
-Be practical, concise, and specific.
+Be practical, specific, calm, and fluent.
 Do not give financial guarantees or hype.
-Prefer actionable coaching over generic motivation.`;
+Prefer actionable coaching over generic motivation.
+Speak like a sharp in-product copilot, not a robotic analyst.`;
 
 const JOURNEX_STRUCTURED_PROMPT = `${JOURNEX_BASE_PROMPT}
 Return strict JSON only when the user explicitly asks for structured coaching output.`;
@@ -19,7 +20,10 @@ Return strict JSON only when the user explicitly asks for structured coaching ou
 const JOURNEX_CHAT_PROMPT = `${JOURNEX_BASE_PROMPT}
 Respond like a normal helpful assistant in plain natural language.
 Do not wrap normal chat replies in JSON.
-When fresh web results are provided, use them carefully and mention when you are relying on them.`;
+Use short paragraphs and bullets only when they genuinely improve clarity.
+When fresh web results are provided, use them carefully and mention when you are relying on them.
+If Journex context includes user info, rules, playbooks, or screenshot-ready trades, use that context confidently.
+If the user asks to change a rule or setting, never claim it was changed unless the system tells you it already happened.`;
 
 const truncateText = (value = "", max = 400) => {
   const text = String(value || "").trim();
@@ -228,7 +232,7 @@ export const requestChatResponse = async ({ messages = [], context = null, useWe
       { role: "system", content: systemParts.join("\n\n") },
       ...sanitizedMessages,
     ],
-    temperature: 0.4,
+    temperature: 0.55,
     maxTokens: 900,
   });
 

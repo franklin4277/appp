@@ -404,6 +404,28 @@ const aiMessageSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    actionType: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 80,
+    },
+    actionLabel: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 120,
+    },
+    actionStatus: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 40,
+    },
+    actionPayload: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
   },
   { _id: false }
 );
@@ -429,6 +451,12 @@ const aiThreadSchema = new mongoose.Schema(
     updatedAt: {
       type: Date,
       default: Date.now,
+    },
+    memory: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 500,
     },
   },
   { _id: false }
@@ -771,6 +799,13 @@ userSchema.pre("save", function normalizeProfiles(next) {
                 role,
                 content,
                 createdAt: ensureValidDate(message?.createdAt),
+                actionType: normalizeText(message?.actionType || "").slice(0, 80),
+                actionLabel: normalizeText(message?.actionLabel || "").slice(0, 120),
+                actionStatus: normalizeText(message?.actionStatus || "").slice(0, 40),
+                actionPayload:
+                  message?.actionPayload && typeof message.actionPayload === "object"
+                    ? message.actionPayload
+                    : null,
               };
             })
             .filter(Boolean)
@@ -781,6 +816,7 @@ userSchema.pre("save", function normalizeProfiles(next) {
         title: normalizeText(thread?.title || "").slice(0, 120),
         messages,
         updatedAt: ensureValidDate(thread?.updatedAt),
+        memory: normalizeText(thread?.memory || "").slice(0, 500),
       };
     })
     .filter(Boolean)

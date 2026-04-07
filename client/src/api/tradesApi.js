@@ -825,6 +825,21 @@ export const sendAiChat = async (token, payload) => {
   return parseResponse(response);
 };
 
+export const applyAiAction = async (token, payload) => {
+  const response = await fetchWithAuthRetry(
+    `${API_BASE}/api/auth/ai/action`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload || {}),
+    },
+    token
+  );
+  return parseResponse(response);
+};
+
 export const generateMt5BridgeKey = async (token, payload = {}) => {
   const response = await fetchWithAuthRetry(
     `${API_BASE}/api/auth/integrations/mt5/key`,

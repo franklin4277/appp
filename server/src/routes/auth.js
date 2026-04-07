@@ -24,6 +24,7 @@ import {
   updateSettings,
 } from "../controllers/authController.js";
 import {
+  applyAiAction,
   chatWithAi,
   clearAiConversation,
   getAiConfig,
@@ -127,6 +128,7 @@ router.get("/ai/config", requireAuth, getAiConfig);
 router.get("/ai/conversations/:profileId", requireAuth, getAiConversation);
 router.delete("/ai/conversations/:profileId", requireAuth, clearAiConversation);
 router.post("/ai/chat", requireAuth, aiChatLimiter, chatWithAi);
+router.post("/ai/action", requireAuth, aiChatLimiter, applyAiAction);
 router.post("/email-verification/request", requireAuth, recoveryLimiter, requestEmailVerification);
 router.get("/email-delivery/status", requireAuth, getEmailDeliveryStatus);
 router.post("/email-delivery/test", requireAuth, recoveryLimiter, sendEmailDeliveryTest);

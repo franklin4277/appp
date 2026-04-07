@@ -6,10 +6,10 @@ import {
 } from "../api/tradesApi";
 import ThemeToggle from "./ThemeToggle";
 import BrandLogo from "./BrandLogo";
-import AiCoachPanel from "./AiCoachPanel";
 import { PAIRS } from "../utils/options";
 
 const ScreenshotReplay = lazy(() => import("./ScreenshotReplay"));
+const AiCoachPanel = lazy(() => import("./AiCoachPanel"));
 
 const toNumber = (value, fallback = 0) => {
   const parsed = Number(value);
@@ -865,6 +865,14 @@ const SaasWorkspace = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [newProfileName, setNewProfileName] = useState("");
   const [newProfileAccountSize, setNewProfileAccountSize] = useState("");
+  const [playbookDraft, setPlaybookDraft] = useState({
+    name: "",
+    setupType: "",
+    targetSession: "",
+    confirmations: "",
+    checklist: "",
+    notes: "",
+  });
   const [selectedTrade, setSelectedTrade] = useState(null);
   const [tradeDetailReturnPage, setTradeDetailReturnPage] = useState("review");
   const [tradeReplayOpen, setTradeReplayOpen] = useState(false);
@@ -965,6 +973,14 @@ const SaasWorkspace = ({
       maxDailyDrawdownPercent: user?.settings?.riskControls?.maxDailyDrawdownPercent ?? 2,
       strictChecklistGate: Boolean(user?.settings?.riskControls?.strictChecklistGate),
       accountSize: resolvedActiveProfile?.accountSize ?? 0,
+    });
+    setPlaybookDraft({
+      name: "",
+      setupType: resolvedActiveProfile?.setupType || "",
+      targetSession: "",
+      confirmations: "",
+      checklist: "",
+      notes: "",
     });
   }, [user]);
 
@@ -1198,10 +1214,25 @@ const SaasWorkspace = ({
   );
   const aiCoachContext = useMemo(
     () => ({
+      user: {
+        name: user?.name || "",
+        email: user?.email || "",
+        emailVerified: Boolean(user?.emailVerified),
+      },
       profile: {
         name: activeProfile?.name || previewProfileName,
         description: activeProfile?.description || previewProfileDescription,
         accountSize: activeProfileAccountSize || null,
+      },
+      workspace: {
+        currentPage: activePage,
+        canChangeRulesByChat: true,
+        supportedRuleChanges: [
+          "max risk per trade",
+          "daily profit target",
+          "weekly profit target",
+          "max daily drawdown",
+        ],
       },
       overview: {
         totalTrades,
@@ -1231,6 +1262,11 @@ const SaasWorkspace = ({
         dailyProfitTargetPercent,
         weeklyProfitTargetPercent,
         maxDailyDrawdownPercent,
+        fundedMode,
+      },
+      rules: {
+        riskControls: user?.settings?.riskControls || {},
+        fundedMode: user?.settings?.reviewToolkit?.fundedMode || {},
       },
       topPatterns: {
         setups: resolvedSetupTop.slice(0, 3),
@@ -1238,18 +1274,64 @@ const SaasWorkspace = ({
         emotions: Array.isArray(emotionTop) ? emotionTop.slice(0, 3) : [],
         playbooks: playbookStats.slice(0, 3),
       },
+      playbooks: {
+        saved: playbooks.slice(0, 8).map((playbook) => ({
+          id: playbook?.id || "",
+          name: playbook?.name || "",
+          setupType: playbook?.setupType || "",
+          targetSession: playbook?.targetSession || "",
+          confirmations: Array.isArray(playbook?.confirmations) ? playbook.confirmations.slice(0, 4) : [],
+          checklist: Array.isArray(playbook?.checklist) ? playbook.checklist.slice(0, 4) : [],
+          notes: playbook?.notes || "",
+        })),
+      },
       recentTrades: (recentTrades || []).slice(0, 6).map((trade) => ({
         id: trade?._id || trade?.clientTradeId || "",
         date: trade?.tradeDate || trade?.createdAt || "",
         pair: trade?.pair || "",
         session: trade?.session || "",
+        tradeType: trade?.tradeType || "",
         setupType: trade?.setupType || "",
         result: trade?.result || "",
         rrAchieved: toNumber(trade?.rrAchieved),
+        screenshots: {
+          before: trade?.screenshots?.before || "",
+          after: trade?.screenshots?.after || "",
+        },
         notes: String(trade?.notes?.executionReview || trade?.notes?.priceAction || "").trim(),
       })),
+      screenshotTrades: activeReviewTrades
+        .filter((trade) => trade?.screenshots?.before || trade?.screenshots?.after)
+        .slice(0, 8)
+        .map((trade) => ({
+          id: trade?._id || trade?.clientTradeId || "",
+          date: trade?.tradeDate || trade?.createdAt || "",
+          pair: trade?.pair || "",
+          session: trade?.session || "",
+          setupType: trade?.setupType || "",
+          result: trade?.result || "",
+          before: trade?.screenshots?.before || "",
+          after: trade?.screenshots?.after || "",
+        })),
+      selectedTrade: selectedTrade
+        ? {
+            id: selectedTrade?._id || selectedTrade?.clientTradeId || "",
+            pair: selectedTrade?.pair || "",
+            tradeType: selectedTrade?.tradeType || "",
+            session: selectedTrade?.session || "",
+            setupType: selectedTrade?.setupType || "",
+            result: selectedTrade?.result || "",
+            rrAchieved: toNumber(selectedTrade?.rrAchieved),
+            notes: selectedTrade?.notes || {},
+            screenshots: {
+              before: selectedTrade?.screenshots?.before || "",
+              after: selectedTrade?.screenshots?.after || "",
+            },
+          }
+        : null,
     }),
     [
+      activePage,
       activeProfile?.description,
       activeProfile?.name,
       activeProfileAccountSize,
@@ -1262,19 +1344,28 @@ const SaasWorkspace = ({
       dailyProfitTargetPercent,
       emotionTop,
       expectancyValue,
+      fundedMode,
       maxDailyDrawdownPercent,
       maxRiskPerTradePercent,
       netRR,
       overallAvgRR,
       overallWinRate,
+      playbooks,
       playbookStats,
       previewProfileDescription,
       previewProfileName,
       recentTrades,
       resolvedSessionTop,
       resolvedSetupTop,
+      selectedTrade,
+      user?.email,
+      user?.emailVerified,
+      user?.name,
+      user?.settings?.reviewToolkit?.fundedMode,
+      user?.settings?.riskControls,
       reviewBestSession,
       reviewBestSetup,
+      activeReviewTrades,
       reviewMistakeStats,
       reviewScores,
       reviewScreenshotCoverage,
@@ -1566,6 +1657,79 @@ const SaasWorkspace = ({
     setTradeReplayOpen(false);
   }, [selectedTrade?._id]);
 
+  const parsePlaybooksJson = useCallback(() => {
+    try {
+      const raw = JSON.parse(settingsDraft.playbooksJson || "[]");
+      return Array.isArray(raw) ? raw : [];
+    } catch {
+      return null;
+    }
+  }, [settingsDraft.playbooksJson]);
+
+  const handleAddPlaybookDraft = useCallback(() => {
+    const name = String(playbookDraft.name || "").trim();
+    if (name.length < 2) {
+      window.alert("Give the playbook a name first.");
+      return;
+    }
+
+    const existing = parsePlaybooksJson();
+    if (!existing) {
+      window.alert("Playbooks JSON is invalid. Fix it first or clear it before adding a visual playbook.");
+      return;
+    }
+
+    const slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 64);
+    const nextPlaybook = {
+      id: slug || `playbook-${existing.length + 1}`,
+      name,
+      setupType: String(playbookDraft.setupType || "").trim(),
+      targetSession: String(playbookDraft.targetSession || "").trim(),
+      confirmations: String(playbookDraft.confirmations || "")
+        .split(/[\n,]/g)
+        .map((item) => item.trim())
+        .filter(Boolean),
+      invalidations: [],
+      checklist: String(playbookDraft.checklist || "")
+        .split(/[\n,]/g)
+        .map((item) => item.trim())
+        .filter(Boolean),
+      notes: String(playbookDraft.notes || "").trim(),
+    };
+
+    const filtered = existing.filter((playbook) => String(playbook?.id || "") !== nextPlaybook.id);
+    const nextList = [...filtered, nextPlaybook];
+    setSettingsDraft((prev) => ({
+      ...prev,
+      playbooksJson: JSON.stringify(nextList, null, 2),
+    }));
+    setPlaybookDraft({
+      name: "",
+      setupType: "",
+      targetSession: "",
+      confirmations: "",
+      checklist: "",
+      notes: "",
+    });
+  }, [parsePlaybooksJson, playbookDraft]);
+
+  const handleRemovePlaybook = useCallback((playbookId) => {
+    const existing = parsePlaybooksJson();
+    if (!existing) {
+      window.alert("Playbooks JSON is invalid. Fix it first before removing a playbook.");
+      return;
+    }
+    const nextList = existing.filter((playbook) => String(playbook?.id || "") !== String(playbookId || ""));
+    setSettingsDraft((prev) => ({
+      ...prev,
+      playbooksJson: JSON.stringify(nextList, null, 2),
+    }));
+  }, [parsePlaybooksJson]);
+
   const handleSaveSettings = useCallback(() => {
     if (typeof handleUpdateUserSettings !== "function") {
       return;
@@ -1593,11 +1757,8 @@ const SaasWorkspace = ({
       setSettingsDraft((prev) => ({ ...prev, pairs: nextPairsCsv }));
     }
 
-    let parsedPlaybooks = [];
-    try {
-      const raw = JSON.parse(settingsDraft.playbooksJson || "[]");
-      parsedPlaybooks = Array.isArray(raw) ? raw : [];
-    } catch {
+    const parsedPlaybooks = parsePlaybooksJson();
+    if (!parsedPlaybooks) {
       window.alert("Playbooks JSON is invalid. Fix the JSON before saving settings.");
       return;
     }
@@ -1632,7 +1793,7 @@ const SaasWorkspace = ({
         maxDailyDrawdownPercent: Number(settingsDraft.maxDailyDrawdownPercent) || 0,
       },
     });
-  }, [handleUpdateUserSettings, setSettingsDraft, settingsDraft]);
+  }, [handleUpdateUserSettings, parsePlaybooksJson, setSettingsDraft, settingsDraft]);
 
   const openTrade = async (trade) => {
     if (!trade) {
@@ -1680,6 +1841,32 @@ const SaasWorkspace = ({
     },
     [openTrade]
   );
+
+  const handleAiUiAction = useCallback((action) => {
+    if (!action || typeof action !== "object") {
+      return;
+    }
+
+    if (action.type === "navigate" && action.payload?.page) {
+      setActivePage(action.payload.page);
+      return;
+    }
+
+    if (action.type === "open-trade" && action.payload?.tradeId) {
+      const tradeId = String(action.payload.tradeId || "");
+      const trade =
+        allTrades.find((item) => String(item?._id || item?.clientTradeId || "") === tradeId) ||
+        recentTrades.find((item) => String(item?._id || item?.clientTradeId || "") === tradeId) ||
+        null;
+      if (trade) {
+        void openTrade(trade).then(() => {
+          if (action.payload?.focus && (trade?.screenshots?.before || trade?.screenshots?.after)) {
+            setTradeReplayOpen(true);
+          }
+        });
+      }
+    }
+  }, [allTrades, openTrade, recentTrades, setActivePage]);
 
   const openInspectView = useCallback((trade, slot = "before") => {
     if (!trade?._id) {
@@ -2494,8 +2681,8 @@ const SaasWorkspace = ({
                   </div>
                 ))}
               </div>
-              <button type="button" className="landing-cta-secondary !w-full" onClick={() => setActivePage("behavior")}>
-                Behavior Analysis
+              <button type="button" className="landing-cta-secondary !w-full" onClick={() => setActivePage("coaching")}>
+                Open Coaching
               </button>
             </article>
           </div>
@@ -2639,6 +2826,22 @@ const SaasWorkspace = ({
                   ))}
                 </div>
               </label>
+              <div>
+                <span className="label">Direction</span>
+                <div className="chip-row mt-2">
+                  {["Buy", "Sell"].map((option) => (
+                    <button
+                      key={`trade-type-${option}`}
+                      type="button"
+                      className={`chip-btn ${quickTradeForm.tradeType === option ? "chip-btn-active" : ""}`}
+                      onClick={() => handleQuickTradeChange("tradeType", option)}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+                <p className="input-hint">Use this to calculate default stop/target direction and trade outcome correctly.</p>
+              </div>
               <label>
                 <span className="label">Entry Price</span>
                 <input
@@ -3702,29 +3905,18 @@ const SaasWorkspace = ({
                 </button>
               </div>
             </article>
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Review shares</p>
-              <h3>{reviewShares.length}</h3>
+            <article className="panel saas-card saas-insight-card saas-review-tools-card">
+              <p className="saas-stat-kicker">Review tools</p>
+              <h3>{reviewShares.length ? `${reviewShares.length} share${reviewShares.length === 1 ? "" : "s"}` : "Ready"}</h3>
               <p className="saas-stat-label">
-                {reviewShares.length
-                  ? "Share links for this review are ready to reuse or revoke."
-                  : "Create a weekly share link without leaving the review page."}
+                {fundedProgress
+                  ? `${fundedProgress.tradingDays} trading days tracked with ${fundedProgress.profitProgress.toFixed(0)}% funded-target progress.`
+                  : "Create a review share and jump into Risk Center without leaving this page."}
               </p>
               <div className="saas-settings-actions mt-3">
                 <button type="button" className="landing-cta-secondary" onClick={() => void handleCreateReviewShare()} disabled={!isOnline || shareBusy}>
-                  {shareBusy ? "Creating..." : "Create Review Share"}
+                  {shareBusy ? "Creating..." : reviewShares.length ? "New Review Share" : "Create Review Share"}
                 </button>
-              </div>
-            </article>
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Risk + funded</p>
-              <h3>{fundedMode.enabled ? fundedMode.provider || "Enabled" : "Off"}</h3>
-              <p className="saas-stat-label">
-                {fundedProgress
-                  ? `${fundedProgress.tradingDays} trading days logged with ${fundedProgress.profitProgress.toFixed(0)}% target progress.`
-                  : "Keep risk rules, goals, and funded challenge tracking in one cleaner place."}
-              </p>
-              <div className="saas-settings-actions mt-3">
                 <button type="button" className="landing-cta-secondary" onClick={() => setActivePage("risk")}>
                   Open Risk Center
                 </button>
@@ -3938,6 +4130,7 @@ const SaasWorkspace = ({
             context={aiCoachContext}
             activeProfileName={activeProfile?.name || previewProfileName}
             profileId={activeProfile?.id || user?.activeProfileId || "main"}
+            onExecuteAction={handleAiUiAction}
           />
         </section>
       ) : null}
@@ -3974,8 +4167,114 @@ const SaasWorkspace = ({
             <div className="saas-card-head">
               <div>
                 <h3 className="saas-card-title">Playbook Library</h3>
-                <p className="saas-card-subtitle">See your playbooks first. Raw JSON is tucked away unless you actually need it.</p>
+                <p className="saas-card-subtitle">Build and manage playbooks visually first. Raw JSON is tucked away only for advanced bulk edits.</p>
               </div>
+            </div>
+            <div className="saas-main-grid mt-4">
+              <article className="saas-note-card">
+                <h4>Quick Builder</h4>
+                <div className="saas-form-grid mt-3">
+                  <label>
+                    <span className="label">Playbook name</span>
+                    <input
+                      className="input"
+                      value={playbookDraft.name}
+                      onChange={(event) => setPlaybookDraft((prev) => ({ ...prev, name: event.target.value }))}
+                      placeholder="London continuation"
+                      disabled={!isOnline || savingUserSettings}
+                    />
+                  </label>
+                  <label>
+                    <span className="label">Setup</span>
+                    <select
+                      className="input"
+                      value={playbookDraft.setupType}
+                      onChange={(event) => setPlaybookDraft((prev) => ({ ...prev, setupType: event.target.value }))}
+                      disabled={!isOnline || savingUserSettings}
+                    >
+                      <option value="">No setup</option>
+                      {setupOptions.map((option) => (
+                        <option key={`playbook-setup-${option}`} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span className="label">Target session</span>
+                    <select
+                      className="input"
+                      value={playbookDraft.targetSession}
+                      onChange={(event) => setPlaybookDraft((prev) => ({ ...prev, targetSession: event.target.value }))}
+                      disabled={!isOnline || savingUserSettings}
+                    >
+                      <option value="">Any session</option>
+                      {sessionOptions.map((option) => (
+                        <option key={`playbook-session-${option}`} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="saas-settings-span-full">
+                    <span className="label">Confirmations</span>
+                    <input
+                      className="input"
+                      value={playbookDraft.confirmations}
+                      onChange={(event) => setPlaybookDraft((prev) => ({ ...prev, confirmations: event.target.value }))}
+                      placeholder="Liquidity sweep, displacement, reclaim"
+                      disabled={!isOnline || savingUserSettings}
+                    />
+                  </label>
+                  <label className="saas-settings-span-full">
+                    <span className="label">Checklist</span>
+                    <input
+                      className="input"
+                      value={playbookDraft.checklist}
+                      onChange={(event) => setPlaybookDraft((prev) => ({ ...prev, checklist: event.target.value }))}
+                      placeholder="Bias aligned, stop defined, target mapped"
+                      disabled={!isOnline || savingUserSettings}
+                    />
+                  </label>
+                  <label className="saas-settings-span-full">
+                    <span className="label">Notes</span>
+                    <textarea
+                      className="input"
+                      rows={3}
+                      value={playbookDraft.notes}
+                      onChange={(event) => setPlaybookDraft((prev) => ({ ...prev, notes: event.target.value }))}
+                      placeholder="What makes this playbook valid and when should you leave it alone?"
+                      disabled={!isOnline || savingUserSettings}
+                    />
+                  </label>
+                </div>
+                <div className="saas-settings-actions mt-4">
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={handleAddPlaybookDraft}
+                    disabled={!isOnline || savingUserSettings}
+                  >
+                    Add Playbook Draft
+                  </button>
+                  <button
+                    type="button"
+                    className="landing-cta-secondary"
+                    onClick={handleSaveSettings}
+                    disabled={!isOnline || savingUserSettings}
+                  >
+                    {savingUserSettings ? "Saving..." : "Save Playbooks"}
+                  </button>
+                </div>
+              </article>
+              <article className="saas-note-card">
+                <h4>How it works</h4>
+                <ul className="saas-note-list saas-note-list-plain mt-3">
+                  <li><span><strong>1.</strong> Build or update the playbook visually here.</span></li>
+                  <li><span><strong>2.</strong> Save once to sync it into Journex.</span></li>
+                  <li><span><strong>3.</strong> Attach it in Add Trade so AI and Review can compare execution against the plan.</span></li>
+                </ul>
+              </article>
             </div>
             <div className="saas-main-grid mt-4">
               {playbooks.length ? (
@@ -3985,6 +4284,7 @@ const SaasWorkspace = ({
                     <p className="saas-playbook-meta mt-2">
                       <span>{playbook.setupType || "No setup"}</span>
                       {playbook.targetSession ? <span>{playbook.targetSession}</span> : null}
+                      <span>{Array.isArray(playbook.confirmations) ? `${playbook.confirmations.length} confirmations` : "0 confirmations"}</span>
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {Array.isArray(playbook.confirmations)
@@ -3999,14 +4299,26 @@ const SaasWorkspace = ({
                         : null}
                     </div>
                     <p className="saas-stat-label mt-3">
-                      ID: <strong>{playbook.id}</strong>
+                      {Array.isArray(playbook.checklist) && playbook.checklist.length
+                        ? `${playbook.checklist.length} checklist step${playbook.checklist.length === 1 ? "" : "s"} saved for this setup.`
+                        : "Add checklist items to make this playbook easier to follow in live trades."}
                     </p>
+                    <div className="saas-settings-actions mt-3">
+                      <button
+                        type="button"
+                        className="landing-cta-secondary"
+                        onClick={() => handleRemovePlaybook(playbook.id)}
+                        disabled={!isOnline || savingUserSettings}
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </article>
                 ))
               ) : (
                 <div className="saas-empty-state">
                   <strong>No playbooks yet</strong>
-                  <p>Create one in the advanced editor or import your existing JSON to start comparing live execution against your playbook library.</p>
+                  <p>Start with the quick builder above, then save once to compare live execution against your playbook library.</p>
                 </div>
               )}
             </div>

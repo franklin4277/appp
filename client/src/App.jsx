@@ -37,6 +37,7 @@ import {
   ADVANCED_ANALYTICS_STORAGE_KEY,
   GROUP_PAGE_STORAGE_KEY,
   NAV_PAGES,
+  PAGE_ALIASES,
   PAGES,
   PAGE_SHORTCUTS,
   PAGE_STORAGE_KEY,
@@ -143,11 +144,11 @@ const pageMeta = {
   },
   review: {
     title: "Performance Review",
-    subtitle: "Weekly and monthly performance breakdown",
+    subtitle: "Weekly review, edge tracking, and screenshot-ready trade follow-up",
   },
   coaching: {
     title: "Review Coaching",
-    subtitle: "Keep, stop, test next, and ask AI without leaving your coaching flow",
+    subtitle: "Behavior coaching, AI guidance, and process adjustments in one place",
   },
   playbooks: {
     title: "Playbooks",
@@ -173,7 +174,12 @@ const RouteLoader = ({ message = "Loading..." }) => (
   </main>
 );
 
-const findPageByKey = (key) => PAGES.find((page) => page.key === key) || null;
+const normalizePageKey = (key = "") => {
+  const normalized = String(key || "").trim();
+  return PAGE_ALIASES[normalized] || normalized;
+};
+
+const findPageByKey = (key) => PAGES.find((page) => page.key === normalizePageKey(key)) || null;
 
 const readGroupPageMemory = () => {
   try {
@@ -279,6 +285,7 @@ const groupedStats = (trades = [], selector = () => "") =>
 const buildQuickTradeForm = ({ setupOptions = [], sessionOptions = [], pairOptions = [], defaults = {} } = {}) => ({
   tradeDate: new Date().toISOString().slice(0, 10),
   pair: defaults.pair || pairOptions[0] || "",
+  tradeType: defaults.tradeType || "Buy",
   entryPrice: "",
   exitPrice: "",
   stopLoss: "",
@@ -363,18 +370,21 @@ const App = () => {
   });
   const [reviewRange, setReviewRange] = useState("week");
   const [activePage, setActivePage] = useState(() => {
-    const stored = localStorage.getItem(PAGE_STORAGE_KEY);
+    const stored = normalizePageKey(localStorage.getItem(PAGE_STORAGE_KEY));
     const storedPage = findPageByKey(stored);
     if (storedPage?.nav !== false) {
       return storedPage.key;
     }
     const groupPages = readGroupPageMemory();
-    const fallbackReviewPage = findPageByKey(groupPages.Review);
+    const fallbackReviewPage = findPageByKey(normalizePageKey(groupPages.Review));
     if (fallbackReviewPage?.nav !== false) {
       return fallbackReviewPage.key;
     }
     return "journal";
   });
+  const handleSetActivePage = useCallback((nextPage) => {
+    setActivePage(normalizePageKey(nextPage));
+  }, []);
   const [isCompactMobile, setIsCompactMobile] = useState(() =>
     window.matchMedia ? window.matchMedia("(max-width: 768px)").matches : false
   );
@@ -1555,6 +1565,7 @@ const App = () => {
       pair: String(lastTrade?.pair || "")
         .toUpperCase()
         .replace(/[^A-Z0-9]/g, ""),
+      tradeType: String(lastTrade?.tradeType || "").trim() || "Buy",
       setupType: String(lastTrade?.setupType || "").trim(),
       playbookId: String(lastTrade?.playbookId || "").trim(),
       session: String(lastTrade?.session || "").trim(),
@@ -1572,6 +1583,7 @@ const App = () => {
     setQuickTradeForm((prev) => ({
       ...prev,
       pair: recentQuickTradeDefaults.pair || prev.pair,
+      tradeType: recentQuickTradeDefaults.tradeType || prev.tradeType,
       setupType: recentQuickTradeDefaults.setupType || prev.setupType,
       playbookId: recentQuickTradeDefaults.playbookId || prev.playbookId,
       session: recentQuickTradeDefaults.session || prev.session,
@@ -1615,8 +1627,9 @@ const App = () => {
         return;
       }
 
-      const defaultStop = round(entryPrice * 0.995, 5);
-      const defaultTake = round(entryPrice * 1.01, 5);
+      const tradeType = String(quickTradeForm.tradeType || "Buy").trim().toLowerCase() === "sell" ? "Sell" : "Buy";
+      const defaultStop = round(tradeType === "Sell" ? entryPrice * 1.005 : entryPrice * 0.995, 5);
+      const defaultTake = round(tradeType === "Sell" ? entryPrice * 0.99 : entryPrice * 1.01, 5);
       const stopLoss = Number.isFinite(stopLossValue) && stopLossValue > 0 ? stopLossValue : defaultStop;
       const takeProfit = Number.isFinite(takeProfitValue) && takeProfitValue > 0 ? takeProfitValue : defaultTake;
       if (!Number.isFinite(stopLoss) || stopLoss <= 0 || !Number.isFinite(takeProfit) || takeProfit <= 0) {
@@ -1641,7 +1654,11 @@ const App = () => {
         stopLoss,
         pair,
       });
-      const isWinning = Number.isFinite(exitPrice) ? exitPrice >= entryPrice : false;
+      const isWinning = Number.isFinite(exitPrice)
+        ? tradeType === "Sell"
+          ? exitPrice <= entryPrice
+          : exitPrice >= entryPrice
+        : false;
       const result = Number.isFinite(exitPrice) ? (isWinning ? "Win" : "Loss") : "BE";
       const rrAchieved = Number.isFinite(exitPrice)
         ? round((Math.abs(exitPrice - entryPrice) / Math.max(Math.abs(entryPrice - stopLoss), 0.00001)) * (isWinning ? 1 : -1), 2)
@@ -1660,7 +1677,7 @@ const App = () => {
       data.append("pair", pair);
       data.append("tradeDate", quickTradeForm.tradeDate || new Date().toISOString().slice(0, 10));
       data.append("session", safeSession);
-      data.append("tradeType", "Buy");
+      data.append("tradeType", tradeType);
       data.append("setupType", safeSetupType);
       data.append("playbookId", playbook?.id || "");
       data.append("playbookName", playbook?.name || "");
@@ -1864,7 +1881,7 @@ const App = () => {
       <SaasWorkspace
         token={token}
         activePage={activePage}
-        setActivePage={setActivePage}
+        setActivePage={handleSetActivePage}
         pages={PAGES}
         activeMeta={activeMeta}
         user={user}

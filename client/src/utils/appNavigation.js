@@ -2,8 +2,6 @@ export const PAGES = [
   { key: "dashboard", label: "Dashboard", group: "Core", nav: true, mobile: true },
   { key: "journal", label: "Add Trade", group: "Core", nav: true, mobile: true },
   { key: "analytics", label: "Analytics", group: "Core", nav: true, mobile: true },
-  { key: "edge", label: "Edge Detection", group: "Review", nav: false, mobile: false },
-  { key: "behavior", label: "Behavior", group: "Review", nav: false, mobile: false },
   { key: "review", label: "Review", group: "Review", nav: true, mobile: true },
   { key: "coaching", label: "Coaching", group: "Review", nav: true, mobile: true },
   { key: "playbooks", label: "Playbooks", group: "Setup", nav: true, mobile: true },

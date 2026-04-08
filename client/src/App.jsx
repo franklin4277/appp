@@ -134,14 +134,6 @@ const pageMeta = {
     title: "Analytics",
     subtitle: "Deep dive into your trading performance",
   },
-  edge: {
-    title: "Edge Detection",
-    subtitle: "Discover what's working and what's not",
-  },
-  behavior: {
-    title: "Behavior Tracking",
-    subtitle: "Understand the psychology behind your trades",
-  },
   review: {
     title: "Performance Review",
     subtitle: "Weekly review, edge tracking, and screenshot-ready trade follow-up",
@@ -1954,6 +1946,7 @@ const App = () => {
         allTrades={closedTrades}
         reviewRange={reviewRange}
         setReviewRange={setReviewRange}
+        onNotify={pushToast}
       />
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </main>

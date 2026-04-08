@@ -704,6 +704,7 @@ const SaasWorkspace = ({
   allTrades,
   reviewRange,
   setReviewRange,
+  onNotify,
 }) => {
   const reviewConfig = {
     week: {
@@ -854,8 +855,6 @@ const SaasWorkspace = ({
     dashboard: "Dashboard",
     journal: "Add Trade",
     analytics: "Analytics",
-    edge: "Edge",
-    behavior: "Behavior",
     review: "Review",
     coaching: "Coaching",
     playbooks: "Playbooks",
@@ -865,6 +864,7 @@ const SaasWorkspace = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [newProfileName, setNewProfileName] = useState("");
   const [newProfileAccountSize, setNewProfileAccountSize] = useState("");
+  const [playbookImportText, setPlaybookImportText] = useState("[]");
   const [playbookDraft, setPlaybookDraft] = useState({
     name: "",
     setupType: "",
@@ -885,7 +885,7 @@ const SaasWorkspace = ({
     pairs: "",
     sessions: "",
     setupTypes: "",
-    playbooksJson: "",
+    playbooks: [],
     mistakeTags: "",
     fundedModeEnabled: false,
     fundedProvider: "",
@@ -930,6 +930,15 @@ const SaasWorkspace = ({
     return initials || "J";
   }, [user?.email, user?.name]);
 
+  const notify = useCallback(
+    (type, message) => {
+      if (typeof onNotify === "function") {
+        onNotify(type, message);
+      }
+    },
+    [onNotify]
+  );
+
   useEffect(() => {
     const resolvedActiveProfile =
       (user?.profiles || []).find((profile) => profile.id === (user?.activeProfileId || "main")) || null;
@@ -955,7 +964,7 @@ const SaasWorkspace = ({
       pairs: toCsv(user?.settings?.options?.pairs || []),
       sessions: toCsv(user?.settings?.options?.sessions || []),
       setupTypes: toCsv(user?.settings?.options?.setupTypes || []),
-      playbooksJson: JSON.stringify(safePlaybooks, null, 2),
+      playbooks: safePlaybooks,
       mistakeTags: toCsv(user?.settings?.reviewToolkit?.mistakeTags || []),
       fundedModeEnabled: Boolean(user?.settings?.reviewToolkit?.fundedMode?.enabled),
       fundedProvider: user?.settings?.reviewToolkit?.fundedMode?.provider || "",
@@ -974,6 +983,7 @@ const SaasWorkspace = ({
       strictChecklistGate: Boolean(user?.settings?.riskControls?.strictChecklistGate),
       accountSize: resolvedActiveProfile?.accountSize ?? 0,
     });
+    setPlaybookImportText(JSON.stringify(safePlaybooks, null, 2));
     setPlaybookDraft({
       name: "",
       setupType: resolvedActiveProfile?.setupType || "",
@@ -1100,6 +1110,10 @@ const SaasWorkspace = ({
   const playbooks = useMemo(
     () => (Array.isArray(user?.settings?.playbooks) ? user.settings.playbooks : []),
     [user?.settings?.playbooks]
+  );
+  const draftPlaybooks = useMemo(
+    () => (Array.isArray(settingsDraft.playbooks) ? settingsDraft.playbooks : []),
+    [settingsDraft.playbooks]
   );
   const selectedPlaybook = useMemo(
     () => playbooks.find((playbook) => String(playbook?.id || "") === String(quickTradeForm.playbookId || "")) || null,
@@ -1657,27 +1671,22 @@ const SaasWorkspace = ({
     setTradeReplayOpen(false);
   }, [selectedTrade?._id]);
 
-  const parsePlaybooksJson = useCallback(() => {
+  const parsePlaybooksImport = useCallback(() => {
     try {
-      const raw = JSON.parse(settingsDraft.playbooksJson || "[]");
+      const raw = JSON.parse(playbookImportText || "[]");
       return Array.isArray(raw) ? raw : [];
     } catch {
       return null;
     }
-  }, [settingsDraft.playbooksJson]);
+  }, [playbookImportText]);
 
   const handleAddPlaybookDraft = useCallback(() => {
     const name = String(playbookDraft.name || "").trim();
     if (name.length < 2) {
-      window.alert("Give the playbook a name first.");
+      notify("error", "Give the playbook a name first.");
       return;
     }
-
-    const existing = parsePlaybooksJson();
-    if (!existing) {
-      window.alert("Playbooks JSON is invalid. Fix it first or clear it before adding a visual playbook.");
-      return;
-    }
+    const existing = Array.isArray(settingsDraft.playbooks) ? settingsDraft.playbooks : [];
 
     const slug = name
       .toLowerCase()
@@ -1705,8 +1714,9 @@ const SaasWorkspace = ({
     const nextList = [...filtered, nextPlaybook];
     setSettingsDraft((prev) => ({
       ...prev,
-      playbooksJson: JSON.stringify(nextList, null, 2),
+      playbooks: nextList,
     }));
+    setPlaybookImportText(JSON.stringify(nextList, null, 2));
     setPlaybookDraft({
       name: "",
       setupType: "",
@@ -1715,20 +1725,38 @@ const SaasWorkspace = ({
       checklist: "",
       notes: "",
     });
-  }, [parsePlaybooksJson, playbookDraft]);
+    notify("success", `${name} added to your playbook library.`);
+  }, [notify, playbookDraft, settingsDraft.playbooks]);
 
   const handleRemovePlaybook = useCallback((playbookId) => {
-    const existing = parsePlaybooksJson();
-    if (!existing) {
-      window.alert("Playbooks JSON is invalid. Fix it first before removing a playbook.");
-      return;
-    }
+    const existing = Array.isArray(settingsDraft.playbooks) ? settingsDraft.playbooks : [];
     const nextList = existing.filter((playbook) => String(playbook?.id || "") !== String(playbookId || ""));
     setSettingsDraft((prev) => ({
       ...prev,
-      playbooksJson: JSON.stringify(nextList, null, 2),
+      playbooks: nextList,
     }));
-  }, [parsePlaybooksJson]);
+    setPlaybookImportText(JSON.stringify(nextList, null, 2));
+    notify("success", "Playbook removed.");
+  }, [notify, settingsDraft.playbooks]);
+
+  const handleApplyPlaybookImport = useCallback(() => {
+    const parsed = parsePlaybooksImport();
+    if (!parsed) {
+      notify("error", "Playbook JSON is invalid. Fix the JSON before importing.");
+      return;
+    }
+    setSettingsDraft((prev) => ({
+      ...prev,
+      playbooks: parsed,
+    }));
+    notify("success", `Imported ${parsed.length} playbook${parsed.length === 1 ? "" : "s"} into the library draft.`);
+  }, [notify, parsePlaybooksImport]);
+
+  const handleResetPlaybookImport = useCallback(() => {
+    const nextText = JSON.stringify(Array.isArray(settingsDraft.playbooks) ? settingsDraft.playbooks : [], null, 2);
+    setPlaybookImportText(nextText);
+    notify("success", "Advanced playbook JSON reset to the current library.");
+  }, [notify, settingsDraft.playbooks]);
 
   const handleSaveSettings = useCallback(() => {
     if (typeof handleUpdateUserSettings !== "function") {
@@ -1757,19 +1785,13 @@ const SaasWorkspace = ({
       setSettingsDraft((prev) => ({ ...prev, pairs: nextPairsCsv }));
     }
 
-    const parsedPlaybooks = parsePlaybooksJson();
-    if (!parsedPlaybooks) {
-      window.alert("Playbooks JSON is invalid. Fix the JSON before saving settings.");
-      return;
-    }
-
     void handleUpdateUserSettings({
       options: {
         pairs: nextPairs,
         sessions: fromCsv(settingsDraft.sessions),
         setupTypes: fromCsv(settingsDraft.setupTypes),
       },
-      playbooks: parsedPlaybooks,
+      playbooks: Array.isArray(settingsDraft.playbooks) ? settingsDraft.playbooks : [],
       reviewToolkit: {
         mistakeTags: fromCsv(settingsDraft.mistakeTags),
         fundedMode: {
@@ -1793,7 +1815,7 @@ const SaasWorkspace = ({
         maxDailyDrawdownPercent: Number(settingsDraft.maxDailyDrawdownPercent) || 0,
       },
     });
-  }, [handleUpdateUserSettings, parsePlaybooksJson, setSettingsDraft, settingsDraft]);
+  }, [handleUpdateUserSettings, setSettingsDraft, settingsDraft]);
 
   const openTrade = async (trade) => {
     if (!trade) {
@@ -2602,8 +2624,8 @@ const SaasWorkspace = ({
             ) : (
               <p>No closed trades yet. Log trades to unlock edge insights.</p>
             )}
-            <button type="button" className="chip quick-chart-btn" onClick={() => setActivePage("edge")}>
-              View Full Analysis
+            <button type="button" className="btn-secondary quick-chart-btn" onClick={() => setActivePage("review")}>
+              Open Review
             </button>
           </article>
 
@@ -3231,7 +3253,7 @@ const SaasWorkspace = ({
               </button>
               <button
                 type="button"
-                className="landing-cta-secondary"
+                className="btn-secondary"
                 onClick={resetQuickTradeForm}
                 disabled={savingQuickTrade}
               >
@@ -3458,246 +3480,6 @@ const SaasWorkspace = ({
         </section>
       ) : null}
 
-      {activePage === "edge" ? (
-        <section className="space-y-4 saas-page-section saas-page-edge">
-          <article className="panel saas-edge-banner saas-edge-banner-primary">
-            <div className="saas-banner-head">
-              <span className="saas-stat-icon saas-stat-icon-blue">
-                <IconGlyph name="pulse" />
-              </span>
-              <h3>Your Trading Edge</h3>
-            </div>
-            <p>
-              Best Setup: <span>{resolvedSetupTop[0]?.label || "N/A"}</span> ({resolvedSetupTop[0]?.winRate ?? 0}% WR)
-              <span className="ml-3">Best Session: {resolvedSessionTop[0]?.label || "N/A"} ({resolvedSessionTop[0]?.winRate ?? 0}% WR)</span>
-            </p>
-            <p className="saas-stat-label">
-              Confidence: setup {topSetupConfidence.label.toLowerCase()} | session {topSessionConfidence.label.toLowerCase()}
-            </p>
-          </article>
-
-          {!totalTrades ? (
-            <article className="saas-alert">
-              Log a few closed trades to unlock edge rankings and signals.
-            </article>
-          ) : null}
-
-          <div className="saas-stats-grid saas-stats-grid-primary">
-            <article className="panel saas-card">
-              <div className="saas-stat-head">
-                <span className="saas-stat-icon saas-stat-icon-violet">
-                  <IconGlyph name="rr" />
-                </span>
-                <p className="saas-stat-kicker">RR per trade</p>
-              </div>
-              <p className="saas-stat-value">
-                {expectancyValue >= 0 ? "+" : "-"}
-                {Math.abs(toNumber(expectancyValue)).toFixed(2)}R
-              </p>
-              <p className="saas-stat-label">Expectancy</p>
-            </article>
-            <article className="panel saas-card">
-              <div className="saas-stat-head">
-                <span className="saas-stat-icon saas-stat-icon-green">
-                  <IconGlyph name="money" />
-                </span>
-                <p className="saas-stat-kicker">Cumulative</p>
-              </div>
-              <p className="saas-stat-value">
-                {toNumber(resolvedEdgeInsights?.equityNow) >= 0 ? "+" : "-"}
-                {Math.abs(toNumber(resolvedEdgeInsights?.equityNow)).toFixed(2)}R
-              </p>
-              <p className="saas-stat-label">Equity</p>
-            </article>
-            <article className="panel saas-card">
-              <div className="saas-stat-head">
-                <span className="saas-stat-icon saas-stat-icon-red">
-                  <IconGlyph name="warn" />
-                </span>
-                <p className="saas-stat-kicker">Peak to trough</p>
-              </div>
-              <p className="saas-stat-value">
-                {Math.abs(toNumber(resolvedEdgeInsights?.maxDrawdown)) > 0
-                  ? `-${Math.abs(toNumber(resolvedEdgeInsights?.maxDrawdown)).toFixed(2)}R`
-                  : "0.00R"}
-              </p>
-              <p className="saas-stat-label">Max drawdown</p>
-            </article>
-            <article className="panel saas-card">
-              <div className="saas-stat-head">
-                <span className="saas-stat-icon saas-stat-icon-blue">
-                  <IconGlyph name="calendar" />
-                </span>
-                <p className="saas-stat-kicker">Last 7 days</p>
-              </div>
-              <p className="saas-stat-value">{weeklyTrades?.length || 0}</p>
-              <p className="saas-stat-label">Trades this week</p>
-            </article>
-          </div>
-
-          {resolvedEdgeInsights?.worstHabit ? (
-            <article className="panel saas-card">
-              <h3 className="saas-card-title">Leak To Fix</h3>
-              <p className="text-sm font-semibold text-textMain">{resolvedEdgeInsights.worstHabit.title}</p>
-              <p className="saas-stat-label mt-2">{resolvedEdgeInsights.worstHabit.detail}</p>
-            </article>
-          ) : null}
-
-          {resolvedEdgeInsights?.notifications?.length ? (
-            <article className="panel saas-card">
-              <h3 className="saas-card-title">Signals</h3>
-              <ul className="saas-signal-list">
-                {resolvedEdgeInsights.notifications.map((note) => (
-                  <li
-                    key={note.id}
-                    className={`saas-signal ${note.level === "warn" ? "saas-signal-warn" : "saas-signal-info"}`}
-                  >
-                    {note.message}
-                  </li>
-                ))}
-              </ul>
-            </article>
-          ) : null}
-
-          <div className="saas-main-grid">
-            <article className="panel saas-card">
-              <h3 className="saas-card-title">Setup Rankings</h3>
-              <div className="saas-ranking-list">
-                {resolvedSetupTop.map((item, index) => (
-                  <div key={item.label} className="saas-ranking-item">
-                    <div className="saas-ranking-top">
-                      <div className="saas-rank-title">
-                        <span className={`saas-rank-badge ${index < 3 ? "saas-rank-badge-top" : ""}`}>#{index + 1}</span>
-                        <strong>{item.label}</strong>
-                      </div>
-                      <span className={`saas-rank-rate ${item.winRate < 40 ? "saas-rank-rate-low" : ""}`}>{item.winRate}%</span>
-                    </div>
-                    <div className="saas-ranking-sub">
-                      <p>{item.trades} trades</p>
-                      <p>
-                        Avg R:R {toNumber(item.avgRR).toFixed(2)}x | {confidenceForSample(item.trades).label}
-                      </p>
-                    </div>
-                    <div className={`saas-progress ${item.winRate < 40 ? "saas-progress-muted" : "saas-progress-green"}`}>
-                      <span style={{ width: `${Math.min(Math.max(item.winRate, 0), 100)}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </article>
-            <article className="panel saas-card">
-              <h3 className="saas-card-title">Session Rankings</h3>
-              <div className="saas-ranking-list">
-                {resolvedSessionTop.map((item, index) => (
-                  <div key={item.label} className="saas-ranking-item">
-                    <div className="saas-ranking-top">
-                      <div className="saas-rank-title">
-                        <span className={`saas-rank-badge ${index < 3 ? "saas-rank-badge-top" : ""}`}>#{index + 1}</span>
-                        <strong>{item.label}</strong>
-                      </div>
-                      <span className={`saas-rank-rate ${item.winRate < 40 ? "saas-rank-rate-low" : ""}`}>{item.winRate}%</span>
-                    </div>
-                    <div className="saas-ranking-sub">
-                      <p>{item.trades} trades</p>
-                      <p>
-                        Avg R:R {toNumber(item.avgRR).toFixed(2)}x | {confidenceForSample(item.trades).label}
-                      </p>
-                    </div>
-                    <div className={`saas-progress ${item.winRate < 40 ? "saas-progress-muted" : "saas-progress-green"}`}>
-                      <span style={{ width: `${Math.min(Math.max(item.winRate, 0), 100)}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </article>
-          </div>
-        </section>
-      ) : null}
-
-      {activePage === "behavior" ? (
-        <section className="space-y-4 saas-page-section saas-page-behavior">
-          <article className="panel saas-behavior-banner">
-            <div className="saas-banner-head">
-              <span className="saas-stat-icon saas-stat-icon-gold">
-                <IconGlyph name="behavior" />
-              </span>
-              <h3>Psychology Insight</h3>
-            </div>
-            <p>
-              You win <span>{followedPlanWinRate}%</span> when following your plan, but only
-              <span> {violatedPlanWinRate}%</span> when you don't.
-            </p>
-            <p>Discipline is your edge.</p>
-          </article>
-
-          <div className="saas-main-grid">
-            <article className="panel saas-card">
-              <h3 className="saas-card-title">Plan Adherence</h3>
-              <div
-                className="saas-pie"
-                style={{
-                  background: `conic-gradient(#10b981 0 ${
-                    totalTrades ? (resolvedFollowedPlanTrades.length / totalTrades) * 100 : 0
-                  }%, #ef4444 0 100%)`,
-                }}
-              />
-              <div className="saas-behavior-summary">
-                <div className="saas-behavior-mini saas-behavior-mini-good">
-                  <p>Followed</p>
-                  <strong>{resolvedFollowedPlanTrades.length}</strong>
-                </div>
-                <div className="saas-behavior-mini saas-behavior-mini-bad">
-                  <p>Violated</p>
-                  <strong>{resolvedViolatedPlanTrades.length}</strong>
-                </div>
-              </div>
-            </article>
-            <article className="panel saas-card">
-              <h3 className="saas-card-title">Impact on Win Rate</h3>
-              <div className="saas-impact-chart">
-                <div className="saas-impact-bars">
-                  <div className="saas-impact-bar-item">
-                    <div className="saas-impact-bar saas-impact-bar-good" style={{ height: `${Math.min(Math.max(followedPlanWinRate, 0), 100)}%` }} />
-                    <span>Followed Plan</span>
-                  </div>
-                  <div className="saas-impact-bar-item">
-                    <div className="saas-impact-bar saas-impact-bar-bad" style={{ height: `${Math.min(Math.max(violatedPlanWinRate, 0), 100)}%` }} />
-                    <span>Violated Plan</span>
-                  </div>
-                </div>
-              </div>
-              <div className="saas-impact-values">
-                <strong>{followedPlanWinRate}%</strong>
-                <strong>{violatedPlanWinRate}%</strong>
-              </div>
-              <p className="saas-impact-note">
-                {Math.max(round(followedPlanWinRate - violatedPlanWinRate, 1), 0)}% higher win rate when following your plan
-              </p>
-            </article>
-          </div>
-
-          <article className="panel saas-card">
-            <h3 className="saas-card-title">Performance by Emotional State</h3>
-            <div className="saas-emotion-grid">
-              {resolvedEmotionTop.map((item) => (
-                <div
-                  key={item.label}
-                  className={`saas-emotion-item ${item.winRate >= 50 ? "saas-emotion-item-good" : "saas-emotion-item-bad"}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <strong>{item.label}</strong>
-                    <span>{item.winRate}% WR</span>
-                  </div>
-                  <p>{item.trades} trades</p>
-                  <div className={`saas-progress ${item.winRate >= 50 ? "saas-progress-green" : "saas-progress-muted"}`}>
-                    <span style={{ width: `${Math.min(Math.max(item.winRate, 0), 100)}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </article>
-        </section>
-      ) : null}
 
       {activePage === "review" ? (
         <section className="space-y-4 saas-page-section saas-page-review">
@@ -4140,7 +3922,7 @@ const SaasWorkspace = ({
           <div className="saas-insights-row">
             <article className="panel saas-card saas-insight-card">
               <p className="saas-stat-kicker">Saved playbooks</p>
-              <h3>{playbooks.length}</h3>
+              <h3>{draftPlaybooks.length}</h3>
               <p className="saas-stat-label">Store setup rules here instead of burying them under settings.</p>
             </article>
             <article className="panel saas-card saas-insight-card">
@@ -4277,8 +4059,8 @@ const SaasWorkspace = ({
               </article>
             </div>
             <div className="saas-main-grid mt-4">
-              {playbooks.length ? (
-                playbooks.map((playbook) => (
+              {draftPlaybooks.length ? (
+                draftPlaybooks.map((playbook) => (
                   <article key={`playbook-card-${playbook.id}`} className="saas-note-card">
                     <h4>{playbook.name || "Untitled playbook"}</h4>
                     <p className="saas-playbook-meta mt-2">
@@ -4344,12 +4126,30 @@ const SaasWorkspace = ({
                   <textarea
                     className="input font-mono text-xs"
                     rows={12}
-                    value={settingsDraft.playbooksJson}
-                    onChange={(event) => setSettingsDraft((prev) => ({ ...prev, playbooksJson: event.target.value }))}
+                    value={playbookImportText}
+                    onChange={(event) => setPlaybookImportText(event.target.value)}
                     placeholder='[{"id":"london-breakout","name":"London Breakout","setupType":"Breakout"}]'
                     disabled={!isOnline || savingUserSettings}
                   />
                 </label>
+                <div className="saas-settings-actions mt-4">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={handleApplyPlaybookImport}
+                    disabled={!isOnline || savingUserSettings}
+                  >
+                    Replace Library From JSON
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={handleResetPlaybookImport}
+                    disabled={!isOnline || savingUserSettings}
+                  >
+                    Reset JSON To Current Library
+                  </button>
+                </div>
               </div>
             </details>
             <div className="saas-settings-actions mt-4">

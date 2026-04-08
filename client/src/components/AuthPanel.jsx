@@ -327,6 +327,11 @@ const AuthPanel = ({ onAuthenticated }) => {
     }
   };
 
+  const handleSocialAuthPlaceholder = (provider) => {
+    setError("");
+    setMessage(`${provider} sign-in is coming soon. Use email and password for now.`);
+  };
+
   const isFeaturesPage = publicPath === "/features";
   const isPrivacyPage = publicPath === "/privacy";
   const isTermsPage = publicPath === "/terms";
@@ -867,8 +872,22 @@ const AuthPanel = ({ onAuthenticated }) => {
             <span>OR CONTINUE WITH</span>
           </div>
           <div className="auth-workstation-socials">
-            <button type="button" className="btn-secondary auth-social-btn">Google</button>
-            <button type="button" className="btn-secondary auth-social-btn">GitHub</button>
+            <button
+              type="button"
+              className="btn-secondary auth-social-btn"
+              onClick={() => handleSocialAuthPlaceholder("Google")}
+              disabled={loading}
+            >
+              Google
+            </button>
+            <button
+              type="button"
+              className="btn-secondary auth-social-btn"
+              onClick={() => handleSocialAuthPlaceholder("GitHub")}
+              disabled={loading}
+            >
+              GitHub
+            </button>
           </div>
           {!twoFactorPending && mode !== "reset" ? (
             <button

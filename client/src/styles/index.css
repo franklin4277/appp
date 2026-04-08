@@ -3287,6 +3287,11 @@ body::before {
     rgb(var(--tw-panel) / 0.58);
 }
 
+.saas-bars > .saas-empty-state {
+  grid-column: 1 / -1;
+  align-self: stretch;
+}
+
 .saas-bar-item {
   display: grid;
   justify-items: center;
@@ -4623,6 +4628,11 @@ body::before {
 .auth-social-btn {
   min-height: 44px;
   justify-content: center;
+}
+
+.auth-social-btn:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
 }
 
 .auth-workstation-terms {

@@ -2634,16 +2634,23 @@ const SaasWorkspace = ({
           <div className="saas-main-grid saas-dashboard-bottom-grid">
             <article className="panel saas-card">
               <h3 className="saas-card-title">Equity Curve</h3>
-              <svg viewBox="0 0 640 260" className="saas-line-chart" aria-hidden="true">
-                <polyline
-                  points={equityPolyline}
-                  fill="none"
-                  stroke="#3b82f6"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              {totalTrades ? (
+                <svg viewBox="0 0 640 260" className="saas-line-chart" aria-hidden="true">
+                  <polyline
+                    points={equityPolyline}
+                    fill="none"
+                    stroke="#3b82f6"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              ) : (
+                <div className="saas-empty-state mt-4">
+                  <strong>No equity curve yet</strong>
+                  <p>Closed trades will turn this into a live view of your cumulative performance.</p>
+                </div>
+              )}
               {accountTimeline.points.length > 1 ? (
                 <>
                   <div className="saas-card-head mt-4">
@@ -2692,19 +2699,26 @@ const SaasWorkspace = ({
                   <p className="saas-metric-note">{resolvedEdgeInsights.worstHabit.detail}</p>
                 ) : null}
               </div>
-              <div className="saas-mini-graph">
-                {analyticsMetricBars.map((metric) => (
-                  <div key={metric.label} className="saas-mini-graph-row">
-                    <div className="saas-mini-graph-meta">
-                      <span>{metric.label}</span>
-                      <strong>{metric.valueLabel}</strong>
+              {totalTrades ? (
+                <div className="saas-mini-graph">
+                  {analyticsMetricBars.map((metric) => (
+                    <div key={metric.label} className="saas-mini-graph-row">
+                      <div className="saas-mini-graph-meta">
+                        <span>{metric.label}</span>
+                        <strong>{metric.valueLabel}</strong>
+                      </div>
+                      <div className="saas-mini-graph-track" aria-hidden="true">
+                        <span className={`saas-mini-graph-fill saas-mini-graph-fill-${metric.tone}`} style={{ width: `${metric.fillPercent}%` }} />
+                      </div>
                     </div>
-                    <div className="saas-mini-graph-track" aria-hidden="true">
-                      <span className={`saas-mini-graph-fill saas-mini-graph-fill-${metric.tone}`} style={{ width: `${metric.fillPercent}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="saas-empty-state mt-4">
+                  <strong>Metrics will appear here</strong>
+                  <p>Once trades are logged, expectancy, drawdown, and behavior signals will summarize automatically.</p>
+                </div>
+              )}
               <button type="button" className="landing-cta-secondary !w-full" onClick={() => setActivePage("coaching")}>
                 Open Coaching
               </button>
@@ -3393,12 +3407,19 @@ const SaasWorkspace = ({
                 </div>
               </div>
               <div className="saas-bars" style={{ "--saas-bars-columns": String(Math.max(setupChartItems.length, 1)) }}>
-                {setupChartItems.map((item) => (
-                  <div key={item.label} className="saas-bar-item">
-                    <div className="saas-bar" style={{ height: `${Math.min(Math.max(item.winRate, 0), 100)}%` }} />
-                    <span>{item.label}</span>
+                {setupChartItems.length ? (
+                  setupChartItems.map((item) => (
+                    <div key={item.label} className="saas-bar-item">
+                      <div className="saas-bar" style={{ height: `${Math.min(Math.max(item.winRate, 0), 100)}%` }} />
+                      <span>{item.label}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="saas-empty-state">
+                    <strong>No setup analytics yet</strong>
+                    <p>Log a few closed trades with setup names to compare pattern quality.</p>
                   </div>
-                ))}
+                )}
               </div>
             </article>
             <article className="panel saas-card">
@@ -3412,12 +3433,19 @@ const SaasWorkspace = ({
                 </div>
               </div>
               <div className="saas-bars" style={{ "--saas-bars-columns": String(Math.max(sessionChartItems.length, 1)) }}>
-                {sessionChartItems.map((item) => (
-                  <div key={item.label} className="saas-bar-item">
-                    <div className="saas-bar saas-bar-purple" style={{ height: `${Math.min(Math.max(item.winRate, 0), 100)}%` }} />
-                    <span>{item.label}</span>
+                {sessionChartItems.length ? (
+                  sessionChartItems.map((item) => (
+                    <div key={item.label} className="saas-bar-item">
+                      <div className="saas-bar saas-bar-purple" style={{ height: `${Math.min(Math.max(item.winRate, 0), 100)}%` }} />
+                      <span>{item.label}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="saas-empty-state">
+                    <strong>No session analytics yet</strong>
+                    <p>Sessions start ranking themselves once your journal has enough trade history.</p>
                   </div>
-                ))}
+                )}
               </div>
             </article>
           </div>
@@ -3433,19 +3461,28 @@ const SaasWorkspace = ({
                   <p className="saas-card-subtitle">Distribution of wins, losses, and break-even trades.</p>
                 </div>
               </div>
-              <div
-                className="saas-pie"
-                style={{
-                  background: `conic-gradient(#10b981 0 ${overallWinRate}%, #ef4444 ${overallWinRate}% ${
-                    overallWinRate + (totalTrades ? (totalLosses / totalTrades) * 100 : 0)
-                  }%, #475569 0 100%)`,
-                }}
-              />
-              <div className="saas-pie-legend">
-                <span>Wins {overallWinRate}%</span>
-                <span>Losses {totalTrades ? round((totalLosses / totalTrades) * 100, 1) : 0}%</span>
-                <span>Break-even {totalTrades ? round((totalBreakEven / totalTrades) * 100, 1) : 0}%</span>
-              </div>
+              {totalTrades ? (
+                <>
+                  <div
+                    className="saas-pie"
+                    style={{
+                      background: `conic-gradient(#10b981 0 ${overallWinRate}%, #ef4444 ${overallWinRate}% ${
+                        overallWinRate + (totalLosses / totalTrades) * 100
+                      }%, #475569 0 100%)`,
+                    }}
+                  />
+                  <div className="saas-pie-legend">
+                    <span>Wins {overallWinRate}%</span>
+                    <span>Losses {round((totalLosses / totalTrades) * 100, 1)}%</span>
+                    <span>Break-even {round((totalBreakEven / totalTrades) * 100, 1)}%</span>
+                  </div>
+                </>
+              ) : (
+                <div className="saas-empty-state mt-4">
+                  <strong>No trade outcomes yet</strong>
+                  <p>Wins, losses, and break-even distribution will show up after your first closed trades.</p>
+                </div>
+              )}
             </article>
             <article className="panel saas-card">
               <div className="saas-section-header">

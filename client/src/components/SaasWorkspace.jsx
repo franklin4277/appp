@@ -2444,6 +2444,7 @@ const SaasWorkspace = ({
             </article>
           </div>
 
+          <div className="saas-dashboard-operating-grid">
           <article className="panel saas-card saas-account-panel">
             <div className="saas-card-head">
               <div>
@@ -2485,7 +2486,7 @@ const SaasWorkspace = ({
             )}
           </article>
 
-          <article className="panel saas-card">
+          <article className="panel saas-card saas-dashboard-goals-card">
             <div className="saas-card-head">
               <div>
                 <h3 className="saas-card-title">Account Goals</h3>
@@ -2628,8 +2629,9 @@ const SaasWorkspace = ({
               Open Review
             </button>
           </article>
+          </div>
 
-          <div className="saas-main-grid">
+          <div className="saas-main-grid saas-dashboard-bottom-grid">
             <article className="panel saas-card">
               <h3 className="saas-card-title">Equity Curve</h3>
               <svg viewBox="0 0 640 260" className="saas-line-chart" aria-hidden="true">
@@ -3497,7 +3499,7 @@ const SaasWorkspace = ({
             ))}
           </div>
 
-          <article className="panel saas-card">
+          <article className="panel saas-card saas-risk-controls-card">
             <div className="saas-section-header">
               <span className="saas-stat-icon saas-stat-icon-blue">
                 <IconGlyph name="calendar" />
@@ -3650,7 +3652,7 @@ const SaasWorkspace = ({
               </div>
               <span className="chip text-textMain">Assistant</span>
             </div>
-            <div className="saas-main-grid mt-4">
+            <div className="saas-main-grid saas-review-summary-grid mt-4">
               <div className="saas-note-card">
                 <h4>Current focus</h4>
                 <p className="saas-stat-label mt-2">{coachingSummary.assistant}</p>
@@ -3709,7 +3711,7 @@ const SaasWorkspace = ({
           <article className="panel saas-card">
             <h3 className="saas-card-title">Trade Breakdown</h3>
 
-            <div className="saas-main-grid mt-4">
+            <div className="saas-main-grid saas-playbooks-builder-grid mt-4">
               <div className="saas-note-card saas-best-trade">
                 <div className="saas-section-header">
                   <span className="saas-stat-icon saas-stat-icon-green">
@@ -3852,7 +3854,8 @@ const SaasWorkspace = ({
             </article>
           </div>
 
-          <article className="panel saas-card">
+          <div className="saas-coaching-workspace">
+          <article className="panel saas-card saas-coaching-guide-card">
             <div className="saas-card-head">
               <div>
                 <h3 className="saas-card-title">Review Coach</h3>
@@ -3907,13 +3910,13 @@ const SaasWorkspace = ({
               )}
             </div>
           </article>
-
           <AiCoachPanel
             context={aiCoachContext}
             activeProfileName={activeProfile?.name || previewProfileName}
             profileId={activeProfile?.id || user?.activeProfileId || "main"}
             onExecuteAction={handleAiUiAction}
           />
+          </div>
         </section>
       ) : null}
 
@@ -3952,7 +3955,7 @@ const SaasWorkspace = ({
                 <p className="saas-card-subtitle">Build and manage playbooks visually first. Raw JSON is tucked away only for advanced bulk edits.</p>
               </div>
             </div>
-            <div className="saas-main-grid mt-4">
+            <div className="saas-main-grid saas-playbooks-library-grid mt-4">
               <article className="saas-note-card">
                 <h4>Quick Builder</h4>
                 <div className="saas-form-grid mt-3">
@@ -4041,7 +4044,7 @@ const SaasWorkspace = ({
                   </button>
                   <button
                     type="button"
-                    className="landing-cta-secondary"
+                    className="btn-secondary"
                     onClick={handleSaveSettings}
                     disabled={!isOnline || savingUserSettings}
                   >
@@ -4088,7 +4091,7 @@ const SaasWorkspace = ({
                     <div className="saas-settings-actions mt-3">
                       <button
                         type="button"
-                        className="landing-cta-secondary"
+                        className="btn-secondary"
                         onClick={() => handleRemovePlaybook(playbook.id)}
                         disabled={!isOnline || savingUserSettings}
                       >
@@ -4161,7 +4164,7 @@ const SaasWorkspace = ({
               >
                 {savingUserSettings ? "Saving..." : "Save Playbooks"}
               </button>
-              <button type="button" className="landing-cta-secondary" onClick={() => setActivePage("settings")}>
+              <button type="button" className="btn-secondary" onClick={() => setActivePage("settings")}>
                 Back to Settings
               </button>
             </div>
@@ -4193,7 +4196,7 @@ const SaasWorkspace = ({
             </article>
           </div>
 
-          <article className="panel saas-card">
+          <article className="panel saas-card saas-settings-workspace-card">
             <div className="saas-card-head">
               <div>
                 <h3 className="saas-card-title">Equity + Goal Tracking</h3>
@@ -4754,96 +4757,98 @@ const SaasWorkspace = ({
             </div>
           </article>
 
-          <article className="panel saas-card">
-            <div className="saas-section-header">
-              <span className="saas-stat-icon saas-stat-icon-violet">
-                <IconGlyph name="add-trade" />
-              </span>
-              <div>
-                <h3 className="saas-card-title">Trade Options</h3>
-                <p className="saas-card-subtitle">Define the default pairs, sessions, and setup labels used across the journal.</p>
+          <div className="saas-settings-secondary-grid">
+            <article className="panel saas-card">
+              <div className="saas-section-header">
+                <span className="saas-stat-icon saas-stat-icon-violet">
+                  <IconGlyph name="add-trade" />
+                </span>
+                <div>
+                  <h3 className="saas-card-title">Trade Options</h3>
+                  <p className="saas-card-subtitle">Define the default pairs, sessions, and setup labels used across the journal.</p>
+                </div>
               </div>
-            </div>
-            <div className="saas-settings-grid">
-              <label>
-                <span className="label">Pairs</span>
-                <textarea
-                  className="input"
-                  rows={2}
-                  value={settingsDraft.pairs}
-                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, pairs: event.target.value }))}
-                  placeholder="EURUSD, GBPUSD, XAUUSD"
-                  disabled={!isOnline || savingUserSettings}
-                />
-              </label>
-              <label>
-                <span className="label">Sessions</span>
-                <textarea
-                  className="input"
-                  rows={2}
-                  value={settingsDraft.sessions}
-                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, sessions: event.target.value }))}
-                  placeholder="London, New York, Asia"
-                  disabled={!isOnline || savingUserSettings}
-                />
-              </label>
-              <label>
-                <span className="label">Setup Types</span>
-                <textarea
-                  className="input"
-                  rows={2}
-                  value={settingsDraft.setupTypes}
-                  onChange={(event) => setSettingsDraft((prev) => ({ ...prev, setupTypes: event.target.value }))}
-                  placeholder="Breakout, Pullback, Reversal"
-                  disabled={!isOnline || savingUserSettings}
-                />
-              </label>
-            </div>
-          </article>
+              <div className="saas-settings-grid">
+                <label>
+                  <span className="label">Pairs</span>
+                  <textarea
+                    className="input"
+                    rows={2}
+                    value={settingsDraft.pairs}
+                    onChange={(event) => setSettingsDraft((prev) => ({ ...prev, pairs: event.target.value }))}
+                    placeholder="EURUSD, GBPUSD, XAUUSD"
+                    disabled={!isOnline || savingUserSettings}
+                  />
+                </label>
+                <label>
+                  <span className="label">Sessions</span>
+                  <textarea
+                    className="input"
+                    rows={2}
+                    value={settingsDraft.sessions}
+                    onChange={(event) => setSettingsDraft((prev) => ({ ...prev, sessions: event.target.value }))}
+                    placeholder="London, New York, Asia"
+                    disabled={!isOnline || savingUserSettings}
+                  />
+                </label>
+                <label>
+                  <span className="label">Setup Types</span>
+                  <textarea
+                    className="input"
+                    rows={2}
+                    value={settingsDraft.setupTypes}
+                    onChange={(event) => setSettingsDraft((prev) => ({ ...prev, setupTypes: event.target.value }))}
+                    placeholder="Breakout, Pullback, Reversal"
+                    disabled={!isOnline || savingUserSettings}
+                  />
+                </label>
+              </div>
+            </article>
 
-          <article className="panel saas-card">
-            <div className="saas-card-head">
-              <div>
-                <h3 className="saas-card-title">Strategy Pages</h3>
-                <p className="saas-card-subtitle">Keep heavier tools on dedicated pages so settings stays clean.</p>
-              </div>
-            </div>
-            <div className="saas-main-grid mt-4">
-              <div className="saas-note-card">
-                <h4>Playbooks</h4>
-                <p className="saas-stat-label mt-2">
-                  Manage playbooks, setup rules, and mistake labels away from the main settings flow.
-                </p>
-                <div className="saas-settings-actions mt-3">
-                  <button type="button" className="btn-primary" onClick={() => setActivePage("playbooks")}>
-                    Open Playbooks
-                  </button>
+            <article className="panel saas-card">
+              <div className="saas-card-head">
+                <div>
+                  <h3 className="saas-card-title">Strategy Pages</h3>
+                  <p className="saas-card-subtitle">Keep heavier tools on dedicated pages so settings stays clean.</p>
                 </div>
               </div>
-              <div className="saas-note-card">
-                <h4>Risk Center</h4>
-                <p className="saas-stat-label mt-2">
-                  Keep risk controls, funded rules, and account goals on their own dedicated page.
-                </p>
-                <div className="saas-settings-actions mt-3">
-                  <button type="button" className="landing-cta-secondary" onClick={() => setActivePage("risk")}>
-                    Open Risk Center
-                  </button>
+              <div className="saas-main-grid mt-4">
+                <div className="saas-note-card">
+                  <h4>Playbooks</h4>
+                  <p className="saas-stat-label mt-2">
+                    Manage playbooks, setup rules, and mistake labels away from the main settings flow.
+                  </p>
+                  <div className="saas-settings-actions mt-3">
+                    <button type="button" className="btn-primary" onClick={() => setActivePage("playbooks")}>
+                      Open Playbooks
+                    </button>
+                  </div>
+                </div>
+                <div className="saas-note-card">
+                  <h4>Risk Center</h4>
+                  <p className="saas-stat-label mt-2">
+                    Keep risk controls, funded rules, and account goals on their own dedicated page.
+                  </p>
+                  <div className="saas-settings-actions mt-3">
+                    <button type="button" className="btn-secondary" onClick={() => setActivePage("risk")}>
+                      Open Risk Center
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="saas-settings-actions mt-4">
-              <button
-                type="button"
-                className="btn-primary"
-                disabled={!isOnline || savingUserSettings || typeof handleUpdateUserSettings !== "function"}
-                onClick={handleSaveSettings}
-              >
-                {savingUserSettings ? "Saving..." : "Save settings"}
-              </button>
-            </div>
-            {!isOnline ? <p className="saas-stat-label mt-2">Go online to save settings changes.</p> : null}
-          </article>
+              <div className="saas-settings-actions mt-4">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  disabled={!isOnline || savingUserSettings || typeof handleUpdateUserSettings !== "function"}
+                  onClick={handleSaveSettings}
+                >
+                  {savingUserSettings ? "Saving..." : "Save settings"}
+                </button>
+              </div>
+              {!isOnline ? <p className="saas-stat-label mt-2">Go online to save settings changes.</p> : null}
+            </article>
+          </div>
 
           <article className="panel saas-card">
             <div className="saas-card-head">

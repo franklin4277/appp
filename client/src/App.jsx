@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   clearCachedAuthProfile,
   clearAuthSession,
@@ -383,7 +383,9 @@ const App = () => {
     return "journal";
   });
   const handleSetActivePage = useCallback((nextPage) => {
-    setActivePage(normalizePageKey(nextPage));
+    startTransition(() => {
+      setActivePage(normalizePageKey(nextPage));
+    });
   }, []);
   const [isCompactMobile, setIsCompactMobile] = useState(() =>
     window.matchMedia ? window.matchMedia("(max-width: 768px)").matches : false

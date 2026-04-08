@@ -4061,10 +4061,63 @@ body::before {
   margin-bottom: 0;
 }
 
+.saas-journal-intake-panel {
+  border-radius: 10px;
+  border-color: rgba(51, 54, 63, 1);
+  background: linear-gradient(180deg, rgba(35, 38, 46, 0.98), rgba(29, 32, 39, 0.92));
+}
+
 .saas-page-journal .saas-add-trade {
   max-width: 1120px;
   padding: 1.1rem;
   border-radius: 10px;
+}
+
+.saas-journal-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+  gap: 0.9rem;
+  align-items: start;
+}
+
+.saas-journal-form-column,
+.saas-journal-side-column {
+  min-width: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.saas-journal-top-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1fr) minmax(220px, 0.9fr);
+  gap: 0.8rem;
+  align-items: start;
+}
+
+.saas-journal-form-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.saas-journal-direction-card,
+.saas-journal-side-card {
+  border-radius: 10px;
+  border: 1px solid rgba(51, 54, 63, 1);
+  background: rgba(26, 29, 36, 0.82);
+  padding: 0.88rem 0.92rem;
+}
+
+.saas-journal-direction-card .chip-row {
+  margin-top: 0.55rem;
+}
+
+.saas-journal-advanced {
+  margin-top: 0.15rem;
+}
+
+.saas-journal-screenshot-grid {
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
 }
 
 .saas-page-journal .saas-form-grid {
@@ -5378,6 +5431,11 @@ body::before {
   .saas-coaching-workspace,
   .saas-playbooks-builder-grid,
   .saas-settings-secondary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .saas-journal-shell,
+  .saas-journal-top-grid {
     grid-template-columns: 1fr;
   }
 

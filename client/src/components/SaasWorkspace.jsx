@@ -2775,7 +2775,7 @@ const SaasWorkspace = ({
           <button type="button" className="saas-back-link" onClick={() => setActivePage("dashboard")}>
             <span aria-hidden="true">&lt;</span> Back to Dashboard
           </button>
-          <section className="panel saas-section-switcher">
+          <section className="panel saas-section-switcher saas-journal-intake-panel">
             <div className="saas-section-switcher-head">
               <strong>Smart entry</strong>
               <span>Reuse your recent context so you do less typing.</span>
@@ -2810,7 +2810,9 @@ const SaasWorkspace = ({
             </div>
           </section>
           <form className="panel saas-card saas-add-trade" onSubmit={handleQuickTradeSubmit}>
-            <div className="saas-form-grid">
+            <div className="saas-journal-shell">
+            <div className="saas-journal-form-column">
+            <div className="saas-journal-top-grid">
               <label>
                 <span className="label">Date</span>
                 <input
@@ -2850,7 +2852,7 @@ const SaasWorkspace = ({
                   ))}
                 </div>
               </label>
-              <div>
+              <div className="saas-journal-direction-card">
                 <span className="label">Direction</span>
                 <div className="chip-row mt-2">
                   {["Buy", "Sell"].map((option) => (
@@ -2866,6 +2868,9 @@ const SaasWorkspace = ({
                 </div>
                 <p className="input-hint">Use this to calculate default stop/target direction and trade outcome correctly.</p>
               </div>
+            </div>
+
+            <div className="saas-form-grid saas-journal-form-grid">
               <label>
                 <span className="label">Entry Price</span>
                 <input
@@ -3035,7 +3040,7 @@ const SaasWorkspace = ({
               </label>
             </div>
 
-            <details className="saas-collapsible">
+            <details className="saas-collapsible saas-journal-advanced">
               <summary className="saas-collapsible-summary">
                 Advanced context
                 <span>Lifecycle, mistakes, and execution detail</span>
@@ -3144,8 +3149,34 @@ const SaasWorkspace = ({
               </div>
             </details>
 
+            <label>
+              <span className="label">Trade Notes</span>
+              <textarea
+                className="input min-h-24"
+                value={quickTradeForm.notes}
+                onChange={(event) => handleQuickTradeChange("notes", event.target.value)}
+                placeholder="What did you see? Why did you enter?"
+              />
+            </label>
+
+            <div className="saas-form-actions">
+              <button className="btn-primary" type="submit" disabled={savingQuickTrade}>
+                {savingQuickTrade ? "Saving..." : "Save Trade"}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={resetQuickTradeForm}
+                disabled={savingQuickTrade}
+              >
+                Cancel
+              </button>
+            </div>
+            </div>
+
+            <aside className="saas-journal-side-column">
             <div
-              className={`saas-risk-panel ${
+              className={`saas-risk-panel saas-journal-side-card ${
                 quickTradeRiskSnapshot.isOverMaxRisk
                   ? "saas-risk-panel-danger"
                   : quickTradeRiskSnapshot.isNearMaxRisk
@@ -3200,7 +3231,7 @@ const SaasWorkspace = ({
               ) : null}
             </div>
 
-            <label className="saas-toggle-row">
+            <label className="saas-toggle-row saas-journal-side-card">
               <span>
                 <strong>Followed Trading Plan</strong>
                 <small>Did you follow your rules?</small>
@@ -3212,17 +3243,14 @@ const SaasWorkspace = ({
               />
             </label>
 
-            <label>
-              <span className="label">Trade Notes</span>
-              <textarea
-                className="input min-h-24"
-                value={quickTradeForm.notes}
-                onChange={(event) => handleQuickTradeChange("notes", event.target.value)}
-                placeholder="What did you see? Why did you enter?"
-              />
-            </label>
-
-            <div className="saas-form-grid">
+            <div className="saas-note-card saas-journal-side-card">
+              <div className="saas-card-head">
+                <div>
+                  <h3 className="saas-card-title">Screenshots</h3>
+                  <p className="saas-card-subtitle">Keep the visual context with your trade from start to finish.</p>
+                </div>
+              </div>
+            <div className="saas-form-grid saas-journal-screenshot-grid">
               <label>
                 <span className="label">Screenshot (Before)</span>
                 <input
@@ -3248,19 +3276,8 @@ const SaasWorkspace = ({
                 ) : null}
               </label>
             </div>
-
-            <div className="saas-form-actions">
-              <button className="btn-primary" type="submit" disabled={savingQuickTrade}>
-                {savingQuickTrade ? "Saving..." : "Save Trade"}
-              </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={resetQuickTradeForm}
-                disabled={savingQuickTrade}
-              >
-                Cancel
-              </button>
+            </div>
+            </aside>
             </div>
           </form>
         </section>

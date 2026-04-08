@@ -965,11 +965,8 @@ const App = () => {
   };
 
   const onLogout = async () => {
-    try {
-      await logoutSession({ token, refreshToken });
-    } catch {
-      // Best effort logout when network is unavailable.
-    }
+    const currentToken = token;
+    const currentRefreshToken = refreshToken;
 
     clearAuthSession();
     clearCachedAuthProfile();
@@ -990,6 +987,20 @@ const App = () => {
     setStatusMessage("");
     setSyncingQueue(false);
     syncInFlightRef.current = false;
+    startTransition(() => {
+      setActivePage("dashboard");
+    });
+
+    if (window.location.pathname !== "/login") {
+      window.history.pushState({}, "", "/login");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    }
+
+    try {
+      await logoutSession({ token: currentToken, refreshToken: currentRefreshToken });
+    } catch {
+      // Best effort logout when network is unavailable.
+    }
   };
 
   const handleProfileSwitch = async (profileId) => {

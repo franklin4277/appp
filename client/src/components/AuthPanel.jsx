@@ -701,7 +701,7 @@ const AuthPanel = ({ onAuthenticated }) => {
               </div>
               <button
                 type="button"
-                className="chip text-textMain transition hover:border-accent"
+                className="btn-secondary auth-modal-close"
                 onClick={closeAuth}
               >
                 Close
@@ -709,15 +709,15 @@ const AuthPanel = ({ onAuthenticated }) => {
             </div>
 
               {healthStatus.state === "checking" ? (
-                <div className="mb-3 rounded-md border border-border/70 bg-panelMuted p-2 text-xs text-textMuted">
+                <div className="auth-status-box mb-3">
                   Waking up server... (attempt {healthStatus.attempt}){healthStatus.error ? `: ${healthStatus.error}` : ""}
                 </div>
               ) : healthStatus.state === "error" ? (
-                <div className="mb-3 flex items-center justify-between gap-2 rounded-md border border-danger/30 bg-danger/10 p-2 text-xs text-danger">
+                <div className="auth-status-box auth-status-box-error mb-3">
                   <span>Backend unreachable: {healthStatus.error || "Check VITE_API_URL and backend status."}</span>
                   <button
                     type="button"
-                    className="chip text-textMain transition hover:border-accent"
+                    className="btn-secondary auth-status-action"
                     onClick={() => void wakeBackend()}
                   >
                     Retry
@@ -740,13 +740,13 @@ const AuthPanel = ({ onAuthenticated }) => {
                     required
                   />
                 </label>
-                <div className="flex gap-2">
+                <div className="auth-modal-actions">
                   <button className="btn-primary flex-1" type="submit" disabled={loading}>
                     {loading ? "Checking..." : "Verify"}
                   </button>
                   <button
                     type="button"
-                    className="chip text-textMain"
+                    className="btn-secondary"
                     onClick={() => {
                       setTwoFactorPending(null);
                       setTwoFactorCode("");
@@ -780,11 +780,11 @@ const AuthPanel = ({ onAuthenticated }) => {
                     required
                   />
                 </label>
-                <div className="flex gap-2">
+                <div className="auth-modal-actions">
                   <button className="btn-primary flex-1" type="submit" disabled={loading}>
                     {loading ? "Please wait..." : "Update password"}
                   </button>
-                  <button type="button" className="chip text-textMain" onClick={() => setMode("login")}>
+                  <button type="button" className="btn-secondary" onClick={() => setMode("login")}>
                     Back
                   </button>
                 </div>
@@ -846,7 +846,7 @@ const AuthPanel = ({ onAuthenticated }) => {
                 {mode === "login" ? (
                   <button
                     type="button"
-                    className="chip text-textMain transition hover:border-accent"
+                    className="btn-secondary auth-inline-action"
                     onClick={handleResetRequest}
                     disabled={loading}
                   >

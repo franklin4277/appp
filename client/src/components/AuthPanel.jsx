@@ -702,6 +702,263 @@ const AuthPanel = ({ onAuthenticated }) => {
           ? contactPageSections
           : landingHomeSections;
 
+  const authPanelContent = (
+    <>
+      <div className="auth-modal-header auth-workstation-header">
+        <div>
+          <h3 className="auth-modal-title">{authTitle}</h3>
+          <p className="auth-modal-subtitle">Enter your credentials to access your workspace</p>
+        </div>
+        {!isAuthRoute ? (
+          <button type="button" className="btn-secondary auth-modal-close" onClick={closeAuth}>
+            Close
+          </button>
+        ) : null}
+      </div>
+
+      {healthStatus.state === "checking" ? (
+        <div className="auth-status-box mb-3">
+          Waking up server... (attempt {healthStatus.attempt}){healthStatus.error ? `: ${healthStatus.error}` : ""}
+        </div>
+      ) : healthStatus.state === "error" ? (
+        <div className="auth-status-box auth-status-box-error mb-3">
+          <span>Backend unreachable: {healthStatus.error || "Check VITE_API_URL and backend status."}</span>
+          <button type="button" className="btn-secondary auth-status-action" onClick={() => void wakeBackend()}>
+            Retry
+          </button>
+        </div>
+      ) : null}
+
+      {twoFactorPending ? (
+        <form onSubmit={handleTwoFactorSubmit} className="space-y-3">
+          <p className="text-sm text-textMuted">
+            Enter the verification code sent for <span className="font-medium">{twoFactorPending.email}</span>.
+          </p>
+          <label>
+            <span className="label">Verification code</span>
+            <input
+              className="input"
+              value={twoFactorCode}
+              onChange={(event) => setTwoFactorCode(event.target.value)}
+              placeholder="6-digit code"
+              required
+            />
+          </label>
+          <div className="auth-modal-actions">
+            <button className="btn-primary flex-1" type="submit" disabled={loading}>
+              {loading ? "Checking..." : "Verify"}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                setTwoFactorPending(null);
+                setTwoFactorCode("");
+              }}
+            >
+              Back
+            </button>
+          </div>
+        </form>
+      ) : mode === "reset" ? (
+        <form onSubmit={handleResetConfirm} className="space-y-3">
+          <label>
+            <span className="label">Reset token</span>
+            <input
+              className="input"
+              value={resetToken}
+              onChange={(event) => setResetToken(event.target.value)}
+              placeholder="Paste reset token"
+              required
+            />
+          </label>
+          <label>
+            <span className="label">New password</span>
+            <input
+              className="input"
+              type="password"
+              value={resetPassword}
+              onChange={(event) => setResetPassword(event.target.value)}
+              placeholder="Minimum 8 characters"
+              minLength={8}
+              required
+            />
+          </label>
+          <div className="auth-modal-actions">
+            <button className="btn-primary flex-1" type="submit" disabled={loading}>
+              {loading ? "Please wait..." : "Update password"}
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => setMode("login")}>
+              Back
+            </button>
+          </div>
+        </form>
+      ) : (
+        <form onSubmit={handlePrimarySubmit} className="space-y-3">
+          {mode === "register" ? (
+            <label>
+              <span className="label">Full Name</span>
+              <input
+                className="input"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="John Trader"
+                required
+              />
+            </label>
+          ) : null}
+          <label>
+            <span className="label">Email Address</span>
+            <input
+              className="input"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="trader@example.com"
+              required
+            />
+          </label>
+          <label>
+            <span className="label">Password</span>
+            <input
+              className="input"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Minimum 8 characters"
+              minLength={8}
+              required
+            />
+          </label>
+          {mode === "register" ? (
+            <label>
+              <span className="label">Confirm Password</span>
+              <input
+                className="input"
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                placeholder="Re-enter password"
+                minLength={8}
+                required
+              />
+            </label>
+          ) : null}
+          {mode === "login" ? (
+            <div className="auth-workstation-inline">
+              <label className="auth-remember-row">
+                <input type="checkbox" />
+                <span>Remember me</span>
+              </label>
+              <button
+                type="button"
+                className="auth-workstation-link"
+                onClick={handleResetRequest}
+                disabled={loading}
+              >
+                Forgot password?
+              </button>
+            </div>
+          ) : null}
+          <button className="btn-primary w-full" type="submit" disabled={loading}>
+            {loading ? "Please wait..." : mode === "register" ? "Create account" : "Sign In"}
+          </button>
+          <div className="auth-workstation-divider">
+            <span>OR CONTINUE WITH</span>
+          </div>
+          <div className="auth-workstation-socials">
+            <button type="button" className="btn-secondary auth-social-btn">Google</button>
+            <button type="button" className="btn-secondary auth-social-btn">GitHub</button>
+          </div>
+          {!twoFactorPending && mode !== "reset" ? (
+            <button
+              type="button"
+              className="auth-switch auth-switch-centered"
+              onClick={() => openAuth(mode === "register" ? "login" : "register")}
+            >
+              {mode === "register" ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
+            </button>
+          ) : null}
+          <p className="auth-workstation-terms">
+            By continuing, you agree to our{" "}
+            <button type="button" className="auth-workstation-link" onClick={() => navigatePublic("/terms")}>
+              Terms of Service
+            </button>{" "}
+            and{" "}
+            <button type="button" className="auth-workstation-link" onClick={() => navigatePublic("/privacy")}>
+              Privacy Policy
+            </button>
+          </p>
+        </form>
+      )}
+
+      {message ? (
+        <p className="mt-3 rounded-md border border-accent/40 bg-accent/10 p-2 text-sm text-accent">{message}</p>
+      ) : null}
+      {deliveryHint ? <p className="mt-2 text-xs text-textMuted">Delivery hint: {deliveryHint}</p> : null}
+      {error ? (
+        <p className="mt-3 rounded-md border border-danger/40 bg-danger/10 p-2 text-sm text-danger">{error}</p>
+      ) : null}
+      {showDebugSecrets && debugSecret ? (
+        <p className="mt-3 rounded-md border border-accent/40 bg-accent/10 p-2 text-xs text-accent">
+          Dev token/code: {debugSecret}
+        </p>
+      ) : null}
+    </>
+  );
+
+  if (isAuthRoute) {
+    return (
+      <main className="auth-workstation-page">
+        <section className="auth-workstation-layout">
+          <aside className="auth-workstation-side panel">
+            <div className="auth-workstation-branding">
+              <button type="button" className="landing-workstation-brandlock auth-workstation-brandlock" onClick={() => navigatePublic("/")}>
+                <BrandLogo className="brand-logo landing-workstation-logo" />
+                <div>
+                  <strong>Journex</strong>
+                  <span>Trading Workstation</span>
+                </div>
+              </button>
+            </div>
+
+            <div className="auth-workstation-benefits">
+              <article className="auth-workstation-benefit">
+                <strong>Advanced Analytics</strong>
+                <span>Deep performance insights with win rate, profit factor, and edge analysis across all your trades.</span>
+              </article>
+              <article className="auth-workstation-benefit">
+                <strong>Risk Management</strong>
+                <span>Set account limits, max drawdown alerts, and daily loss thresholds to protect your capital.</span>
+              </article>
+              <article className="auth-workstation-benefit">
+                <strong>Professional Grade</strong>
+                <span>Built for serious traders who demand precision, speed, and institutional-quality tools.</span>
+              </article>
+            </div>
+
+            <p className="auth-workstation-footnote">
+              Join disciplined traders using Journex to review more clearly and perform more consistently.
+            </p>
+          </aside>
+
+          <section className="auth-workstation-main">
+            <div className="auth-workstation-card panel animate-riseIn">
+              <div className="auth-workstation-mobile-brand">
+                <BrandLogo className="brand-logo landing-workstation-logo" />
+                <div>
+                  <strong>Journex</strong>
+                  <span>Trading Workstation</span>
+                </div>
+              </div>
+              {authPanelContent}
+            </div>
+          </section>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className={`landing-page ${isHomePage ? "landing-page-home" : "landing-page-secondary"}`}>
       <div className={`landing-wrap ${isHomePage ? "landing-wrap-home" : "landing-wrap-features"}`}>
@@ -739,189 +996,7 @@ const AuthPanel = ({ onAuthenticated }) => {
           onClick={closeAuth}
         >
           <aside className="panel animate-riseIn auth-modal-card" onClick={(event) => event.stopPropagation()}>
-            <div className="auth-modal-header">
-              <div>
-                <h3 className="auth-modal-title">{authTitle}</h3>
-                <p className="auth-modal-subtitle">Secure access to your Journex workspace.</p>
-              </div>
-              <button
-                type="button"
-                className="btn-secondary auth-modal-close"
-                onClick={closeAuth}
-              >
-                Close
-              </button>
-            </div>
-
-              {healthStatus.state === "checking" ? (
-                <div className="auth-status-box mb-3">
-                  Waking up server... (attempt {healthStatus.attempt}){healthStatus.error ? `: ${healthStatus.error}` : ""}
-                </div>
-              ) : healthStatus.state === "error" ? (
-                <div className="auth-status-box auth-status-box-error mb-3">
-                  <span>Backend unreachable: {healthStatus.error || "Check VITE_API_URL and backend status."}</span>
-                  <button
-                    type="button"
-                    className="btn-secondary auth-status-action"
-                    onClick={() => void wakeBackend()}
-                  >
-                    Retry
-                  </button>
-                </div>
-              ) : null}
-
-            {twoFactorPending ? (
-              <form onSubmit={handleTwoFactorSubmit} className="space-y-3">
-                <p className="text-sm text-textMuted">
-                  Enter the verification code sent for <span className="font-medium">{twoFactorPending.email}</span>.
-                </p>
-                <label>
-                  <span className="label">Verification code</span>
-                  <input
-                    className="input"
-                    value={twoFactorCode}
-                    onChange={(event) => setTwoFactorCode(event.target.value)}
-                    placeholder="6-digit code"
-                    required
-                  />
-                </label>
-                <div className="auth-modal-actions">
-                  <button className="btn-primary flex-1" type="submit" disabled={loading}>
-                    {loading ? "Checking..." : "Verify"}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => {
-                      setTwoFactorPending(null);
-                      setTwoFactorCode("");
-                    }}
-                  >
-                    Back
-                  </button>
-                </div>
-              </form>
-            ) : mode === "reset" ? (
-              <form onSubmit={handleResetConfirm} className="space-y-3">
-                <label>
-                  <span className="label">Reset token</span>
-                  <input
-                    className="input"
-                    value={resetToken}
-                    onChange={(event) => setResetToken(event.target.value)}
-                    placeholder="Paste reset token"
-                    required
-                  />
-                </label>
-                <label>
-                  <span className="label">New password</span>
-                  <input
-                    className="input"
-                    type="password"
-                    value={resetPassword}
-                    onChange={(event) => setResetPassword(event.target.value)}
-                    placeholder="Minimum 8 characters"
-                    minLength={8}
-                    required
-                  />
-                </label>
-                <div className="auth-modal-actions">
-                  <button className="btn-primary flex-1" type="submit" disabled={loading}>
-                    {loading ? "Please wait..." : "Update password"}
-                  </button>
-                  <button type="button" className="btn-secondary" onClick={() => setMode("login")}>
-                    Back
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <form onSubmit={handlePrimarySubmit} className="space-y-3">
-                {mode === "register" ? (
-                  <label>
-                    <span className="label">Name</span>
-                    <input
-                      className="input"
-                      value={name}
-                      onChange={(event) => setName(event.target.value)}
-                      placeholder="Your name"
-                      required
-                    />
-                  </label>
-                ) : null}
-                <label>
-                  <span className="label">Email</span>
-                  <input
-                    className="input"
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="you@example.com"
-                    required
-                  />
-                </label>
-                <label>
-                  <span className="label">Password</span>
-                  <input
-                    className="input"
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder="Minimum 8 characters"
-                    minLength={8}
-                    required
-                  />
-                </label>
-                {mode === "register" ? (
-                  <label>
-                    <span className="label">Confirm password</span>
-                    <input
-                      className="input"
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(event) => setConfirmPassword(event.target.value)}
-                      placeholder="Re-enter password"
-                      minLength={8}
-                      required
-                    />
-                  </label>
-                ) : null}
-                <button className="btn-primary w-full" type="submit" disabled={loading}>
-                  {loading ? "Please wait..." : mode === "register" ? "Create account" : "Log in"}
-                </button>
-                {mode === "login" ? (
-                  <button
-                    type="button"
-                    className="btn-secondary auth-inline-action"
-                    onClick={handleResetRequest}
-                    disabled={loading}
-                  >
-                    Forgot password
-                  </button>
-                ) : null}
-                {!twoFactorPending && mode !== "reset" ? (
-                  <button
-                    type="button"
-                    className="auth-switch"
-                    onClick={() => openAuth(mode === "register" ? "login" : "register")}
-                  >
-                    {mode === "register" ? "Already have an account? Log in" : "New here? Create an account"}
-                  </button>
-                ) : null}
-              </form>
-            )}
-
-            {message ? (
-              <p className="mt-3 rounded-md border border-accent/40 bg-accent/10 p-2 text-sm text-accent">{message}</p>
-            ) : null}
-            {deliveryHint ? <p className="mt-2 text-xs text-textMuted">Delivery hint: {deliveryHint}</p> : null}
-            {error ? (
-              <p className="mt-3 rounded-md border border-danger/40 bg-danger/10 p-2 text-sm text-danger">{error}</p>
-            ) : null}
-            {showDebugSecrets && debugSecret ? (
-              <p className="mt-3 rounded-md border border-accent/40 bg-accent/10 p-2 text-xs text-accent">
-                Dev token/code: {debugSecret}
-              </p>
-            ) : null}
+            {authPanelContent}
           </aside>
         </div>
       ) : null}

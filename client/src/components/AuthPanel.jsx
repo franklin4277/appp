@@ -336,47 +336,92 @@ const AuthPanel = ({ onAuthenticated }) => {
   const landingHomeSections = (
     <>
       <section className="landing-home-hero landing-home-hero-compact reveal">
-        <header className="landing-home-topbar animate-riseIn">
-          <button type="button" className="landing-home-topbrand" onClick={() => navigatePublic("/")} aria-label="Journex home">
-            <BrandLogo className="brand-logo landing-home-topbrand-logo" />
-            <span className="landing-home-topbrand-text">Journex</span>
-          </button>
-
-          <button type="button" className="landing-home-topbar-cta" onClick={() => openAuth("register")}>
-            Get started
-          </button>
-        </header>
-
-        <div className="landing-home-showcase panel animate-riseIn">
-          <div className="landing-home-showcase-copy">
-            <h2 className="landing-home-showcase-title">Ready to trade smarter?</h2>
-            <p className="landing-home-showcase-text">Start your disciplined trading journey today.</p>
-          </div>
-
-          <div className="landing-home-showcase-actions">
-            <button type="button" className="landing-home-showcase-btn landing-home-showcase-btn-primary" onClick={() => openAuth("register")}>
+        <div className="landing-workstation-shell panel animate-riseIn">
+          <div className="landing-workstation-brand">
+            <div className="landing-workstation-brandlock">
+              <BrandLogo className="brand-logo landing-workstation-logo" />
+              <div>
+                <strong>Journex</strong>
+                <span>Trading Workstation</span>
+              </div>
+            </div>
+            <button type="button" className="landing-home-topbar-cta" onClick={() => openAuth("register")}>
               Get started
             </button>
-            <button type="button" className="landing-home-showcase-btn landing-home-showcase-btn-secondary" onClick={() => navigatePublic("/features")}>
-              View features
-            </button>
+          </div>
+
+          <div className="landing-workstation-grid">
+            <div className="landing-workstation-story">
+              <div className="landing-workstation-kicker">Professional trading journal</div>
+              <h2 className="landing-workstation-title">Trade with more structure, review with more clarity.</h2>
+              <p className="landing-workstation-text">
+                Journex brings your trades, screenshots, notes, and coaching into one calm workspace built for serious review.
+              </p>
+
+              <div className="landing-workstation-featurelist">
+                <article className="landing-workstation-feature">
+                  <strong>Advanced analytics</strong>
+                  <span>Track expectancy, win rate, drawdown, and the setups that actually work.</span>
+                </article>
+                <article className="landing-workstation-feature">
+                  <strong>Risk discipline</strong>
+                  <span>Keep account goals, funded rules, and trade limits in one control center.</span>
+                </article>
+                <article className="landing-workstation-feature">
+                  <strong>Visual review</strong>
+                  <span>Save screenshots and replay the trade story with context still attached.</span>
+                </article>
+              </div>
+            </div>
+
+            <div className="landing-workstation-access">
+              <div className="landing-workstation-access-copy">
+                <p className="landing-workstation-access-kicker">Workspace access</p>
+                <h3>Ready to trade smarter?</h3>
+                <p>Open your Journex workspace or create an account to start building a cleaner review process.</p>
+              </div>
+
+              <div className="landing-home-showcase-actions landing-workstation-actions">
+                <button type="button" className="landing-home-showcase-btn landing-home-showcase-btn-primary" onClick={() => openAuth("register")}>
+                  Get started
+                </button>
+                <button type="button" className="landing-home-showcase-btn landing-home-showcase-btn-secondary" onClick={() => openAuth("login")}>
+                  Log in
+                </button>
+              </div>
+
+              <div className="landing-workstation-metrics">
+                <div className="landing-workstation-metric">
+                  <span>Review flow</span>
+                  <strong>Screenshots + notes + coaching</strong>
+                </div>
+                <div className="landing-workstation-metric">
+                  <span>Risk center</span>
+                  <strong>Account-aware tracking</strong>
+                </div>
+                <div className="landing-workstation-metric">
+                  <span>Built for</span>
+                  <strong>Forex, crypto, and funded traders</strong>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
         <div className="landing-home-support panel animate-riseIn">
-          <p className="landing-home-support-kicker">Why Journex</p>
+          <p className="landing-home-support-kicker">Inside the workstation</p>
           <div className="landing-home-support-grid">
             <article className="landing-home-support-item">
               <strong>Log clearly</strong>
-              <span>Trades, notes, and screenshots stay together.</span>
+              <span>Capture the trade, the screenshot, and the context without losing the workflow.</span>
             </article>
             <article className="landing-home-support-item">
               <strong>Review faster</strong>
-              <span>Come back later with the context still intact.</span>
+              <span>Come back later with the full story still attached instead of relying on memory.</span>
             </article>
             <article className="landing-home-support-item">
               <strong>Improve steadily</strong>
-              <span>Spot patterns without building a complicated workflow.</span>
+              <span>Use playbooks, coaching, and risk controls to build a repeatable process.</span>
             </article>
           </div>
         </div>

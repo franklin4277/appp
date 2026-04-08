@@ -915,6 +915,7 @@ const SaasWorkspace = ({
   const [reviewShares, setReviewShares] = useState([]);
   const [loadingReviewShares, setLoadingReviewShares] = useState(false);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
+  const [showPlaybookBuilder, setShowPlaybookBuilder] = useState(false);
   const activePageInfo = pages.find((page) => page.key === activePage) || null;
   const returnPageInfo = pages.find((page) => page.key === tradeDetailReturnPage) || null;
   const activeGroup = activePage === "trade-detail" ? returnPageInfo?.group || "Review" : activePageInfo?.group || "Core";
@@ -1485,6 +1486,140 @@ const SaasWorkspace = ({
       },
     ],
     [expectancyValue, resolvedEdgeInsights?.equityNow, resolvedEdgeInsights?.maxDrawdown]
+  );
+  const setupPerformanceRows = useMemo(
+    () => groupedStats(allTrades, (trade) => trade?.setupType),
+    [allTrades]
+  );
+  const sessionPerformanceRows = useMemo(
+    () => groupedStats(allTrades, (trade) => trade?.session),
+    [allTrades]
+  );
+  const drawdownTimelinePoints = useMemo(() => {
+    if (!Array.isArray(allTrades) || !allTrades.length) {
+      return [];
+    }
+    const chronological = [...allTrades].sort(
+      (a, b) => new Date(a?.tradeDate || 0).getTime() - new Date(b?.tradeDate || 0).getTime()
+    );
+    let cumulative = 0;
+    let peak = 0;
+    return chronological.map((trade, index) => {
+      cumulative += toNumber(trade?.rrAchieved, 0);
+      peak = Math.max(peak, cumulative);
+      return {
+        x: index + 1,
+        y: round(cumulative - peak, 2),
+        label: String(trade?.tradeDate || trade?.createdAt || ""),
+      };
+    });
+  }, [allTrades]);
+  const drawdownPolyline = useMemo(
+    () => buildPolyline(drawdownTimelinePoints, { width: 640, height: 220 }),
+    [drawdownTimelinePoints]
+  );
+  const winningTrades = useMemo(
+    () => allTrades.filter((trade) => String(trade?.result || "").toLowerCase() === "win"),
+    [allTrades]
+  );
+  const losingTrades = useMemo(
+    () => allTrades.filter((trade) => String(trade?.result || "").toLowerCase() === "loss"),
+    [allTrades]
+  );
+  const averageWinRR = useMemo(
+    () =>
+      winningTrades.length
+        ? round(winningTrades.reduce((sum, trade) => sum + toNumber(trade?.rrAchieved, 0), 0) / winningTrades.length, 2)
+        : 0,
+    [winningTrades]
+  );
+  const averageLossRR = useMemo(
+    () =>
+      losingTrades.length
+        ? round(
+            losingTrades.reduce((sum, trade) => sum + Math.abs(toNumber(trade?.rrAchieved, 0)), 0) / losingTrades.length,
+            2
+          )
+        : 0,
+    [losingTrades]
+  );
+  const winLossRatio = useMemo(() => {
+    if (!averageLossRR) {
+      return 0;
+    }
+    return round(averageWinRR / averageLossRR, 2);
+  }, [averageLossRR, averageWinRR]);
+  const profitFactor = useMemo(() => {
+    const grossWin = winningTrades.reduce((sum, trade) => sum + Math.max(toNumber(trade?.rrAchieved, 0), 0), 0);
+    const grossLoss = losingTrades.reduce((sum, trade) => sum + Math.abs(Math.min(toNumber(trade?.rrAchieved, 0), 0)), 0);
+    if (!grossLoss) {
+      return grossWin ? round(grossWin, 2) : 0;
+    }
+    return round(grossWin / grossLoss, 2);
+  }, [losingTrades, winningTrades]);
+  const reviewPeriodRows = useMemo(() => {
+    if (!activeReviewTrades.length) {
+      return [];
+    }
+    const buckets = new Map();
+    [...activeReviewTrades]
+      .sort((a, b) => new Date(a?.tradeDate || 0).getTime() - new Date(b?.tradeDate || 0).getTime())
+      .forEach((trade) => {
+        const tradeDate = new Date(trade?.tradeDate || trade?.createdAt || Date.now());
+        const startOfWeek = new Date(tradeDate);
+        const day = startOfWeek.getDay();
+        const shift = day === 0 ? 6 : day - 1;
+        startOfWeek.setDate(startOfWeek.getDate() - shift);
+        startOfWeek.setHours(0, 0, 0, 0);
+        const key = startOfWeek.toISOString().slice(0, 10);
+        if (!buckets.has(key)) {
+          buckets.set(key, {
+            key,
+            trades: 0,
+            wins: 0,
+            netRR: 0,
+          });
+        }
+        const bucket = buckets.get(key);
+        bucket.trades += 1;
+        if (String(trade?.result || "").toLowerCase() === "win") {
+          bucket.wins += 1;
+        }
+        bucket.netRR += toNumber(trade?.rrAchieved, 0);
+      });
+    return Array.from(buckets.values())
+      .slice(-4)
+      .map((row, index) => ({
+        label: `Week ${index + 1}`,
+        trades: row.trades,
+        netRR: round(row.netRR, 2),
+        winRate: row.trades ? round((row.wins / row.trades) * 100, 1) : 0,
+      }));
+  }, [activeReviewTrades]);
+  const reviewInsightItems = useMemo(
+    () => [
+      {
+        tone: "green",
+        title: coachingSummary.keep[0] || "Your strongest pattern is holding up well.",
+        detail: reviewBestSession
+          ? `Session strength is currently led by ${reviewBestSession.label}.`
+          : "As more reviewed trades come in, Journex will surface your strongest repeatable edge.",
+      },
+      {
+        tone: "red",
+        title: reviewWorstHabit || "No critical leak detected yet.",
+        detail: reviewWorstHabitDetail,
+      },
+      {
+        tone: "blue",
+        title: `Screenshot coverage sits at ${reviewScreenshotCoverage}%.`,
+        detail:
+          reviewScreenshotCoverage > 0
+            ? "Keep attaching before/after charts so replay and coaching stay visual."
+            : "Once screenshots are attached, Journex will reinforce what you actually saw in the moment.",
+      },
+    ],
+    [coachingSummary.keep, reviewBestSession, reviewScreenshotCoverage, reviewWorstHabit, reviewWorstHabitDetail]
   );
   const goalTrackingBars = useMemo(
     () => [
@@ -2110,19 +2245,8 @@ const SaasWorkspace = ({
       </div>
 
       <div className="saas-sidebar-footer">
-        <select
-          className="input saas-profile-select !h-9 !rounded-lg !py-1 text-xs"
-          value={filters.profileId || user.activeProfileId || ""}
-          onChange={(event) => handleProfileSwitch(event.target.value)}
-        >
-          {(user.profiles || []).map((profile) => (
-            <option key={profile.id} value={profile.id}>
-              {profile.name}
-            </option>
-          ))}
-        </select>
         <button type="button" className="saas-signout" onClick={onLogout}>
-          Sign Out
+          Logout
         </button>
       </div>
     </aside>
@@ -2189,19 +2313,8 @@ const SaasWorkspace = ({
           ))}
         </nav>
         <div className="saas-mobile-drawer-footer">
-          <select
-            className="input saas-profile-select !h-9 !rounded-lg !py-1 text-xs"
-            value={filters.profileId || user.activeProfileId || ""}
-            onChange={(event) => handleProfileSwitch(event.target.value)}
-          >
-            {(user.profiles || []).map((profile) => (
-              <option key={profile.id} value={profile.id}>
-                {profile.name}
-              </option>
-            ))}
-          </select>
           <button type="button" className="saas-signout" onClick={onLogout}>
-            Sign Out
+            Logout
           </button>
         </div>
       </aside>
@@ -2212,36 +2325,29 @@ const SaasWorkspace = ({
 
       <div className="saas-topbar">
         <div className="saas-topbar-left">
-          <span className={`saas-status-dot ${isOnline ? "" : "saas-status-dot-offline"}`} aria-hidden="true" />
-          <span>{isOnline ? "Online" : "Offline mode"}</span>
-          {offlineQueue.length ? <span className="chip">{offlineQueue.length} queued</span> : null}
-          {deferredInstallPrompt ? (
-            <button type="button" className="chip quick-chart-btn" onClick={() => void handleInstallApp()}>
-              Install App
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className="saas-mobile-menu-btn"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Open navigation menu"
+            aria-expanded={mobileMenuOpen}
+            aria-controls="saas-mobile-drawer"
+          >
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </button>
         </div>
         <div className="saas-topbar-right">
-          <div className="saas-user-card">
-            <div className="saas-user-avatar">{userInitials}</div>
-            <div className="saas-user-meta">
-              <strong>{user?.name || "Trader"}</strong>
-              <span>{user?.email || "Active account"}</span>
-            </div>
-          </div>
+          <span className="saas-account-chip">
+            Account: {activeProfileAccountSize > 0 ? formatCurrency(activeProfileAccountSize) : "Not set"}
+          </span>
         </div>
       </div>
 
+      {!["dashboard", "journal", "trade-detail"].includes(activePage) ? (
       <header className="saas-page-header">
         <div>
-          <div className="saas-breadcrumb" aria-label="Breadcrumb">
-            {breadcrumbItems.map((item, index) => (
-              <span key={`crumb-${item}-${index}`} className="saas-breadcrumb-item">
-                {index > 0 ? <span className="saas-breadcrumb-sep">/</span> : null}
-                <span>{item}</span>
-              </span>
-            ))}
-          </div>
           <h1>{activeMeta.title}</h1>
           <p>{activeMeta.subtitle}</p>
         </div>
@@ -2255,69 +2361,7 @@ const SaasWorkspace = ({
           </button>
         ) : null}
       </header>
-
-      {groupPages.length > 1 ? (
-        <section className="panel saas-section-switcher" aria-label={`${activeGroup} pages`}>
-          <div className="saas-section-switcher-head">
-            <strong>{activeGroup}</strong>
-            <span>{activePage === "trade-detail" ? "Return flow stays inside this section." : "Quickly move between related pages."}</span>
-          </div>
-          <div className="saas-section-switcher-tabs">
-            {groupPages.map((page) => {
-              const isCurrent =
-                activePage === page.key || (activePage === "trade-detail" && tradeDetailReturnPage === page.key);
-              return (
-                <button
-                  key={`section-switch-${page.key}`}
-                  type="button"
-                  className={`saas-section-tab ${isCurrent ? "saas-section-tab-active" : ""}`}
-                  onClick={() => setActivePage(page.key)}
-                  aria-current={isCurrent ? "page" : undefined}
-                >
-                  {page.label}
-                </button>
-              );
-            })}
-          </div>
-        </section>
       ) : null}
-
-      <section className="panel saas-profile-rail">
-        <div className="saas-profile-rail-copy">
-          <span className="chip">Active profile</span>
-          <strong>{activeProfile?.name || "Main Profile"}</strong>
-          <span>
-            {activeProfileAccountSize > 0
-              ? `${formatAccountSize(activeProfileAccountSize)} starting balance`
-              : "Set account size in Settings to unlock real risk and growth tracking."}
-          </span>
-        </div>
-        <div className="saas-profile-rail-actions">
-          <select
-            className="input saas-profile-select"
-            value={filters.profileId || user.activeProfileId || ""}
-            onChange={(event) => handleProfileSwitch(event.target.value)}
-          >
-            {(user.profiles || []).map((profile) => (
-              <option key={profile.id} value={profile.id}>
-                {profile.name}
-              </option>
-            ))}
-          </select>
-          <div className="saas-profile-chip-row">
-            {(user.profiles || []).slice(0, 4).map((profile) => (
-              <button
-                key={`profile-chip-${profile.id}`}
-                type="button"
-                className={`chip-btn ${(filters.profileId || user.activeProfileId) === profile.id ? "chip-btn-active" : ""}`}
-                onClick={() => handleProfileSwitch(profile.id)}
-              >
-                {profile.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {error ? (
         <p className="saas-alert saas-alert-error" role="alert" aria-live="assertive">
@@ -2357,283 +2401,39 @@ const SaasWorkspace = ({
 
       {activePage === "dashboard" ? (
         <section className="space-y-4 saas-page-section saas-page-dashboard">
-          <div className="saas-insights-row">
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Best setup</p>
-              <h3>{resolvedSetupTop[0]?.label || "-"}</h3>
-              <p className="saas-stat-label">
-                {resolvedSetupTop[0]
-                  ? `${resolvedSetupTop[0].winRate}% win rate | ${topSetupConfidence.label}`
-                  : "Start logging trades to reveal your edge"}
-              </p>
-            </article>
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Best session</p>
-              <h3>{resolvedSessionTop[0]?.label || "-"}</h3>
-              <p className="saas-stat-label">
-                {resolvedSessionTop[0]
-                  ? `${resolvedSessionTop[0].winRate}% win rate | ${topSessionConfidence.label}`
-                  : "Session performance appears after more trades"}
-              </p>
-            </article>
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Most consistent</p>
-              <h3>{followedPlanWinRate ? `${followedPlanWinRate}%` : "-"}</h3>
-              <p className="saas-stat-label">
-                {resolvedFollowedPlanTrades.length
-                  ? `${resolvedFollowedPlanTrades.length} clean trades`
-                  : "Track clean setups to measure discipline"}
-              </p>
-            </article>
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Account return</p>
-              <h3>
-                {activeAccountPerformance
-                  ? `${activeAccountPerformance.returnPercent >= 0 ? "+" : ""}${activeAccountPerformance.returnPercent}%`
-                  : "Set size"}
-              </h3>
-              <p className="saas-stat-label">
-                {activeAccountPerformance
-                  ? `${formatCurrency(activeAccountPerformance.currentBalance)} current balance`
-                  : "Add account size in Settings to unlock balance-based reporting"}
-              </p>
-            </article>
-          </div>
           <div className="saas-stats-grid saas-stats-grid-primary">
-            <article className="panel saas-card saas-analytics-equity-card">
-              <div className="saas-stat-head">
-                <span className="saas-stat-icon saas-stat-icon-blue">
-                  <IconGlyph name="pulse" />
-                </span>
-                <p className="saas-stat-kicker">{totalTrades} closed</p>
-              </div>
+            <article className="panel saas-card saas-dashboard-stat-card">
+              <p className="saas-stat-kicker">Total Trades</p>
               <p className="saas-stat-value">{totalTrades}</p>
-              <p className="saas-stat-label">Trades Logged</p>
+              <p className="saas-stat-label">
+                {weeklyTrades.length ? `+${weeklyTrades.length} this week` : "Start building your journal"}
+              </p>
             </article>
-            <article className="panel saas-card">
-              <div className="saas-stat-head">
-                <span className="saas-stat-icon saas-stat-icon-green">
-                  <IconGlyph name="win" />
-                </span>
-                <p className="saas-stat-kicker">{winShareLabel}</p>
-              </div>
+            <article className="panel saas-card saas-dashboard-stat-card">
+              <p className="saas-stat-kicker">Win Rate</p>
               <p className="saas-stat-value">{overallWinRate}%</p>
-              <p className="saas-stat-label">Win Rate</p>
+              <p className="saas-stat-label">
+                {monthlyWinRate ? `${monthlyWinRate >= overallWinRate ? "+" : ""}${round(monthlyWinRate - overallWinRate, 1)}% vs broader sample` : winShareLabel}
+              </p>
             </article>
-            <article className="panel saas-card">
-              <div className="saas-stat-head">
-                <span className="saas-stat-icon saas-stat-icon-violet">
-                  <IconGlyph name="rr" />
-                </span>
-                <p className="saas-stat-kicker">{`${netRR >= 0 ? "+" : ""}${netRR}R net`}</p>
-              </div>
-              <p className="saas-stat-value">{overallAvgRR}x</p>
-              <p className="saas-stat-label">Risk:Reward</p>
-            </article>
-            <article className="panel saas-card saas-card-profit">
-              <div className="saas-stat-head">
-                <span className="saas-stat-icon saas-stat-icon-gold">
-                  <IconGlyph name="money" />
-                </span>
-                <p className="saas-stat-kicker">Exp {round(expectancyValue, 2)}R</p>
-              </div>
+            <article className="panel saas-card saas-dashboard-stat-card saas-card-profit">
+              <p className="saas-stat-kicker">Net R</p>
               <p className="saas-stat-value">
-                {netRR >= 0 ? "+" : ""}{Math.abs(netRR).toFixed(2)}R
+                {netRR >= 0 ? "+" : "-"}
+                {Math.abs(netRR).toFixed(1)}R
               </p>
-              <p className="saas-stat-label">Net R</p>
+              <p className="saas-stat-label">{totalWins} winners</p>
+            </article>
+            <article className="panel saas-card saas-dashboard-stat-card">
+              <p className="saas-stat-kicker">Expectancy</p>
+              <p className="saas-stat-value">{round(expectancyValue, 2)}R</p>
+              <p className="saas-stat-label">{expectancyValue >= 1 ? "Above target" : "Still developing"}</p>
             </article>
           </div>
-
-          <div className="saas-dashboard-operating-grid">
-          <article className="panel saas-card saas-account-panel">
+          <article className="panel saas-card saas-dashboard-chart-card">
             <div className="saas-card-head">
-              <div>
-                <h3 className="saas-card-title">Profile Performance</h3>
-                <p className="saas-card-subtitle">
-                  {activeProfile?.name || "Active profile"} performance translated into account growth using your saved risk % per trade.
-                </p>
-              </div>
-              {activeAccountPerformance ? <span className="chip">{activeAccountPerformance.trackedTrades} risk-tracked trades</span> : null}
-            </div>
-            {activeAccountPerformance ? (
-              <div className="saas-account-grid">
-                <div className="saas-metric-item">
-                  <span>Start Balance</span>
-                  <strong>{formatCurrency(activeAccountPerformance.startingBalance)}</strong>
-                </div>
-                <div className="saas-metric-item">
-                  <span>Estimated P/L</span>
-                  <strong>
-                    {activeAccountPerformance.pnlAmount >= 0 ? "+" : "-"}
-                    {formatCurrency(Math.abs(activeAccountPerformance.pnlAmount))}
-                  </strong>
-                </div>
-                <div className="saas-metric-item">
-                  <span>Current Balance</span>
-                  <strong>{formatCurrency(activeAccountPerformance.currentBalance)}</strong>
-                </div>
-                <div className="saas-metric-item">
-                  <span>Max Drawdown</span>
-                  <strong>
-                    -{activeAccountPerformance.maxDrawdownPercent}% ({formatCurrency(activeAccountPerformance.maxDrawdownAmount)})
-                  </strong>
-                </div>
-              </div>
-            ) : (
-              <div className="saas-risk-panel saas-risk-panel-muted">
-                Add an account size to the active profile in Settings so Journex can convert R-multiple performance into estimated balance growth and drawdown.
-              </div>
-            )}
-          </article>
-
-          <article className="panel saas-card saas-dashboard-goals-card">
-            <div className="saas-card-head">
-              <div>
-                <h3 className="saas-card-title">Account Goals</h3>
-                <p className="saas-card-subtitle">Daily and weekly targets based on the active profile's saved account size.</p>
-              </div>
-            </div>
-            {activeProfileAccountSize > 0 ? (
-              <div className="saas-metric-list">
-                <div className="saas-metric-item">
-                  <span>Daily profit target</span>
-                  <strong>
-                    {dailyGoalProgress
-                      ? `${dailyGoalProgress.currentPercent >= 0 ? "+" : ""}${dailyGoalProgress.currentPercent}% / ${dailyGoalProgress.targetPercent}%`
-                      : "Not set"}
-                  </strong>
-                </div>
-                <div className="saas-progress saas-progress-green">
-                  <span style={{ width: `${dailyGoalProgress?.progressPercent || 0}%` }} />
-                </div>
-                <div className="saas-metric-item">
-                  <span>Weekly profit target</span>
-                  <strong>
-                    {weeklyGoalProgress
-                      ? `${weeklyGoalProgress.currentPercent >= 0 ? "+" : ""}${weeklyGoalProgress.currentPercent}% / ${weeklyGoalProgress.targetPercent}%`
-                      : "Not set"}
-                  </strong>
-                </div>
-                <div className="saas-progress saas-progress-blue">
-                  <span style={{ width: `${weeklyGoalProgress?.progressPercent || 0}%` }} />
-                </div>
-                <div className="saas-metric-item">
-                  <span>Daily drawdown cap</span>
-                  <strong>
-                    {dailyDrawdownProgress
-                      ? `${dailyDrawdownProgress.currentPercent}% / ${dailyDrawdownProgress.capPercent}%`
-                      : "Not set"}
-                  </strong>
-                </div>
-                <div className="saas-progress saas-progress-red">
-                  <span style={{ width: `${dailyDrawdownProgress?.progressPercent || 0}%` }} />
-                </div>
-                <p className="saas-metric-note">
-                  {dailyDrawdownProgress?.breached
-                    ? "Daily drawdown limit breached. Step back and review before taking another trade."
-                    : "Goal progress updates from risk-adjusted performance on this profile."}
-                </p>
-              </div>
-            ) : (
-              <div className="saas-risk-panel saas-risk-panel-muted">
-                Save an account size first, then Journex will track progress against your daily and weekly account goals.
-              </div>
-            )}
-          </article>
-
-          <div className="saas-main-grid saas-main-grid-analytics-overview">
-            <article className="panel saas-card saas-analytics-equity-card">
-              <div className="saas-card-head">
-                <div>
-                  <h3 className="saas-card-title">Playbook Performance</h3>
-                  <p className="saas-card-subtitle">See which saved playbooks actually hold up in live execution.</p>
-                </div>
-              </div>
-              {playbookStats.length ? (
-                <div className="saas-ranking-list">
-                  {playbookStats.slice(0, 4).map((item) => (
-                    <div key={`playbook-${item.label}`} className="saas-ranking-item">
-                      <div className="saas-ranking-top">
-                        <strong>{item.label}</strong>
-                        <span className="saas-rank-rate">{item.winRate}%</span>
-                      </div>
-                      <div className="saas-ranking-sub">
-                        <p>{item.trades} trades</p>
-                        <p>Avg R:R {toNumber(item.avgRR).toFixed(2)}x</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="saas-risk-panel saas-risk-panel-muted">
-                  Save playbooks in Settings and attach them in Add Trade to compare live execution against your playbook library.
-                </div>
-              )}
-            </article>
-
-            <article className="panel saas-card saas-analytics-metrics-card">
-              <div className="saas-card-head">
-                <div>
-                  <h3 className="saas-card-title">Costly Mistakes</h3>
-                  <p className="saas-card-subtitle">The behaviors currently taking the most R off the table.</p>
-                </div>
-              </div>
-              {mistakeStats.length ? (
-                <div className="saas-ranking-list">
-                  {mistakeStats.slice(0, 4).map((item) => (
-                    <div key={`mistake-cost-${item.label}`} className="saas-ranking-item">
-                      <div className="saas-ranking-top">
-                        <strong>{item.label}</strong>
-                        <span className="saas-rank-rate saas-rank-rate-low">-{item.costRR}R</span>
-                      </div>
-                      <div className="saas-ranking-sub">
-                        <p>{item.trades} tagged trades</p>
-                        <p>{item.losses} losses linked to this leak</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="saas-risk-panel saas-risk-panel-muted">
-                  Turn on the mistake tracker in your trade workflow to see which habits need the most attention.
-                </div>
-              )}
-            </article>
-          </div>
-
-          <article className="panel saas-edge-banner">
-            <div className="saas-banner-head">
-              <span className="saas-stat-icon saas-stat-icon-blue">
-                <IconGlyph name="pulse" />
-              </span>
-              <h3>Edge Insights</h3>
-            </div>
-            {totalTrades ? (
-              <p>
-                Best session: <span>{resolvedEdgeInsights.bestSession?.key || "N/A"}</span>
-                {resolvedEdgeInsights.bestSession?.winRate !== undefined ? (
-                  <span> ({resolvedEdgeInsights.bestSession.winRate}% WR)</span>
-                ) : null}
-                {resolvedEdgeInsights.bestSetup?.key ? (
-                  <>
-                    . Best setup: <span>{resolvedEdgeInsights.bestSetup.key}</span>.
-                  </>
-                ) : (
-                  "."
-                )}
-              </p>
-            ) : (
-              <p>No closed trades yet. Log trades to unlock edge insights.</p>
-            )}
-            <button type="button" className="btn-secondary quick-chart-btn" onClick={() => setActivePage("review")}>
-              Open Review
-            </button>
-          </article>
-          </div>
-
-          <div className="saas-main-grid saas-dashboard-bottom-grid">
-            <article className="panel saas-card">
               <h3 className="saas-card-title">Equity Curve</h3>
+            </div>
               {totalTrades ? (
                 <svg viewBox="0 0 640 260" className="saas-line-chart" aria-hidden="true">
                   <polyline
@@ -2719,32 +2519,58 @@ const SaasWorkspace = ({
                   <p>Once trades are logged, expectancy, drawdown, and behavior signals will summarize automatically.</p>
                 </div>
               )}
-              <button type="button" className="landing-cta-secondary !w-full" onClick={() => setActivePage("coaching")}>
-                Open Coaching
-              </button>
+          </article>
+
+          <div className="saas-insights-row saas-dashboard-summary-row">
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Top Setup</p>
+              <h3>{resolvedSetupTop[0]?.label || "-"}</h3>
+              <p className="saas-stat-label">{resolvedSetupTop[0] ? `${resolvedSetupTop[0].trades} trades` : "More trades needed"}</p>
+              <p className="saas-dashboard-summary-value saas-dashboard-summary-positive">
+                {resolvedSetupTop[0] ? `+${round(toNumber(resolvedSetupTop[0].rr), 1)}R` : "-"}
+              </p>
+              <p className="saas-stat-label">{resolvedSetupTop[0] ? `${resolvedSetupTop[0].winRate}% win rate` : "No setup edge yet"}</p>
+            </article>
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Top Session</p>
+              <h3>{resolvedSessionTop[0]?.label || "-"}</h3>
+              <p className="saas-stat-label">{resolvedSessionTop[0] ? `${resolvedSessionTop[0].trades} trades` : "More trades needed"}</p>
+              <p className="saas-dashboard-summary-value saas-dashboard-summary-positive">
+                {resolvedSessionTop[0] ? `+${round(toNumber(resolvedSessionTop[0].rr), 1)}R` : "-"}
+              </p>
+              <p className="saas-stat-label">{resolvedSessionTop[0] ? `${resolvedSessionTop[0].winRate}% win rate` : "No session edge yet"}</p>
+            </article>
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Biggest Leak</p>
+              <h3>{mistakeStats[0]?.label || reviewWorstHabit || "None"}</h3>
+              <p className="saas-stat-label">{mistakeStats[0] ? `${mistakeStats[0].trades} trades` : "No tagged leak yet"}</p>
+              <p className={`saas-dashboard-summary-value ${mistakeStats[0] ? "saas-dashboard-summary-negative" : ""}`}>
+                {mistakeStats[0] ? `-${mistakeStats[0].costRR}R` : "-"}
+              </p>
+              <p className="saas-stat-label">
+                {mistakeStats[0] ? `${mistakeStats[0].winRate}% win rate` : "Tag mistakes in Add Trade to surface your costliest habit"}
+              </p>
             </article>
           </div>
 
           <article className="panel saas-card">
             <div className="saas-card-head">
               <h3 className="saas-card-title">Recent Trades</h3>
-              <button type="button" className="chip quick-chart-btn" onClick={() => setActivePage("journal")}>
-                Add Trade
-              </button>
             </div>
             <div className="saas-table-wrap">
               <table className="saas-table" aria-describedby="recent-trades-caption">
                 <caption id="recent-trades-caption" className="saas-sr-only">
-                  Recent trades with date, pair, setup, risk reward ratio, outcome, and profit or loss.
+                  Recent trades with pair, type, entry, exit, R, profit or loss, and setup.
                 </caption>
                 <thead>
                   <tr>
-                    <th scope="col">Date</th>
                     <th scope="col">Pair</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Entry</th>
+                    <th scope="col">Exit</th>
+                    <th scope="col">R</th>
+                    <th scope="col">P&amp;L</th>
                     <th scope="col">Setup</th>
-                    <th scope="col">R:R</th>
-                    <th scope="col">Outcome</th>
-                    <th scope="col">Net R</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2761,20 +2587,32 @@ const SaasWorkspace = ({
                         }
                       }}
                     >
-                      <th scope="row">{formatTradeDate(trade.tradeDate)}</th>
-                      <td data-label="Pair">{trade.pair || "-"}</td>
-                      <td data-label="Setup">{trade.setupType || "-"}</td>
-                      <td data-label="R:R">{toNumber(trade.rrAchieved).toFixed(1)}x</td>
-                      <td data-label="Outcome">
-                        <TradeOutcome result={trade.result} />
+                      <th scope="row">{trade.pair || "-"}</th>
+                      <td data-label="Type">
+                        <span className={`saas-result ${String(trade.tradeType || "").toLowerCase() === "sell" ? "saas-result-loss" : "saas-result-win"}`}>
+                          {trade.tradeType || "-"}
+                        </span>
                       </td>
+                      <td data-label="Entry">{Number.isFinite(toFinite(trade.entryPrice)) ? toFinite(trade.entryPrice) : "-"}</td>
+                      <td data-label="Exit">{Number.isFinite(toFinite(trade.exitPrice)) ? toFinite(trade.exitPrice) : "-"}</td>
                       <td
-                        data-label="Net R"
+                        data-label="R"
                         className={toNumber(trade.rrAchieved) >= 0 ? "saas-table-pnl-positive" : "saas-table-pnl-negative"}
                       >
                         {toNumber(trade.rrAchieved) >= 0 ? "+" : "-"}
                         {Math.abs(toNumber(trade.rrAchieved)).toFixed(2)}R
                       </td>
+                      <td
+                        data-label="P&L"
+                        className={toNumber(trade.rrAchieved) >= 0 ? "saas-table-pnl-positive" : "saas-table-pnl-negative"}
+                      >
+                        {activeProfileAccountSize > 0 && Number.isFinite(toNumber(trade?.riskPercent))
+                          ? `${toNumber(trade.rrAchieved) >= 0 ? "+" : "-"}${formatCurrency(
+                              Math.abs((activeProfileAccountSize * (toNumber(trade.riskPercent, 0) / 100)) * toNumber(trade.rrAchieved, 0))
+                            )}`
+                          : "-"}
+                      </td>
+                      <td data-label="Setup">{trade.setupType || "-"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -3299,238 +3137,140 @@ const SaasWorkspace = ({
 
       {activePage === "analytics" ? (
         <section className="space-y-4 saas-page-section saas-page-analytics">
-          <div className="saas-insights-row saas-insights-row-analytics">
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Best pair</p>
-              <h3>{pairRankings[0]?.label || "-"}</h3>
-              <p className="saas-stat-label">
-                {pairRankings[0]
-                  ? `${pairRankings[0].winRate}% win rate across ${pairRankings[0].trades} trades`
-                  : "Pair rankings unlock after more trade history"}
-              </p>
-            </article>
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Top session</p>
-              <h3>{resolvedSessionTop[0]?.label || "-"}</h3>
-              <p className="saas-stat-label">
-                {resolvedSessionTop[0]
-                  ? `${resolvedSessionTop[0].avgRR.toFixed(2)}x average R:R`
-                  : "Session quality appears once trades are logged"}
-              </p>
-            </article>
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Monthly pace</p>
-              <h3>
-                {monthNetRR >= 0 ? "+" : "-"}
-                {Math.abs(monthNetRR).toFixed(2)}R
-              </h3>
-              <p className="saas-stat-label">{monthLabel}</p>
-            </article>
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Account drawdown</p>
-              <h3>
-                {activeAccountPerformance ? `-${activeAccountPerformance.maxDrawdownPercent}%` : "Set size"}
-              </h3>
-              <p className="saas-stat-label">
-                {activeAccountPerformance
-                  ? `${formatCurrency(activeAccountPerformance.maxDrawdownAmount)} peak-to-trough`
-                  : "Add account size to convert RR into drawdown by profile"}
-              </p>
-            </article>
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Account return</p>
-              <h3>
-                {activeAccountPerformance
-                  ? `${activeAccountPerformance.returnPercent >= 0 ? "+" : ""}${activeAccountPerformance.returnPercent}%`
-                  : "Set size"}
-              </h3>
-              <p className="saas-stat-label">
-                {activeAccountPerformance
-                  ? `${formatCurrency(activeAccountPerformance.currentBalance)} estimated balance`
-                  : "Save account size to unlock balance-based reporting"}
-              </p>
-            </article>
-          </div>
-
-          <div className="saas-stats-grid saas-stats-grid-primary">
-            <article className="panel saas-card">
-              <div className="saas-stat-head">
-                <span className="saas-stat-icon saas-stat-icon-green">
-                  <IconGlyph name="win" />
-                </span>
-                <p className="saas-stat-kicker">Wins</p>
+          <article className="panel saas-card">
+            <div className="saas-section-header">
+              <span className="saas-stat-icon saas-stat-icon-blue">
+                <IconGlyph name="analytics" />
+              </span>
+              <div>
+                <h3 className="saas-card-title">Performance by Setup</h3>
+                <p className="saas-card-subtitle">Net R by setup using your actual journal history.</p>
               </div>
-              <p className="saas-stat-value">{totalWins}</p>
-              <p className="saas-stat-label">Winning Trades</p>
-            </article>
-            <article className="panel saas-card">
-              <div className="saas-stat-head">
-                <span className="saas-stat-icon saas-stat-icon-red">
-                  <IconGlyph name="loss" />
-                </span>
-                <p className="saas-stat-kicker">Losses</p>
-              </div>
-              <p className="saas-stat-value">{totalLosses}</p>
-              <p className="saas-stat-label">Losing Trades</p>
-            </article>
-            <article className="panel saas-card">
-              <div className="saas-stat-head">
-                <span className="saas-stat-icon saas-stat-icon-violet">
-                  <IconGlyph name="rr" />
-                </span>
-                <p className="saas-stat-kicker">Expectancy</p>
-              </div>
-              <p className="saas-stat-value">{round(expectancyValue, 2)}R</p>
-              <p className="saas-stat-label">Per Trade</p>
-            </article>
-            <article className="panel saas-card">
-              <div className="saas-stat-head">
-                <span className="saas-stat-icon saas-stat-icon-blue">
-                  <IconGlyph name="pulse" />
-                </span>
-                <p className="saas-stat-kicker">Avg R:R</p>
-              </div>
-              <p className="saas-stat-value">{overallAvgRR}x</p>
-              <p className="saas-stat-label">Risk:Reward</p>
-            </article>
-          </div>
-
-          <div className="saas-main-grid saas-main-grid-analytics-overview">
-            <article className="panel saas-card">
-              <div className="saas-section-header">
-                <span className="saas-stat-icon saas-stat-icon-blue">
-                  <IconGlyph name="analytics" />
-                </span>
-                <div>
-                  <h3 className="saas-card-title">Performance by Setup</h3>
-                  <p className="saas-card-subtitle">Compare setup quality using win rate across your top patterns.</p>
-                </div>
-              </div>
-              <div className="saas-bars" style={{ "--saas-bars-columns": String(Math.max(setupChartItems.length, 1)) }}>
-                {setupChartItems.length ? (
-                  setupChartItems.map((item) => (
-                    <div key={item.label} className="saas-bar-item">
-                      <div className="saas-bar" style={{ height: `${Math.min(Math.max(item.winRate, 0), 100)}%` }} />
-                      <span>{item.label}</span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="saas-empty-state">
-                    <strong>No setup analytics yet</strong>
-                    <p>Log a few closed trades with setup names to compare pattern quality.</p>
-                  </div>
-                )}
-              </div>
-            </article>
-            <article className="panel saas-card">
-              <div className="saas-section-header">
-                <span className="saas-stat-icon saas-stat-icon-violet">
-                  <IconGlyph name="calendar" />
-                </span>
-                <div>
-                  <h3 className="saas-card-title">Performance by Session</h3>
-                  <p className="saas-card-subtitle">See where your edge shows up with the most consistency.</p>
-                </div>
-              </div>
-              <div className="saas-bars" style={{ "--saas-bars-columns": String(Math.max(sessionChartItems.length, 1)) }}>
-                {sessionChartItems.length ? (
-                  sessionChartItems.map((item) => (
-                    <div key={item.label} className="saas-bar-item">
-                      <div className="saas-bar saas-bar-purple" style={{ height: `${Math.min(Math.max(item.winRate, 0), 100)}%` }} />
-                      <span>{item.label}</span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="saas-empty-state">
-                    <strong>No session analytics yet</strong>
-                    <p>Sessions start ranking themselves once your journal has enough trade history.</p>
-                  </div>
-                )}
-              </div>
-            </article>
-          </div>
-
-          <div className="saas-main-grid">
-            <article className="panel saas-card">
-              <div className="saas-section-header">
-                <span className="saas-stat-icon saas-stat-icon-green">
-                  <IconGlyph name="win" />
-                </span>
-                <div>
-                  <h3 className="saas-card-title">Trade Outcomes</h3>
-                  <p className="saas-card-subtitle">Distribution of wins, losses, and break-even trades.</p>
-                </div>
-              </div>
-              {totalTrades ? (
-                <>
-                  <div
-                    className="saas-pie"
-                    style={{
-                      background: `conic-gradient(#10b981 0 ${overallWinRate}%, #ef4444 ${overallWinRate}% ${
-                        overallWinRate + (totalLosses / totalTrades) * 100
-                      }%, #475569 0 100%)`,
-                    }}
-                  />
-                  <div className="saas-pie-legend">
-                    <span>Wins {overallWinRate}%</span>
-                    <span>Losses {round((totalLosses / totalTrades) * 100, 1)}%</span>
-                    <span>Break-even {round((totalBreakEven / totalTrades) * 100, 1)}%</span>
-                  </div>
-                </>
-              ) : (
-                <div className="saas-empty-state mt-4">
-                  <strong>No trade outcomes yet</strong>
-                  <p>Wins, losses, and break-even distribution will show up after your first closed trades.</p>
-                </div>
-              )}
-            </article>
-            <article className="panel saas-card">
-              <div className="saas-section-header">
-                <span className="saas-stat-icon saas-stat-icon-gold">
-                  <IconGlyph name="money" />
-                </span>
-                <div>
-                  <h3 className="saas-card-title">This Month</h3>
-                  <p className="saas-card-subtitle">How the current month is pacing against your recent baseline.</p>
-                </div>
-              </div>
-              <p className="saas-stat-value">
-                {monthNetRR >= 0 ? "+" : "-"}
-                {Math.abs(monthNetRR).toFixed(2)}R
-              </p>
-              <p className="saas-stat-label">Net R</p>
-            </article>
-            <article className="panel saas-card">
-              <div className="saas-section-header">
-                <span className="saas-stat-icon saas-stat-icon-blue">
-                  <IconGlyph name="pulse" />
-                </span>
-                <div>
-                  <h3 className="saas-card-title">Profile Equity</h3>
-                  <p className="saas-card-subtitle">Estimated balance growth for the active profile.</p>
-                </div>
-              </div>
-              {accountTimeline.points.length > 1 ? (
-                <>
-                  <svg viewBox="0 0 640 220" className="saas-line-chart saas-line-chart-account" aria-hidden="true">
-                    <polyline
-                      points={accountBalancePolyline}
-                      fill="none"
-                      stroke="#22c55e"
-                      strokeWidth="4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+            </div>
+            <div className="saas-bars saas-bars-performance" style={{ "--saas-bars-columns": String(Math.max(setupPerformanceRows.slice(0, 5).length, 1)) }}>
+              {setupPerformanceRows.length ? (
+                setupPerformanceRows.slice(0, 5).map((item) => (
+                  <div key={item.label} className="saas-bar-item">
+                    <div
+                      className={`saas-bar ${toNumber(item.rr) < 0 ? "saas-bar-negative" : ""}`}
+                      style={{ height: `${Math.min(Math.max(Math.abs(toNumber(item.rr)) * 14, 12), 100)}%` }}
                     />
-                  </svg>
-                  <p className="saas-stat-label mt-3">
-                    {formatCurrency(activeAccountPerformance?.startingBalance)} to {formatCurrency(activeAccountPerformance?.currentBalance)}
-                  </p>
-                </>
+                    <span>{item.label}</span>
+                  </div>
+                ))
               ) : (
-                <div className="saas-risk-panel saas-risk-panel-muted">
-                  Save an account size to unlock equity-by-profile analytics.
+                <div className="saas-empty-state">
+                  <strong>No setup analytics yet</strong>
+                  <p>Log a few closed trades with setup names to compare pattern quality.</p>
                 </div>
               )}
+            </div>
+          </article>
+
+          <article className="panel saas-card">
+            <div className="saas-card-head">
+              <h3 className="saas-card-title">Setup Breakdown</h3>
+            </div>
+            <div className="saas-table-wrap">
+              <table className="saas-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Setup</th>
+                    <th scope="col">Total R</th>
+                    <th scope="col">Trades</th>
+                    <th scope="col">Win Rate</th>
+                    <th scope="col">Avg R</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {setupPerformanceRows.slice(0, 5).map((item) => (
+                    <tr key={`setup-breakdown-${item.label}`}>
+                      <th scope="row">{item.label}</th>
+                      <td className={toNumber(item.rr) >= 0 ? "saas-table-pnl-positive" : "saas-table-pnl-negative"}>
+                        {toNumber(item.rr) >= 0 ? "+" : "-"}{Math.abs(toNumber(item.rr)).toFixed(1)}R
+                      </td>
+                      <td>{item.trades}</td>
+                      <td>{item.winRate}%</td>
+                      <td>{toNumber(item.avgRR).toFixed(2)}R</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article className="panel saas-card">
+            <div className="saas-section-header">
+              <span className="saas-stat-icon saas-stat-icon-green">
+                <IconGlyph name="calendar" />
+              </span>
+              <div>
+                <h3 className="saas-card-title">Session Performance</h3>
+                <p className="saas-card-subtitle">See where your edge shows up with the most consistency.</p>
+              </div>
+            </div>
+            <div className="saas-bars saas-bars-performance" style={{ "--saas-bars-columns": String(Math.max(sessionPerformanceRows.slice(0, 4).length, 1)) }}>
+              {sessionPerformanceRows.length ? (
+                sessionPerformanceRows.slice(0, 4).map((item) => (
+                  <div key={item.label} className="saas-bar-item">
+                    <div className="saas-bar saas-bar-green" style={{ height: `${Math.min(Math.max(Math.abs(toNumber(item.rr)) * 14, 12), 100)}%` }} />
+                    <span>{item.label}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="saas-empty-state">
+                  <strong>No session analytics yet</strong>
+                  <p>Sessions start ranking themselves once your journal has enough trade history.</p>
+                </div>
+              )}
+            </div>
+          </article>
+
+          <article className="panel saas-card">
+            <div className="saas-section-header">
+              <span className="saas-stat-icon saas-stat-icon-red">
+                <IconGlyph name="loss" />
+              </span>
+              <div>
+                <h3 className="saas-card-title">Drawdown Analysis</h3>
+                <p className="saas-card-subtitle">Peak-to-trough pressure across your recent trade sequence.</p>
+              </div>
+            </div>
+            {drawdownTimelinePoints.length ? (
+              <svg viewBox="0 0 640 220" className="saas-line-chart saas-line-chart-danger" aria-hidden="true">
+                <polyline
+                  points={drawdownPolyline}
+                  fill="none"
+                  stroke="#ef4444"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            ) : (
+              <div className="saas-empty-state mt-4">
+                <strong>No drawdown analysis yet</strong>
+                <p>Closed trades will build this pressure curve automatically.</p>
+              </div>
+            )}
+          </article>
+
+          <div className="saas-stats-grid saas-stats-grid-analytics-bottom">
+            <article className="panel saas-card saas-dashboard-stat-card">
+              <p className="saas-stat-kicker">Avg Win</p>
+              <p className="saas-stat-value saas-stat-value-positive">+{averageWinRR.toFixed(1)}R</p>
+            </article>
+            <article className="panel saas-card saas-dashboard-stat-card">
+              <p className="saas-stat-kicker">Avg Loss</p>
+              <p className="saas-stat-value saas-stat-value-negative">-{averageLossRR.toFixed(1)}R</p>
+            </article>
+            <article className="panel saas-card saas-dashboard-stat-card">
+              <p className="saas-stat-kicker">Win/Loss Ratio</p>
+              <p className="saas-stat-value">{winLossRatio.toFixed(1)}</p>
+            </article>
+            <article className="panel saas-card saas-dashboard-stat-card">
+              <p className="saas-stat-kicker">Profit Factor</p>
+              <p className="saas-stat-value">{profitFactor.toFixed(1)}</p>
             </article>
           </div>
         </section>
@@ -3552,248 +3292,93 @@ const SaasWorkspace = ({
               </button>
             ))}
           </div>
-
-          <article className="panel saas-card saas-risk-controls-card">
-            <div className="saas-section-header">
-              <span className="saas-stat-icon saas-stat-icon-blue">
-                <IconGlyph name="calendar" />
-              </span>
-              <div>
-                <h3 className="saas-card-title">{activeReview.title}</h3>
-                <p className="saas-card-subtitle">A focused snapshot of what improved, what slipped, and what to revisit.</p>
-              </div>
-            </div>
-            <div className="saas-stats-grid">
-              <article className="saas-mini-stat"><p>Total Trades</p><strong>{activeReviewTrades.length}</strong></article>
-              <article className="saas-mini-stat"><p>Win Rate</p><strong>{activeReview.winRate}%</strong></article>
-              <article className="saas-mini-stat"><p>Avg R:R</p><strong>{activeReview.avgRR}x</strong></article>
-              <article className="saas-mini-stat saas-mini-stat-profit"><p>Net R</p><strong>{activeReviewNetRR >= 0 ? "+" : "-"}{Math.abs(activeReviewNetRR).toFixed(2)}R</strong></article>
-            </div>
-            <div className="saas-stats-grid mt-3">
-              <article className="saas-mini-stat">
-                <p>Discipline</p>
-                <strong>{reviewScores.discipline}%</strong>
-              </article>
-              <article className="saas-mini-stat">
-                <p>Risk Control</p>
-                <strong>{reviewScores.riskControl}%</strong>
-              </article>
-              <article className="saas-mini-stat">
-                <p>Execution</p>
-                <strong>{reviewScores.execution}%</strong>
-              </article>
-              <article className="saas-mini-stat saas-mini-stat-profit">
-                <p>Review Grade</p>
-                <strong>{reviewScores.grade}</strong>
-              </article>
-            </div>
-            {!activeReviewTrades.length ? (
-              <div className="saas-empty-state mt-3">
-                <strong>No closed trades yet</strong>
-                <p>Nothing is available for the {activeReview.label.toLowerCase()} review range yet. Log a few closed trades and Journex will build the summary here.</p>
-              </div>
-            ) : null}
-
-            <div className="saas-main-grid saas-main-grid-playbooks mt-4">
-              <div className="saas-note-card">
-                <h4>{activeReview.summaryTitle}</h4>
-                <ul className="saas-note-list saas-note-list-plain">
-                  <li>
-                    <span className="saas-list-icon saas-list-icon-green">
-                      <IconGlyph name="win" />
-                    </span>
-                    <span>
-                      <strong>Best Setup</strong>
-                      <small>
-                        {reviewBestSetup
-                          ? `${reviewBestSetup.label} with ${reviewBestSetup.winRate}% win rate`
-                          : "No setup performance data in this range yet"}
-                      </small>
-                    </span>
-                  </li>
-                  <li>
-                    <span className="saas-list-icon saas-list-icon-violet">
-                      <IconGlyph name="rr" />
-                    </span>
-                    <span>
-                      <strong>Best Session</strong>
-                      <small>
-                        {reviewBestSession
-                          ? `${reviewBestSession.label} session performing at ${reviewBestSession.winRate}%`
-                          : "No session performance data in this range yet"}
-                      </small>
-                    </span>
-                  </li>
-                  <li>
-                    <span className="saas-list-icon saas-list-icon-blue">
-                      <IconGlyph name="money" />
-                    </span>
-                    <span>
-                      <strong>Expectancy</strong>
-                      <small>{reviewExpectancy.toFixed(2)}R per trade ({activeReview.label})</small>
-                    </span>
-                  </li>
-                </ul>
-              </div>
-              <div className="saas-note-card">
-                <h4>Areas to Improve</h4>
-                <ul className="saas-note-list">
-                  <li>
-                    <span className="saas-list-icon saas-list-icon-red">
-                      <IconGlyph name="warn" />
-                    </span>
-                    <span>
-                      <strong>{reviewWorstHabit}</strong>
-                      <small>{reviewWorstHabitDetail}</small>
-                    </span>
-                  </li>
-                  <li>
-                    <span className="saas-list-icon saas-list-icon-gold">
-                      <IconGlyph name="money" />
-                    </span>
-                    <span>
-                      <strong>Max Drawdown</strong>
-                      <small>{reviewMaxDrawdown.toFixed(2)}R peak-to-trough over {activeReview.label.toLowerCase()}</small>
-                    </span>
-                  </li>
-                  {reviewWorstEmotion ? (
-                    <li>
-                      <span className="saas-list-icon saas-list-icon-red">
-                        <IconGlyph name="behavior" />
-                      </span>
-                      <span>
-                        <strong>Weakest Emotion Context</strong>
-                        <small>{reviewWorstEmotion.label}: {reviewWorstEmotion.winRate}% win rate ({reviewWorstEmotion.trades} trades)</small>
-                      </span>
-                    </li>
-                  ) : null}
-                </ul>
-              </div>
-            </div>
-          </article>
-
-          <div className="saas-insights-row saas-insights-row-review">
+          <div className="saas-insights-row saas-review-summary-row">
             <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Replay coverage</p>
+              <p className="saas-stat-kicker">Best Setup</p>
+              <h3>{reviewBestSetup?.label || "-"}</h3>
+              <p className="saas-stat-label">{reviewBestSetup ? `${reviewBestSetup.trades} trades` : "No setup data yet"}</p>
+              <p className="saas-dashboard-summary-value saas-dashboard-summary-positive">
+                {reviewBestSetup ? `+${round(toNumber(reviewBestSetup.rr), 1)}R` : "-"}
+              </p>
+            </article>
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Worst Habit</p>
+              <h3>{mistakeStats[0]?.label || reviewWorstHabit}</h3>
+              <p className="saas-stat-label">{mistakeStats[0] ? `${mistakeStats[0].trades} trades` : "No tagged habit yet"}</p>
+              <p className="saas-dashboard-summary-value saas-dashboard-summary-negative">
+                {mistakeStats[0] ? `-${mistakeStats[0].costRR}R` : "-"}
+              </p>
+            </article>
+            <article className="panel saas-card saas-insight-card">
+              <p className="saas-stat-kicker">Screenshot Coverage</p>
               <h3>{reviewScreenshotCoverage}%</h3>
-              <p className="saas-stat-label">{reviewTradesWithScreenshots} trades include screenshots in this range.</p>
+              <p className="saas-stat-label">{reviewTradesWithScreenshots}/{activeReviewTrades.length || 0} trades</p>
             </article>
             <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Review focus</p>
-              <h3>{reviewWorstSetup?.label || "Hold steady"}</h3>
-              <p className="saas-stat-label">
-                {reviewWorstSetup
-                  ? `${reviewWorstSetup.winRate}% win rate, ${reviewWorstSetup.trades} trades`
-                  : "No weak setup identified in this period"}
-              </p>
-            </article>
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Best execution</p>
-              <h3>{activeBestTrade?.pair || "-"}</h3>
-              <p className="saas-stat-label">
-                {activeBestTrade
-                  ? `${toNumber(activeBestTrade.rrAchieved).toFixed(2)}R on ${formatTradeDate(activeBestTrade.tradeDate)}`
-                  : "Best trade appears once trades are logged"}
-              </p>
+              <p className="saas-stat-kicker">Trade Breakdown</p>
+              <div className="saas-review-breakdown-list">
+                <div><span>Winners</span><strong className="saas-table-pnl-positive">{activeReviewTrades.filter((trade) => String(trade?.result || "").toLowerCase() === "win").length}</strong></div>
+                <div><span>Losers</span><strong className="saas-table-pnl-negative">{activeReviewTrades.filter((trade) => String(trade?.result || "").toLowerCase() === "loss").length}</strong></div>
+              </div>
             </article>
           </div>
 
           <article className="panel saas-card">
             <div className="saas-card-head">
-              <div>
-                <h3 className="saas-card-title">Review Coach</h3>
-                <p className="saas-card-subtitle">Open one coaching workspace for keep, stop, test next, and AI support.</p>
-              </div>
-              <span className="chip text-textMain">Assistant</span>
+              <h3 className="saas-card-title">Weekly Performance</h3>
             </div>
-            <div className="saas-main-grid saas-review-summary-grid mt-4">
-              <div className="saas-note-card">
-                <h4>Current focus</h4>
-                <p className="saas-stat-label mt-2">{coachingSummary.assistant}</p>
-                <p className="saas-stat-label mt-2">
-                  {reviewMistakeStats.length
-                    ? `${reviewMistakeStats[0].label} is still the biggest leak in this range.`
-                    : "Once you tag mistakes, coaching will pinpoint the biggest leak here."}
-                </p>
+            {reviewPeriodRows.length ? (
+              <div className="saas-table-wrap">
+                <table className="saas-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Period</th>
+                      <th scope="col">Trades</th>
+                      <th scope="col">Net R</th>
+                      <th scope="col">Win Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reviewPeriodRows.map((row) => (
+                      <tr key={`review-period-${row.label}`}>
+                        <th scope="row">{row.label}</th>
+                        <td>{row.trades}</td>
+                        <td className={row.netRR >= 0 ? "saas-table-pnl-positive" : "saas-table-pnl-negative"}>
+                          {row.netRR >= 0 ? "+" : "-"}{Math.abs(row.netRR).toFixed(1)}R
+                        </td>
+                        <td>{row.winRate}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div className="saas-note-card">
-                <h4>Next step</h4>
-                <p className="saas-stat-label mt-2">Open Coaching to review guidance and ask Journex AI questions in the same place.</p>
-                <div className="saas-settings-actions mt-3">
-                  <button type="button" className="btn-primary" onClick={() => setActivePage("coaching")}>
-                    Open Coaching + AI
-                  </button>
-                </div>
+            ) : (
+              <div className="saas-empty-state">
+                <strong>No review periods yet</strong>
+                <p>Closed trades in this range will roll up into a clean weekly performance table.</p>
               </div>
-            </div>
+            )}
           </article>
 
-          <div className="saas-insights-row">
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Screenshot trades</p>
-              <h3>{reviewTradesWithScreenshots}</h3>
-              <p className="saas-stat-label">
-                {replayTrade
-                  ? `Open ${replayTrade.pair || "-"} ${replayTrade.setupType || ""}`.trim()
-                  : "No screenshot-ready trades in this range yet."}
-              </p>
-              <div className="saas-settings-actions mt-3">
-                <button type="button" className="btn-primary" onClick={() => void openTrade(replayTrade)} disabled={!replayTrade}>
-                  Open Trade Replay
-                </button>
-              </div>
-            </article>
-            <article className="panel saas-card saas-insight-card saas-review-tools-card">
-              <p className="saas-stat-kicker">Review tools</p>
-              <h3>{reviewShares.length ? `${reviewShares.length} share${reviewShares.length === 1 ? "" : "s"}` : "Ready"}</h3>
-              <p className="saas-stat-label">
-                {fundedProgress
-                  ? `${fundedProgress.tradingDays} trading days tracked with ${fundedProgress.profitProgress.toFixed(0)}% funded-target progress.`
-                  : "Create a review share and jump into Risk Center without leaving this page."}
-              </p>
-              <div className="saas-settings-actions mt-3">
-                <button type="button" className="landing-cta-secondary" onClick={() => void handleCreateReviewShare()} disabled={!isOnline || shareBusy}>
-                  {shareBusy ? "Creating..." : reviewShares.length ? "New Review Share" : "Create Review Share"}
-                </button>
-                <button type="button" className="landing-cta-secondary" onClick={() => setActivePage("risk")}>
-                  Open Risk Center
-                </button>
-              </div>
-            </article>
-          </div>
-
           <article className="panel saas-card">
-            <h3 className="saas-card-title">Trade Breakdown</h3>
-
-            <div className="saas-main-grid saas-playbooks-builder-grid mt-4">
-              <div className="saas-note-card saas-best-trade">
-                <div className="saas-section-header">
-                  <span className="saas-stat-icon saas-stat-icon-green">
-                    <IconGlyph name="win" />
-                  </span>
-                  <h4>Best Trade</h4>
+            <div className="saas-card-head">
+              <h3 className="saas-card-title">Key Insights</h3>
+            </div>
+            <div className="saas-key-insights">
+              {reviewInsightItems.map((item) => (
+                <div key={`review-insight-${item.title}`} className={`saas-key-insight saas-key-insight-${item.tone}`}>
+                  <strong>{item.title}</strong>
+                  <p>{item.detail}</p>
                 </div>
-                <ul className="saas-detail-list">
-                  <li><span>Pair</span><strong>{activeBestTrade?.pair || "-"}</strong></li>
-                  <li><span>Setup</span><strong>{activeBestTrade?.setupType || "-"}</strong></li>
-                  <li><span>R:R</span><strong>{activeBestTrade ? `${toNumber(activeBestTrade.rrAchieved).toFixed(1)}x` : "-"}</strong></li>
-                  <li><span>Date</span><strong>{formatTradeDate(activeBestTrade?.tradeDate)}</strong></li>
-                </ul>
-              </div>
-              <div className="saas-note-card saas-worst-trade">
-                <div className="saas-section-header">
-                  <span className="saas-stat-icon saas-stat-icon-red">
-                    <IconGlyph name="loss" />
-                  </span>
-                  <h4>Worst Trade</h4>
-                </div>
-                <ul className="saas-detail-list">
-                  <li><span>Pair</span><strong>{activeWorstTrade?.pair || "-"}</strong></li>
-                  <li><span>Setup</span><strong>{activeWorstTrade?.setupType || "-"}</strong></li>
-                  <li><span>R:R</span><strong>{activeWorstTrade ? `${toNumber(activeWorstTrade.rrAchieved).toFixed(1)}x` : "-"}</strong></li>
-                  <li><span>Date</span><strong>{formatTradeDate(activeWorstTrade?.tradeDate)}</strong></li>
-                </ul>
-              </div>
+              ))}
+            </div>
+            <div className="saas-settings-actions mt-4">
+              <button type="button" className="btn-primary" onClick={() => setActivePage("coaching")}>
+                Open Coaching
+              </button>
+              <button type="button" className="landing-cta-secondary" onClick={() => void handleCreateReviewShare()} disabled={!isOnline || shareBusy}>
+                {shareBusy ? "Creating..." : "Create Review Share"}
+              </button>
             </div>
           </article>
 
@@ -3839,10 +3424,11 @@ const SaasWorkspace = ({
                     <tr>
                       <th scope="col">Date</th>
                       <th scope="col">Pair</th>
-                      <th scope="col">Session</th>
-                      <th scope="col">Setup</th>
-                      <th scope="col">Outcome</th>
+                      <th scope="col">Type</th>
                       <th scope="col">R</th>
+                      <th scope="col">P&amp;L</th>
+                      <th scope="col">Setup</th>
+                      <th scope="col">Screenshot</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3861,10 +3447,10 @@ const SaasWorkspace = ({
                       >
                         <th scope="row">{formatTradeDate(trade.tradeDate)}</th>
                         <td data-label="Pair">{trade.pair || "-"}</td>
-                        <td data-label="Session">{trade.session || "-"}</td>
-                        <td data-label="Setup">{trade.setupType || "-"}</td>
-                        <td data-label="Outcome">
-                          <TradeOutcome result={trade.result} />
+                        <td data-label="Type">
+                          <span className={`saas-result ${String(trade.tradeType || "").toLowerCase() === "sell" ? "saas-result-loss" : "saas-result-win"}`}>
+                            {trade.tradeType || "-"}
+                          </span>
                         </td>
                         <td
                           data-label="R"
@@ -3873,6 +3459,18 @@ const SaasWorkspace = ({
                           {toNumber(trade.rrAchieved) >= 0 ? "+" : "-"}
                           {Math.abs(toNumber(trade.rrAchieved)).toFixed(2)}R
                         </td>
+                        <td
+                          data-label="P&L"
+                          className={toNumber(trade.rrAchieved) >= 0 ? "saas-table-pnl-positive" : "saas-table-pnl-negative"}
+                        >
+                          {activeProfileAccountSize > 0 && Number.isFinite(toNumber(trade?.riskPercent))
+                            ? `${toNumber(trade.rrAchieved) >= 0 ? "+" : "-"}${formatCurrency(
+                                Math.abs((activeProfileAccountSize * (toNumber(trade.riskPercent, 0) / 100)) * toNumber(trade.rrAchieved, 0))
+                              )}`
+                            : "-"}
+                        </td>
+                        <td data-label="Setup">{trade.setupType || "-"}</td>
+                        <td data-label="Screenshot">{trade?.screenshots?.before || trade?.screenshots?.after ? "✓" : "-"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -3976,41 +3574,19 @@ const SaasWorkspace = ({
 
       {activePage === "playbooks" ? (
         <section className="space-y-4 saas-page-section saas-page-playbooks">
-          <div className="saas-insights-row">
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Saved playbooks</p>
-              <h3>{draftPlaybooks.length}</h3>
-              <p className="saas-stat-label">Store setup rules here instead of burying them under settings.</p>
-            </article>
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Top playbook</p>
-              <h3>{playbookStats[0]?.label || "No data"}</h3>
-              <p className="saas-stat-label">
-                {playbookStats[0]
-                  ? `${playbookStats[0].winRate}% win rate across ${playbookStats[0].trades} trades`
-                  : "Attach trades to playbooks to compare execution quality."}
-              </p>
-            </article>
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Top mistake tag</p>
-              <h3>{mistakeStats[0]?.label || "Clean"}</h3>
-              <p className="saas-stat-label">
-                {mistakeStats[0]
-                  ? `${mistakeStats[0].trades} trades tagged, -${mistakeStats[0].costRR}R cost`
-                  : "Use mistake tags to expose expensive habits."}
-              </p>
-            </article>
-          </div>
-
           <article className="panel saas-card">
             <div className="saas-card-head">
               <div>
                 <h3 className="saas-card-title">Playbook Library</h3>
-                <p className="saas-card-subtitle">Build and manage playbooks visually first. Raw JSON is tucked away only for advanced bulk edits.</p>
+                <p className="saas-card-subtitle">Your trading strategies, confirmations, and checklist rules.</p>
               </div>
+              <button type="button" className="btn-primary" onClick={() => setShowPlaybookBuilder((current) => !current)}>
+                {showPlaybookBuilder ? "Hide Builder" : "+ New Playbook"}
+              </button>
             </div>
-            <div className="saas-main-grid saas-playbooks-library-grid mt-4">
-              <article className="saas-note-card">
+            {showPlaybookBuilder ? (
+              <div className="saas-main-grid saas-playbooks-library-grid mt-4">
+                <article className="saas-note-card">
                 <h4>Quick Builder</h4>
                 <div className="saas-form-grid mt-3">
                   <label>
@@ -4105,16 +3681,17 @@ const SaasWorkspace = ({
                     {savingUserSettings ? "Saving..." : "Save Playbooks"}
                   </button>
                 </div>
-              </article>
-              <article className="saas-note-card">
+                </article>
+                <article className="saas-note-card">
                 <h4>How it works</h4>
                 <ul className="saas-note-list saas-note-list-plain mt-3">
                   <li><span><strong>1.</strong> Build or update the playbook visually here.</span></li>
                   <li><span><strong>2.</strong> Save once to sync it into Journex.</span></li>
                   <li><span><strong>3.</strong> Attach it in Add Trade so AI and Review can compare execution against the plan.</span></li>
                 </ul>
-              </article>
-            </div>
+                </article>
+              </div>
+            ) : null}
             <div className="saas-main-grid mt-4">
               {draftPlaybooks.length ? (
                 draftPlaybooks.map((playbook) => (
@@ -4137,15 +3714,31 @@ const SaasWorkspace = ({
                           ))
                         : null}
                     </div>
-                    <p className="saas-stat-label mt-3">
-                      {Array.isArray(playbook.checklist) && playbook.checklist.length
-                        ? `${playbook.checklist.length} checklist step${playbook.checklist.length === 1 ? "" : "s"} saved for this setup.`
-                        : "Add checklist items to make this playbook easier to follow in live trades."}
-                    </p>
+                    <div className="saas-playbook-card-stats">
+                      <div>
+                        <span>Win Rate</span>
+                        <strong>{playbookStats.find((item) => item.label === playbook.name)?.winRate ?? "-"}</strong>
+                      </div>
+                      <div>
+                        <span>Total R</span>
+                        <strong className="saas-table-pnl-positive">
+                          {playbookStats.find((item) => item.label === playbook.name)
+                            ? `+${round(toNumber(playbookStats.find((item) => item.label === playbook.name)?.rr), 1)}R`
+                            : "-"}
+                        </strong>
+                      </div>
+                    </div>
                     <div className="saas-settings-actions mt-3">
                       <button
                         type="button"
                         className="btn-secondary"
+                        onClick={() => setShowPlaybookBuilder(true)}
+                      >
+                        View Details
+                      </button>
+                      <button
+                        type="button"
+                        className="landing-cta-secondary"
                         onClick={() => handleRemovePlaybook(playbook.id)}
                         disabled={!isOnline || savingUserSettings}
                       >
@@ -4157,7 +3750,7 @@ const SaasWorkspace = ({
               ) : (
                 <div className="saas-empty-state">
                   <strong>No playbooks yet</strong>
-                  <p>Start with the quick builder above, then save once to compare live execution against your playbook library.</p>
+                  <p>Use the New Playbook button to start building your first strategy card.</p>
                 </div>
               )}
             </div>

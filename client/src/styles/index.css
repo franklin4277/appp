@@ -7010,3 +7010,525 @@ body::before {
     min-height: 112px;
   }
 }
+
+/* Screenshot-aligned workstation pass */
+.saas-shell.app-journal {
+  grid-template-columns: 196px minmax(0, 1fr);
+  background: #1d2027;
+}
+
+.saas-sidebar {
+  padding: 0;
+  background: #20242c;
+  border-right-color: rgba(255, 255, 255, 0.08);
+}
+
+.saas-sidebar-main {
+  min-height: 100%;
+}
+
+.saas-brand {
+  gap: 0.75rem;
+  padding: 1.45rem 1.1rem 1.2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.saas-brand span {
+  display: grid;
+  gap: 0.14rem;
+}
+
+.saas-brand span::after {
+  content: "Trading Workstation";
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: #9aa4b4;
+}
+
+.saas-nav {
+  margin-top: 0;
+  gap: 0.2rem;
+  padding: 0.7rem 0.7rem 1rem;
+}
+
+.saas-nav-group {
+  gap: 0.2rem;
+}
+
+.saas-nav-group-label {
+  display: none;
+}
+
+.saas-nav-item {
+  min-height: 40px;
+  padding: 0.72rem 0.9rem;
+  border-radius: 6px;
+  border-color: transparent;
+  font-size: 0.94rem;
+}
+
+.saas-nav-item:hover {
+  transform: none;
+  background: rgba(53, 58, 70, 0.72);
+  border-color: transparent;
+}
+
+.saas-nav-item-active {
+  background: #303540;
+  border-color: transparent;
+  color: #fff;
+}
+
+.saas-sidebar-footer {
+  margin-top: auto;
+  padding: 0.8rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.saas-signout {
+  width: calc(100% - 1.4rem);
+  margin: 0 0.7rem;
+  min-height: 42px;
+  text-align: left;
+  padding-inline: 0.9rem;
+  border-radius: 0;
+  border-width: 0;
+  background: transparent;
+  color: #c8d0de;
+}
+
+.saas-signout:hover {
+  background: rgba(53, 58, 70, 0.72);
+  color: #fff;
+}
+
+.saas-content {
+  padding: 0;
+}
+
+.saas-topbar {
+  min-height: 52px;
+  margin-bottom: 0;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  background: #232831;
+  box-shadow: none;
+  padding: 0 1.35rem;
+}
+
+.saas-topbar-left {
+  min-height: 0;
+}
+
+.saas-account-chip {
+  color: #a8b1c2;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.saas-user-card,
+.saas-profile-rail,
+.saas-section-switcher,
+.saas-breadcrumb {
+  display: none;
+}
+
+.saas-page-section {
+  gap: 1rem;
+  padding: 1rem 1.25rem 1.4rem;
+}
+
+.saas-page-dashboard,
+.saas-page-journal,
+.saas-page-analytics,
+.saas-page-review,
+.saas-page-coaching,
+.saas-page-playbooks,
+.saas-page-risk,
+.saas-page-settings,
+.saas-page-trade-detail {
+  width: 100%;
+  max-width: none;
+}
+
+.saas-page-header {
+  margin: 0;
+  padding: 0.2rem 0 0.35rem;
+  border-bottom: 0;
+}
+
+.saas-page-header h1 {
+  font-size: 2.2rem;
+  font-weight: 700;
+}
+
+.saas-page-header p {
+  font-size: 0.9rem;
+  color: #9aa4b4;
+}
+
+.panel.saas-card,
+.saas-page-dashboard .saas-card,
+.saas-page-review .saas-card,
+.saas-page-coaching .saas-card,
+.saas-page-playbooks .saas-card,
+.saas-page-risk .saas-card,
+.saas-page-settings .saas-card,
+.saas-page-journal .saas-add-trade {
+  background: #262b33;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.saas-card-head,
+.saas-section-header {
+  padding-bottom: 0.9rem;
+  margin-bottom: 0.9rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.saas-card-title {
+  font-size: 1.08rem;
+}
+
+.saas-card-subtitle,
+.saas-stat-label,
+.saas-metric-note,
+.saas-table th {
+  color: #9aa4b4;
+}
+
+.saas-stat-kicker {
+  font-size: 0.82rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.saas-stat-value {
+  font-size: 2.05rem;
+  margin-top: 0.4rem;
+}
+
+.saas-stat-value-positive {
+  color: #10d69d;
+}
+
+.saas-stat-value-negative {
+  color: #ff5e61;
+}
+
+.saas-stats-grid-primary,
+.saas-stats-grid-analytics-bottom,
+.saas-review-summary-row {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.saas-dashboard-stat-card {
+  min-height: 116px;
+}
+
+.saas-dashboard-chart-card .saas-line-chart,
+.saas-page-risk .saas-line-chart,
+.saas-page-analytics .saas-line-chart {
+  border-radius: 0;
+  border-color: rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px) 0 0 / 100% 25%,
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px) 0 0 / 20% 100%,
+    transparent;
+}
+
+.saas-dashboard-summary-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.saas-dashboard-summary-value {
+  margin: 0.8rem 0 0.2rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.saas-dashboard-summary-positive {
+  color: #10d69d;
+}
+
+.saas-dashboard-summary-negative {
+  color: #ff5e61;
+}
+
+.saas-table-wrap {
+  border-radius: 8px;
+  border-color: rgba(255, 255, 255, 0.08);
+  background: transparent;
+}
+
+.saas-table th {
+  font-size: 0.78rem;
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 0.85rem 0.8rem;
+}
+
+.saas-table td,
+.saas-table tbody th {
+  padding: 0.85rem 0.8rem;
+  color: #e5edf9;
+}
+
+.saas-bars-performance {
+  min-height: 280px;
+  border-radius: 0;
+  border-color: rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px) 0 0 / 100% 25%,
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px) 0 0 / 20% 100%,
+    transparent;
+}
+
+.saas-bar {
+  width: 80%;
+  border-radius: 4px;
+  background: #4680f1;
+}
+
+.saas-bar-green {
+  background: #16c690;
+}
+
+.saas-bar-negative {
+  background: #4680f1;
+  opacity: 0.9;
+}
+
+.saas-line-chart-danger polyline {
+  stroke-dasharray: none;
+  stroke-dashoffset: 0;
+}
+
+.saas-tabs {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.saas-tab {
+  min-height: 40px;
+  border-radius: 6px;
+  background: #303540;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.saas-tab-active {
+  background: #3b82f6;
+  color: #fff;
+}
+
+.saas-review-breakdown-list {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.85rem;
+}
+
+.saas-review-breakdown-list div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  color: #9aa4b4;
+}
+
+.saas-key-insights {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.saas-key-insight {
+  position: relative;
+  padding-left: 1rem;
+}
+
+.saas-key-insight::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55rem;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+}
+
+.saas-key-insight-green::before {
+  background: #10d69d;
+}
+
+.saas-key-insight-red::before {
+  background: #ff5e61;
+}
+
+.saas-key-insight-blue::before {
+  background: #4680f1;
+}
+
+.saas-key-insight strong {
+  display: block;
+  color: #eef4ff;
+  font-size: 0.98rem;
+}
+
+.saas-key-insight p {
+  margin: 0.2rem 0 0;
+  color: #9aa4b4;
+  font-size: 0.84rem;
+}
+
+.saas-coaching-workspace {
+  grid-template-columns: 365px minmax(0, 1fr);
+}
+
+.saas-coaching-guide-card .saas-coaching-grid {
+  grid-template-columns: 1fr;
+}
+
+.saas-page-coaching .ai-chat-shell {
+  min-height: 560px;
+}
+
+.saas-page-coaching .ai-chat-thread-wrap {
+  min-height: 340px;
+}
+
+.saas-page-journal .saas-back-link,
+.saas-page-journal .saas-journal-intake-panel,
+.saas-page-journal .input-hint,
+.saas-page-playbooks details.saas-collapsible,
+.saas-page-playbooks .saas-settings-span-full,
+.saas-page-playbooks .saas-settings-actions.mt-4:last-child {
+  display: none;
+}
+
+.saas-page-journal .saas-add-trade {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.3rem;
+}
+
+.saas-journal-shell {
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.saas-journal-top-grid,
+.saas-journal-form-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.saas-journal-direction-card,
+.saas-journal-side-card {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.saas-page-journal .chip-row {
+  gap: 0.5rem;
+}
+
+.saas-page-journal .chip-btn {
+  min-height: 32px;
+  padding: 0.45rem 0.9rem;
+  background: #303540;
+  border-radius: 6px;
+}
+
+.saas-page-journal .chip-btn-active {
+  background: #3b82f6;
+}
+
+.saas-page-journal .saas-form-actions {
+  justify-content: flex-start;
+}
+
+.saas-page-journal .saas-form-actions .btn-primary {
+  min-width: 220px;
+}
+
+.saas-playbook-card-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.saas-playbook-card-stats span {
+  display: block;
+  margin-bottom: 0.22rem;
+  color: #9aa4b4;
+  font-size: 0.76rem;
+}
+
+.saas-playbook-card-stats strong {
+  color: #eef4ff;
+  font-size: 1rem;
+}
+
+.saas-page-playbooks .saas-note-card {
+  min-height: 260px;
+}
+
+.saas-page-risk .saas-insights-row {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.saas-page-settings .saas-insights-row {
+  display: none;
+}
+
+.saas-page-settings .saas-card,
+.saas-page-risk .saas-card {
+  max-width: 980px;
+  margin-inline: auto;
+}
+
+.saas-page-settings .saas-settings-grid,
+.saas-page-risk .saas-settings-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 980px) {
+  .saas-shell.app-journal {
+    grid-template-columns: 1fr;
+  }
+
+  .saas-sidebar {
+    display: none;
+  }
+
+  .saas-page-section {
+    padding: 0.85rem 0.85rem 1.2rem;
+  }
+
+  .saas-stats-grid-primary,
+  .saas-stats-grid-analytics-bottom,
+  .saas-review-summary-row,
+  .saas-dashboard-summary-row,
+  .saas-journal-top-grid,
+  .saas-journal-form-grid,
+  .saas-coaching-workspace,
+  .saas-page-risk .saas-insights-row,
+  .saas-page-settings .saas-settings-grid,
+  .saas-page-risk .saas-settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .saas-topbar {
+    padding-inline: 0.9rem;
+  }
+
+  .saas-account-chip {
+    font-size: 0.72rem;
+  }
+}

@@ -30,6 +30,7 @@ const AuthPanel = ({ onAuthenticated }) => {
   const [healthStatus, setHealthStatus] = useState({ state: "idle", attempt: 0, error: "" });
   const wakeSeqRef = useRef(0);
   const lastNonAuthPathRef = useRef(String(window.location.pathname || "").replace(/\/+$/, "") || "/");
+  const isAuthRoute = publicPath === "/login" || publicPath === "/signup";
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -133,8 +134,6 @@ const AuthPanel = ({ onAuthenticated }) => {
   }, [publicPath]);
 
   useEffect(() => {
-    const isAuthRoute = publicPath === "/login" || publicPath === "/signup";
-
     if (!isAuthRoute) {
       lastNonAuthPathRef.current = publicPath || "/";
       return;

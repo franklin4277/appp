@@ -7047,19 +7047,14 @@ body::before {
 
 .saas-nav {
   margin-top: 0;
+  display: grid;
   gap: 0.2rem;
   padding: 0.7rem 0.7rem 1rem;
 }
 
-.saas-nav-group {
-  gap: 0.2rem;
-}
-
-.saas-nav-group-label {
-  display: none;
-}
-
 .saas-nav-item {
+  width: 100%;
+  justify-content: flex-start;
   min-height: 40px;
   padding: 0.72rem 0.9rem;
   border-radius: 6px;
@@ -7119,12 +7114,18 @@ body::before {
 
 .saas-topbar-left {
   min-height: 0;
+  flex: 1;
 }
 
 .saas-account-chip {
   color: #a8b1c2;
   font-size: 0.78rem;
   white-space: nowrap;
+}
+
+.saas-mobile-drawer-nav {
+  display: grid;
+  gap: 0.25rem;
 }
 
 .saas-user-card,

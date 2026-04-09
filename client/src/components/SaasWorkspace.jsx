@@ -843,14 +843,6 @@ const SaasWorkspace = ({
   const winShareLabel = totalTrades ? `${totalWins}/${totalTrades} wins` : "No trades yet";
   const navPages = pages.filter((page) => page.nav !== false);
   const mobilePrimaryPages = navPages.filter((page) => page.mobile !== false);
-  const navGroups = ["Core", "Review", "Setup"].map((group) => ({
-    group,
-    pages: navPages.filter((page) => page.group === group),
-  }));
-  const mobileNavGroups = ["Core", "Review", "Setup"].map((group) => ({
-    group,
-    pages: mobilePrimaryPages.filter((page) => page.group === group),
-  }));
   const mobileLabelMap = {
     dashboard: "Dashboard",
     journal: "Add Trade",
@@ -2204,42 +2196,23 @@ const SaasWorkspace = ({
     <aside className="saas-sidebar">
       <div className="saas-sidebar-main">
         <div className="saas-brand">
-          <button
-            type="button"
-            className="saas-mobile-menu-btn"
-            onClick={() => setMobileMenuOpen(true)}
-            aria-label="Open navigation menu"
-            aria-expanded={mobileMenuOpen}
-            aria-controls="saas-mobile-drawer"
-          >
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-          </button>
           <BrandLogo className="brand-logo brand-logo-landing" />
           <span>Journex</span>
         </div>
         <nav className="saas-nav">
-          {navGroups.map((group) => (
-            <div key={`nav-group-${group.group}`} className="saas-nav-group">
-              <p className="saas-nav-group-label">{group.group}</p>
-              <div className="saas-nav-group-items">
-                {group.pages.map((page) => (
-                  <button
-                    key={page.key}
-                    type="button"
-                    className={`saas-nav-item ${activePage === page.key ? "saas-nav-item-active" : ""}`}
-                    onClick={() => setActivePage(page.key)}
-                    aria-current={activePage === page.key ? "page" : undefined}
-                  >
-                    <span className="saas-nav-icon" aria-hidden="true">
-                      <IconGlyph name={navIconMap[page.key] || "dot"} />
-                    </span>
-                    {page.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {navPages.map((page) => (
+            <button
+              key={page.key}
+              type="button"
+              className={`saas-nav-item ${activePage === page.key ? "saas-nav-item-active" : ""}`}
+              onClick={() => setActivePage(page.key)}
+              aria-current={activePage === page.key ? "page" : undefined}
+            >
+              <span className="saas-nav-icon" aria-hidden="true">
+                <IconGlyph name={navIconMap[page.key] || "dot"} />
+              </span>
+              {page.label}
+            </button>
           ))}
         </nav>
       </div>
@@ -2287,29 +2260,22 @@ const SaasWorkspace = ({
           </button>
         </div>
         <nav className="saas-mobile-drawer-nav">
-          {mobileNavGroups.map((group) => (
-            <div key={`drawer-group-${group.group}`} className="saas-nav-group">
-              <p className="saas-nav-group-label">{group.group}</p>
-              <div className="saas-nav-group-items">
-                {group.pages.map((page) => (
-                  <button
-                    key={`drawer-${page.key}`}
-                    type="button"
-                    className={`saas-nav-item ${activePage === page.key ? "saas-nav-item-active" : ""}`}
-                    onClick={() => {
-                      setActivePage(page.key);
-                      setMobileMenuOpen(false);
-                    }}
-                    aria-current={activePage === page.key ? "page" : undefined}
-                  >
-                    <span className="saas-nav-icon" aria-hidden="true">
-                      <IconGlyph name={navIconMap[page.key] || "dot"} />
-                    </span>
-                    {mobileLabelMap[page.key] || page.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {mobilePrimaryPages.map((page) => (
+            <button
+              key={`drawer-${page.key}`}
+              type="button"
+              className={`saas-nav-item ${activePage === page.key ? "saas-nav-item-active" : ""}`}
+              onClick={() => {
+                setActivePage(page.key);
+                setMobileMenuOpen(false);
+              }}
+              aria-current={activePage === page.key ? "page" : undefined}
+            >
+              <span className="saas-nav-icon" aria-hidden="true">
+                <IconGlyph name={navIconMap[page.key] || "dot"} />
+              </span>
+              {mobileLabelMap[page.key] || page.label}
+            </button>
           ))}
         </nav>
         <div className="saas-mobile-drawer-footer">

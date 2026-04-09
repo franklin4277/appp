@@ -7024,6 +7024,8 @@ body::before {
 }
 
 .saas-sidebar-main {
+  display: flex;
+  flex-direction: column;
   min-height: 100%;
 }
 
@@ -7049,7 +7051,8 @@ body::before {
   margin-top: 0;
   display: grid;
   gap: 0.2rem;
-  padding: 0.7rem 0.7rem 1rem;
+  padding: 0.9rem 0.7rem 1rem;
+  align-content: start;
 }
 
 .saas-nav-item {

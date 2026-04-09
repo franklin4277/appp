@@ -7552,3 +7552,131 @@ body::before {
     font-size: 0.72rem;
   }
 }
+
+@media (max-width: 760px) {
+  .saas-page-section {
+    gap: 0.8rem;
+    padding: 0.75rem 0.75rem 1rem;
+  }
+
+  .saas-topbar {
+    min-height: 48px;
+    padding-inline: 0.75rem;
+  }
+
+  .saas-account-chip {
+    font-size: 0.7rem;
+  }
+
+  .saas-page-dashboard .saas-stats-grid-primary {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+  }
+
+  .saas-page-dashboard .saas-dashboard-stat-card,
+  .saas-page-dashboard .saas-insight-card,
+  .saas-page-journal .saas-add-trade,
+  .saas-page-journal .saas-note-card,
+  .saas-page-journal .saas-risk-panel {
+    padding: 0.85rem;
+  }
+
+  .saas-page-dashboard .saas-stat-value {
+    font-size: 1.6rem;
+  }
+
+  .saas-page-dashboard .saas-line-chart {
+    height: 200px;
+  }
+
+  .saas-page-dashboard .saas-table th:nth-child(3),
+  .saas-page-dashboard .saas-table td:nth-child(3),
+  .saas-page-dashboard .saas-table th:nth-child(4),
+  .saas-page-dashboard .saas-table td:nth-child(4),
+  .saas-page-dashboard .saas-table th:nth-child(7),
+  .saas-page-dashboard .saas-table td:nth-child(7) {
+    display: none;
+  }
+
+  .saas-page-journal .saas-add-trade {
+    padding: 0.9rem;
+  }
+
+  .saas-page-journal .saas-card-head,
+  .saas-page-journal .saas-section-header {
+    padding-bottom: 0.7rem;
+    margin-bottom: 0.7rem;
+  }
+
+  .saas-journal-top-grid,
+  .saas-journal-form-grid,
+  .saas-page-journal .saas-form-grid {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+
+  .saas-journal-shell {
+    gap: 0.8rem;
+  }
+
+  .saas-page-journal .chip-row {
+    gap: 0.4rem;
+    overflow-x: auto;
+    padding-bottom: 0.2rem;
+    scrollbar-width: none;
+  }
+
+  .saas-page-journal .chip-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .saas-page-journal .chip-btn {
+    flex: 0 0 auto;
+    min-height: 34px;
+    padding: 0.42rem 0.75rem;
+    font-size: 0.82rem;
+  }
+
+  .saas-page-journal .saas-form-actions {
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .saas-page-journal .saas-form-actions .btn-primary,
+  .saas-page-journal .saas-form-actions .btn-secondary {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .saas-page-journal .saas-journal-screenshot-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .saas-page-dashboard .saas-stats-grid-primary {
+    grid-template-columns: 1fr;
+  }
+
+  .saas-page-dashboard .saas-dashboard-stat-card {
+    min-height: 0;
+  }
+
+  .saas-page-dashboard .saas-table th:nth-child(2),
+  .saas-page-dashboard .saas-table td:nth-child(2) {
+    display: none;
+  }
+
+  .saas-page-dashboard .saas-line-chart {
+    height: 176px;
+  }
+
+  .saas-page-journal .saas-collapsible-summary {
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+
+  .saas-page-journal .label {
+    font-size: 0.78rem;
+  }
+}

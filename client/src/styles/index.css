@@ -7496,8 +7496,9 @@ body::before {
 
 .saas-page-settings .saas-card,
 .saas-page-risk .saas-card {
-  max-width: 980px;
-  margin-inline: auto;
+  width: 100%;
+  max-width: 1140px;
+  margin-inline: 0;
 }
 
 .saas-page-dashboard .saas-card,

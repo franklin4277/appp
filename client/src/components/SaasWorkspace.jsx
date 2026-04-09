@@ -2451,74 +2451,6 @@ const SaasWorkspace = ({
                   <p>Closed trades will turn this into a live view of your cumulative performance.</p>
                 </div>
               )}
-              {accountTimeline.points.length > 1 ? (
-                <>
-                  <div className="saas-card-head mt-4">
-                    <div>
-                      <h3 className="saas-card-title">Profile Equity Curve</h3>
-                      <p className="saas-card-subtitle">Estimated account balance using saved risk % per trade.</p>
-                    </div>
-                    <span className="chip text-textMain">{formatCurrency(activeAccountPerformance?.currentBalance)}</span>
-                  </div>
-                  <svg viewBox="0 0 640 220" className="saas-line-chart saas-line-chart-account" aria-hidden="true">
-                    <polyline
-                      points={accountBalancePolyline}
-                      fill="none"
-                      stroke="#22c55e"
-                      strokeWidth="4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </>
-              ) : null}
-            </article>
-
-            <article className="panel saas-card saas-analytics-metrics-card">
-              <h3 className="saas-card-title">Key Metrics</h3>
-              <div className="saas-metric-list">
-                <div className="saas-metric-item">
-                  <span>Expectancy</span>
-                  <strong>{round(expectancyValue, 2)}R</strong>
-                </div>
-                <div className="saas-progress saas-progress-blue">
-                  <span style={{ width: `${Math.min(Math.max((expectancyValue + 1) * 45, 0), 100)}%` }} />
-                </div>
-                <div className="saas-metric-item">
-                  <span>Max Drawdown</span>
-                  <strong>{round(Math.abs(toNumber(resolvedEdgeInsights.maxDrawdown)), 2)}R</strong>
-                </div>
-                <div className="saas-progress saas-progress-red">
-                  <span style={{ width: `${Math.min(Math.max(Math.abs(toNumber(resolvedEdgeInsights.maxDrawdown)) * 30, 0), 100)}%` }} />
-                </div>
-                <div className="saas-metric-item">
-                  <span>Worst Habit</span>
-                  <strong>{resolvedEdgeInsights.worstHabit?.title || "None"}</strong>
-                </div>
-                {resolvedEdgeInsights.worstHabit?.detail ? (
-                  <p className="saas-metric-note">{resolvedEdgeInsights.worstHabit.detail}</p>
-                ) : null}
-              </div>
-              {totalTrades ? (
-                <div className="saas-mini-graph">
-                  {analyticsMetricBars.map((metric) => (
-                    <div key={metric.label} className="saas-mini-graph-row">
-                      <div className="saas-mini-graph-meta">
-                        <span>{metric.label}</span>
-                        <strong>{metric.valueLabel}</strong>
-                      </div>
-                      <div className="saas-mini-graph-track" aria-hidden="true">
-                        <span className={`saas-mini-graph-fill saas-mini-graph-fill-${metric.tone}`} style={{ width: `${metric.fillPercent}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="saas-empty-state mt-4">
-                  <strong>Metrics will appear here</strong>
-                  <p>Once trades are logged, expectancy, drawdown, and behavior signals will summarize automatically.</p>
-                </div>
-              )}
           </article>
 
           <div className="saas-insights-row saas-dashboard-summary-row">
@@ -3138,12 +3070,9 @@ const SaasWorkspace = ({
       {activePage === "analytics" ? (
         <section className="space-y-4 saas-page-section saas-page-analytics">
           <article className="panel saas-card">
-            <div className="saas-section-header">
-              <span className="saas-stat-icon saas-stat-icon-blue">
-                <IconGlyph name="analytics" />
-              </span>
+            <div className="saas-card-head">
               <div>
-                <h3 className="saas-card-title">Performance by Setup</h3>
+                <h3 className="saas-card-title">Setup Performance</h3>
                 <p className="saas-card-subtitle">Net R by setup using your actual journal history.</p>
               </div>
             </div>
@@ -3200,10 +3129,7 @@ const SaasWorkspace = ({
           </article>
 
           <article className="panel saas-card">
-            <div className="saas-section-header">
-              <span className="saas-stat-icon saas-stat-icon-green">
-                <IconGlyph name="calendar" />
-              </span>
+            <div className="saas-card-head">
               <div>
                 <h3 className="saas-card-title">Session Performance</h3>
                 <p className="saas-card-subtitle">See where your edge shows up with the most consistency.</p>
@@ -3227,10 +3153,7 @@ const SaasWorkspace = ({
           </article>
 
           <article className="panel saas-card">
-            <div className="saas-section-header">
-              <span className="saas-stat-icon saas-stat-icon-red">
-                <IconGlyph name="loss" />
-              </span>
+            <div className="saas-card-head">
               <div>
                 <h3 className="saas-card-title">Drawdown Analysis</h3>
                 <p className="saas-card-subtitle">Peak-to-trough pressure across your recent trade sequence.</p>
@@ -3372,14 +3295,6 @@ const SaasWorkspace = ({
                 </div>
               ))}
             </div>
-            <div className="saas-settings-actions mt-4">
-              <button type="button" className="btn-primary" onClick={() => setActivePage("coaching")}>
-                Open Coaching
-              </button>
-              <button type="button" className="landing-cta-secondary" onClick={() => void handleCreateReviewShare()} disabled={!isOnline || shareBusy}>
-                {shareBusy ? "Creating..." : "Create Review Share"}
-              </button>
-            </div>
           </article>
 
           <article className="panel saas-card">
@@ -3470,7 +3385,7 @@ const SaasWorkspace = ({
                             : "-"}
                         </td>
                         <td data-label="Setup">{trade.setupType || "-"}</td>
-                        <td data-label="Screenshot">{trade?.screenshots?.before || trade?.screenshots?.after ? "✓" : "-"}</td>
+                        <td data-label="Screenshot">{trade?.screenshots?.before || trade?.screenshots?.after ? "Yes" : "-"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -3488,24 +3403,6 @@ const SaasWorkspace = ({
 
       {activePage === "coaching" ? (
         <section className="space-y-4 saas-page-section saas-page-coaching">
-          <div className="saas-insights-row">
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Discipline</p>
-              <h3>{reviewScores.discipline}%</h3>
-              <p className="saas-stat-label">How consistently you are following the process in the selected review range.</p>
-            </article>
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Risk control</p>
-              <h3>{reviewScores.riskControl}%</h3>
-              <p className="saas-stat-label">Risk score built from screenshot coverage, tagging, and saved risk limits.</p>
-            </article>
-            <article className="panel saas-card saas-insight-card">
-              <p className="saas-stat-kicker">Execution grade</p>
-              <h3>{reviewScores.grade}</h3>
-              <p className="saas-stat-label">A dedicated page for coaching keeps the main review page clean and faster to scan.</p>
-            </article>
-          </div>
-
           <div className="saas-coaching-workspace">
           <article className="panel saas-card saas-coaching-guide-card">
             <div className="saas-card-head">
@@ -4953,6 +4850,7 @@ const SaasWorkspace = ({
 };
 
 export default SaasWorkspace;
+
 
 
 
